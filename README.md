@@ -51,10 +51,11 @@ This engine resolves critical flaws common in legacy PHP strategy game implement
 │       ├── planet_store.go    # Planet resource/overview queries
 │       └── fleet_store.go     # Atomic fleet dispatch/recall transactions
 ├── migrations/
-│   └── 0001_init.sql          # PostgreSQL 16+ DDL (schemas, constraints, functions)
+│   ├── 0001_init.sql          # PostgreSQL 16+ DDL (schemas, constraints, functions)
+│   └── 0002_seed.sql          # Idempotent local dev seed (universe/user/planet/ships)
 ├── .env.example               # Runtime environment template
 ├── docker-compose.yml         # Local services definition (PostgreSQL and Redis)
-├── Makefile                   # run / build / test / lint / migrate / up / down
+├── Makefile                   # run / build / test / lint / migrate / seed / up / down
 ├── go.mod                     # Go module definition
 ├── go.sum                     # Dependency checksums
 └── README.md
@@ -76,19 +77,30 @@ docker-compose up -d
 ```
 
 ### 2. Initialize Database Schema
-Apply the schema and the continuous resource accumulator function located in `migrations/0001_init.sql` to your active PostgreSQL instance:
+Apply the schema and the continuous resource accumulator function located in `migrations/0001_init.sql` to your active PostgreSQL instance. The migration is idempotent and safe to re-run:
 ```bash
 make migrate
 ```
 
-### 3. Configure Environment
+### 3. Seed Development Data
+Provision a ready-to-play test universe (`universe_6_niburu`), a `commander`, a
+resource-rich homeworld (`id = 1`, at `1:1:1`), a secondary colony used as a
+fleet target (`id = 2`, at `1:2:3`), hangar ships, and base structures. The seed
+is idempotent, so it is safe to re-run:
+```bash
+make seed
+```
+No compile step or manual `psql` queries are required — after seeding, the
+homeworld is always planet id `1` for deterministic demo URLs.
+
+### 4. Configure Environment
 Copy `.env.example` to `.env`; it is auto-loaded on startup (via `godotenv`) during local development:
 ```bash
 cp .env.example .env
 ```
 The `Makefile` also provides sane defaults if `.env` is absent.
 
-### 4. Run the Engine
+### 5. Run the Engine
 Run the server to start both the REST API gateway and the background time-wheel event engine:
 ```bash
 make run
@@ -96,6 +108,36 @@ make run
 ```
 
 The web server will listen on port `8080` (override with `HTTP_ADDR`).
+
+### Out-of-the-Box Smoke Test
+With the stack up, migrated, and seeded, the seeded homeworld is always id `1`:
+```bash
+curl http://localhost:8080/api/v1/health
+curl http://localhost:8080/api/v1/planets/1/resources
+curl http://localhost:8080/api/v1/planets/1/overview
+# Live auto-refreshing dashboard:
+#   http://localhost:8080/dashboard/1
+
+# Dispatch a transport from the homeworld (1) to the seeded outpost (1:2:3):
+curl -X POST http://localhost:8080/api/v1/fleets/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{"origin_planet_id":1,"target":{"galaxy":1,"system":2,"position":3,"type":"PLANET"},"mission":"TRANSPORT","ships":{"202":10},"speed_percent":100,"cargo":{"metal":100,"crystal":50,"deuterium":0}}'
+```
+
+Quick end-to-end copy/paste (Docker + migrate + seed + run):
+```bash
+cd neoxnova
+make up && make migrate && make seed && make run
+```
+
+> `make migrate` / `make seed` apply the SQL through the `neoxnova_postgres`
+> compose container, so only Docker is required (no local `psql`). To target an
+> external database instead, override the container/user/name or run `psql`
+> directly:
+> ```bash
+> psql "$DATABASE_URL" -f migrations/0001_init.sql
+> psql "$DATABASE_URL" -f migrations/0002_seed.sql
+> ```
 
 ---
 

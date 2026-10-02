@@ -11,42 +11,66 @@ CREATE EXTENSION IF NOT EXISTS "btree_gist";
 -- 1. ENUMS AND CUSTOM DOMAINS
 -- ============================================================================
 
-CREATE TYPE celestial_type AS ENUM ('PLANET', 'MOON', 'DEBRIS_FIELD', 'DEEP_SPACE');
-CREATE TYPE mission_type AS ENUM (
-    'ATTACK',
-    'ACS_ATTACK',
-    'TRANSPORT',
-    'DEPLOY',
-    'HOLD',
-    'ESPIONAGE',
-    'COLONIZE',
-    'RECYCLE',
-    'DESTROY_MOON',
-    'MISSILE_ATTACK',
-    'EXPEDITION'
-);
+DO $$ BEGIN
+    CREATE TYPE celestial_type AS ENUM ('PLANET', 'MOON', 'DEBRIS_FIELD', 'DEEP_SPACE');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE fleet_phase AS ENUM (
-    'OUTBOUND',     -- Traveling to target
-    'HOLDING',      -- Stationed / Expedition duration / ACS wait
-    'RETURNING',    -- Traveling back to origin
-    'RESOLVED',     -- Completed & resources/ships deposited
-    'CANCELLED'     -- Recalled early by player
-);
+DO $$ BEGIN
+    CREATE TYPE mission_type AS ENUM (
+        'ATTACK',
+        'ACS_ATTACK',
+        'TRANSPORT',
+        'DEPLOY',
+        'HOLD',
+        'ESPIONAGE',
+        'COLONIZE',
+        'RECYCLE',
+        'DESTROY_MOON',
+        'MISSILE_ATTACK',
+        'EXPEDITION'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE queue_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+DO $$ BEGIN
+    CREATE TYPE fleet_phase AS ENUM (
+        'OUTBOUND',     -- Traveling to target
+        'HOLDING',      -- Stationed / Expedition duration / ACS wait
+        'RETURNING',    -- Traveling back to origin
+        'RESOLVED',     -- Completed & resources/ships deposited
+        'CANCELLED'     -- Recalled early by player
+    );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE queue_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Strict coordinate bounds (Galaxy 1-9, System 1-499, Position 1-21)
 -- Position 21 is reserved for Deep Space Expedition slots observed in HAR
-CREATE DOMAIN coord_galaxy AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 9);
-CREATE DOMAIN coord_system AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 499);
-CREATE DOMAIN coord_position AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 21);
+DO $$ BEGIN
+    CREATE DOMAIN coord_galaxy AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 9);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE DOMAIN coord_system AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 499);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE DOMAIN coord_position AS SMALLINT CHECK (VALUE >= 1 AND VALUE <= 21);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================================================
 -- 2. UNIVERSES & GAME TICK RATE CONFIGURATION
 -- ============================================================================
 
-CREATE TABLE universes (
+CREATE TABLE IF NOT EXISTS universes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     code_name VARCHAR(64) UNIQUE NOT NULL,               -- e.g. 'universe_6_niburu'
     display_name VARCHAR(128) NOT NULL,
@@ -66,7 +90,7 @@ CREATE TABLE universes (
 -- 3. USERS, AUTHENTICATION & EMPIRE PROGRESSION
 -- ============================================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     universe_id UUID NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
     username VARCHAR(64) NOT NULL,
@@ -95,13 +119,13 @@ CREATE TABLE users (
     CONSTRAINT uq_universe_email UNIQUE (universe_id, email)
 );
 
-CREATE INDEX idx_users_universe_login ON users(universe_id, last_login_at);
+CREATE INDEX IF NOT EXISTS idx_users_universe_login ON users(universe_id, last_login_at);
 
 -- ============================================================================
 -- 4. CELESTIAL OBJECTS (PLANETS, MOONS, DEBRIS)
 -- ============================================================================
 
-CREATE TABLE celestial_objects (
+CREATE TABLE IF NOT EXISTS celestial_objects (
     id BIGSERIAL PRIMARY KEY,
     universe_id UUID NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
     user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
@@ -142,14 +166,14 @@ CREATE TABLE celestial_objects (
     CONSTRAINT uq_universe_coords_type UNIQUE (universe_id, galaxy, system, position, object_type)
 );
 
-CREATE INDEX idx_celestials_lookup ON celestial_objects(universe_id, galaxy, system, position);
-CREATE INDEX idx_celestials_user ON celestial_objects(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_celestials_lookup ON celestial_objects(universe_id, galaxy, system, position);
+CREATE INDEX IF NOT EXISTS idx_celestials_user ON celestial_objects(user_id) WHERE user_id IS NOT NULL;
 
 -- ============================================================================
 -- 5. PLANET STRUCTURES & DEFENSES (NORMALIZED STORE)
 -- ============================================================================
 
-CREATE TABLE planet_structures (
+CREATE TABLE IF NOT EXISTS planet_structures (
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
     structure_code VARCHAR(32) NOT NULL, -- 'metal_mine', 'crystal_mine', 'deuterium_synthesizer', 'solar_plant', 'robotics_factory', 'shipyard', 'research_lab', 'nanite_factory'
     level INT NOT NULL DEFAULT 0 CHECK (level >= 0),
@@ -157,14 +181,14 @@ CREATE TABLE planet_structures (
     PRIMARY KEY (celestial_id, structure_code)
 );
 
-CREATE TABLE planet_defenses (
+CREATE TABLE IF NOT EXISTS planet_defenses (
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
     defense_code VARCHAR(32) NOT NULL, -- e.g., '401' (rocket_launcher), '402' (light_laser)
     quantity BIGINT NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     PRIMARY KEY (celestial_id, defense_code)
 );
 
-CREATE TABLE planet_ships (
+CREATE TABLE IF NOT EXISTS planet_ships (
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
     ship_code VARCHAR(32) NOT NULL, -- e.g., '202' (small_cargo), '212' (battleship), '217' (battle_transporter), '219' (battle_recycler)
     quantity BIGINT NOT NULL DEFAULT 0 CHECK (quantity >= 0),
@@ -175,7 +199,7 @@ CREATE TABLE planet_ships (
 -- 6. RESEARCH & TECHNOLOGIES (EMPIRE-WIDE)
 -- ============================================================================
 
-CREATE TABLE user_technologies (
+CREATE TABLE IF NOT EXISTS user_technologies (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tech_code VARCHAR(32) NOT NULL, -- 'espionage_tech', 'astrophysics', 'intergalactic_research_network', etc.
     level INT NOT NULL DEFAULT 0 CHECK (level >= 0),
@@ -186,7 +210,7 @@ CREATE TABLE user_technologies (
 -- 7. FLEET MISSIONS, PHASES & SHIP COMPOSITIONS (CRITICAL ENGINE CORE)
 -- ============================================================================
 
-CREATE TABLE fleets (
+CREATE TABLE IF NOT EXISTS fleets (
     id BIGSERIAL PRIMARY KEY,
     universe_id UUID NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -234,13 +258,13 @@ CREATE TABLE fleets (
 );
 
 -- PARTIAL INDEX: Only active flights are indexed! Resolved missions are skipped for ultra-fast event queries.
-CREATE INDEX idx_active_fleets_arrival ON fleets(arrival_time) 
+CREATE INDEX IF NOT EXISTS idx_active_fleets_arrival ON fleets(arrival_time) 
     WHERE phase IN ('OUTBOUND', 'HOLDING', 'RETURNING');
 
-CREATE INDEX idx_active_fleets_user ON fleets(user_id) 
+CREATE INDEX IF NOT EXISTS idx_active_fleets_user ON fleets(user_id) 
     WHERE phase IN ('OUTBOUND', 'HOLDING', 'RETURNING');
 
-CREATE TABLE fleet_ships (
+CREATE TABLE IF NOT EXISTS fleet_ships (
     fleet_id BIGINT NOT NULL REFERENCES fleets(id) ON DELETE CASCADE,
     ship_code VARCHAR(32) NOT NULL, -- '202' (small_cargo), '212' (battleship), '217' (battle_transporter), '219' (battle_recycler)
     count BIGINT NOT NULL CHECK (count > 0),
@@ -251,7 +275,7 @@ CREATE TABLE fleet_ships (
 -- 8. CONSTRUCTION & RESEARCH QUEUES
 -- ============================================================================
 
-CREATE TABLE construction_queues (
+CREATE TABLE IF NOT EXISTS construction_queues (
     id BIGSERIAL PRIMARY KEY,
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
     structure_code VARCHAR(32) NOT NULL,
@@ -263,10 +287,10 @@ CREATE TABLE construction_queues (
     CONSTRAINT chk_construction_timeline CHECK (start_time < end_time)
 );
 
-CREATE INDEX idx_active_construction ON construction_queues(end_time) 
+CREATE INDEX IF NOT EXISTS idx_active_construction ON construction_queues(end_time) 
     WHERE status = 'IN_PROGRESS';
 
-CREATE TABLE research_queues (
+CREATE TABLE IF NOT EXISTS research_queues (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
@@ -279,10 +303,10 @@ CREATE TABLE research_queues (
     CONSTRAINT chk_research_timeline CHECK (start_time < end_time)
 );
 
-CREATE INDEX idx_active_research ON research_queues(end_time) 
+CREATE INDEX IF NOT EXISTS idx_active_research ON research_queues(end_time) 
     WHERE status = 'IN_PROGRESS';
 
-CREATE TABLE shipyard_queues (
+CREATE TABLE IF NOT EXISTS shipyard_queues (
     id BIGSERIAL PRIMARY KEY,
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
     unit_code VARCHAR(32) NOT NULL, -- ship or defense code, e.g., '212', '401'
@@ -296,7 +320,7 @@ CREATE TABLE shipyard_queues (
     CONSTRAINT chk_shipyard_timeline CHECK (start_time < end_time)
 );
 
-CREATE INDEX idx_active_shipyard ON shipyard_queues(end_time) 
+CREATE INDEX IF NOT EXISTS idx_active_shipyard ON shipyard_queues(end_time) 
     WHERE status = 'IN_PROGRESS';
 
 -- ============================================================================

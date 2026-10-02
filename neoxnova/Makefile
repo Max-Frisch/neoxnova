@@ -6,6 +6,13 @@ REDIS_ADDR   ?= localhost:6379
 REDIS_PASSWORD ?=
 REDIS_DB     ?= 0
 
+# Migration targets apply SQL through the docker-compose Postgres container,
+# so only Docker is required (no local psql client). Override to point at an
+# external database, e.g. `make seed DB_CONTAINER=my_pg`.
+DB_CONTAINER ?= neoxnova_postgres
+DB_USER      ?= postgres
+DB_NAME      ?= neoxnova
+
 export APP_ENV
 export HTTP_ADDR
 export UNIVERSE_ID
@@ -14,7 +21,7 @@ export REDIS_ADDR
 export REDIS_PASSWORD
 export REDIS_DB
 
-.PHONY: run build test lint migrate up down
+.PHONY: run build test lint migrate seed up down
 
 run:
 	go run ./cmd/server
@@ -29,7 +36,10 @@ lint:
 	go vet ./...
 
 migrate:
-	psql "$(DATABASE_URL)" -f migrations/0001_init.sql
+	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0001_init.sql
+
+seed:
+	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0002_seed.sql
 
 up:
 	docker compose up -d

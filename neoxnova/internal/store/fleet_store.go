@@ -46,6 +46,17 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 		return DispatchResult{}, ErrNotFound
 	}
 
+	// Resolve the destination celestial (if one exists) so the event engine can
+	// later unload cargo/ships into it. Empty space targets stay NULL.
+	var targetID sql.NullInt64
+	err = tx.QueryRowContext(ctx, `
+		SELECT id FROM celestial_objects
+		WHERE universe_id = $1 AND galaxy = $2 AND system = $3 AND position = $4 AND object_type = $5
+	`, universeID, req.Target.Galaxy, req.Target.System, req.Target.Position, req.Target.Type).Scan(&targetID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return DispatchResult{}, err
+	}
+
 	for shipCode, count := range req.Ships {
 		var available int64
 		err := tx.QueryRowContext(ctx, `
@@ -103,23 +114,23 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	var fleetID int64
 	insertQuery := `
 		INSERT INTO fleets (
-			universe_id, user_id, mission, phase, origin_id,
+			universe_id, user_id, mission, phase, origin_id, target_id,
 			origin_galaxy, origin_system, origin_position, origin_type,
 			target_galaxy, target_system, target_position, target_type,
 			start_time, arrival_time, holding_end_time, return_time,
 			flight_speed_pct, deuterium_consumption,
 			cargo_metal, cargo_crystal, cargo_deuterium
 		) VALUES (
-			$1, $2, $3, 'OUTBOUND', $4,
-			$5, $6, $7, 'PLANET',
-			$8, $9, $10, $11,
-			$12, $13, $14, $15,
-			$16, $17,
-			$18, $19, $20
+			$1, $2, $3, 'OUTBOUND', $4, $5,
+			$6, $7, $8, 'PLANET',
+			$9, $10, $11, $12,
+			$13, $14, $15, $16,
+			$17, $18,
+			$19, $20, $21
 		) RETURNING id
 	`
 	err = tx.QueryRowContext(ctx, insertQuery,
-		universeID, userID, req.Mission, req.OriginPlanetID,
+		universeID, userID, req.Mission, req.OriginPlanetID, targetID,
 		oG, oS, oP,
 		req.Target.Galaxy, req.Target.System, req.Target.Position, req.Target.Type,
 		now, arrivalTime, holdingEnd, returnTime,

@@ -86,7 +86,8 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 		FOR UPDATE;
 	`
 	var (
-		id, userID, originID, targetID      int64
+		id, userID, originID                int64
+		targetID                            sql.NullInt64
 		cargoMetal, cargoCrystal, cargoDeut int64
 		mission, phase                      string
 		holdingEndTime, returnTime          sql.NullTime
@@ -133,40 +134,49 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 			})
 
 		case "DEPLOY":
-			// Arrived at target colony: Unload cargo and station ships at target planet
-			_, err = tx.ExecContext(ctx, `
-				SELECT update_celestial_resources($1);
-				UPDATE celestial_objects 
-				SET metal = metal + $2, crystal = crystal + $3, deuterium = deuterium + $4
-				WHERE id = $1;
-
-				INSERT INTO planet_ships (celestial_id, ship_code, quantity)
-				SELECT $1, ship_code, count FROM fleet_ships WHERE fleet_id = $5
-				ON CONFLICT (celestial_id, ship_code)
-				DO UPDATE SET quantity = planet_ships.quantity + EXCLUDED.quantity;
-
-				UPDATE fleets SET phase = 'RESOLVED' WHERE id = $5;
-			`, targetID, cargoMetal, cargoCrystal, cargoDeut, id)
-			if err != nil {
-				log.Printf("[ERROR] Failed to deploy fleet #%d: %v", id, err)
+			// Arrived at target colony: unload cargo and station ships there.
+			if !targetID.Valid {
+				log.Printf("[ERROR] Fleet #%d has no target celestial for DEPLOY", id)
+				return
+			}
+			if err := e.accrueResources(ctx, tx, targetID.Int64); err != nil {
+				log.Printf("[ERROR] Failed to accrue resources for fleet #%d: %v", id, err)
+				return
+			}
+			if err := e.creditCargo(ctx, tx, targetID.Int64, cargoMetal, cargoCrystal, cargoDeut); err != nil {
+				log.Printf("[ERROR] Failed to unload cargo for fleet #%d: %v", id, err)
+				return
+			}
+			if err := e.stationShips(ctx, tx, targetID.Int64, id); err != nil {
+				log.Printf("[ERROR] Failed to station ships for fleet #%d: %v", id, err)
+				return
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, id); err != nil {
+				log.Printf("[ERROR] Failed to resolve fleet #%d: %v", id, err)
 				return
 			}
 
 		case "TRANSPORT":
-			// Unload cargo at target, then return empty to origin
-			_, err = tx.ExecContext(ctx, `
-				SELECT update_celestial_resources($1);
-				UPDATE celestial_objects 
-				SET metal = metal + $2, crystal = crystal + $3, deuterium = deuterium + $4
-				WHERE id = $1;
-
+			// Unload cargo at the target, then return empty to origin.
+			if !targetID.Valid {
+				log.Printf("[ERROR] Fleet #%d has no target celestial for TRANSPORT", id)
+				return
+			}
+			if err := e.accrueResources(ctx, tx, targetID.Int64); err != nil {
+				log.Printf("[ERROR] Failed to accrue resources for fleet #%d: %v", id, err)
+				return
+			}
+			if err := e.creditCargo(ctx, tx, targetID.Int64, cargoMetal, cargoCrystal, cargoDeut); err != nil {
+				log.Printf("[ERROR] Failed to unload transport cargo for fleet #%d: %v", id, err)
+				return
+			}
+			if _, err := tx.ExecContext(ctx, `
 				UPDATE fleets 
 				SET phase = 'RETURNING', arrival_time = return_time,
 				    cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
-				WHERE id = $5;
-			`, targetID, cargoMetal, cargoCrystal, cargoDeut, id)
-			if err != nil {
-				log.Printf("[ERROR] Failed to transport cargo for fleet #%d: %v", id, err)
+				WHERE id = $1
+			`, id); err != nil {
+				log.Printf("[ERROR] Failed to set fleet #%d to RETURNING: %v", id, err)
 				return
 			}
 
@@ -218,21 +228,20 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 		}
 
 	case "RETURNING":
-		// Deposit cargo AND restore ships back to origin planet
-		_, err = tx.ExecContext(ctx, `
-			SELECT update_celestial_resources($1);
-			UPDATE celestial_objects 
-			SET metal = metal + $2, crystal = crystal + $3, deuterium = deuterium + $4
-			WHERE id = $1;
-
-			INSERT INTO planet_ships (celestial_id, ship_code, quantity)
-			SELECT $1, ship_code, count FROM fleet_ships WHERE fleet_id = $5
-			ON CONFLICT (celestial_id, ship_code)
-			DO UPDATE SET quantity = planet_ships.quantity + EXCLUDED.quantity;
-
-			UPDATE fleets SET phase = 'RESOLVED' WHERE id = $5;
-		`, originID, cargoMetal, cargoCrystal, cargoDeut, id)
-		if err != nil {
+		// Deposit cargo and restore ships back to the origin planet.
+		if err := e.accrueResources(ctx, tx, originID); err != nil {
+			log.Printf("[ERROR] Failed to accrue resources for fleet #%d: %v", id, err)
+			return
+		}
+		if err := e.creditCargo(ctx, tx, originID, cargoMetal, cargoCrystal, cargoDeut); err != nil {
+			log.Printf("[ERROR] Failed to deposit cargo for fleet #%d: %v", id, err)
+			return
+		}
+		if err := e.stationShips(ctx, tx, originID, id); err != nil {
+			log.Printf("[ERROR] Failed to restore ships for fleet #%d: %v", id, err)
+			return
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, id); err != nil {
 			log.Printf("[ERROR] Failed to resolve returning fleet #%d: %v", id, err)
 			return
 		}
@@ -244,4 +253,31 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 	}
 
 	log.Printf("[EVENT RESOLVED] Fleet #%s phase '%s' processed cleanly without hanging", fleetID, phase)
+}
+
+// accrueResources applies the zero-cron accumulator before crediting a deposit.
+func (e *EventEngine) accrueResources(ctx context.Context, tx *sql.Tx, celestialID int64) error {
+	_, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, celestialID)
+	return err
+}
+
+// creditCargo adds a cargo manifest to a celestial object.
+func (e *EventEngine) creditCargo(ctx context.Context, tx *sql.Tx, celestialID, metal, crystal, deut int64) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET metal = metal + $1, crystal = crystal + $2, deuterium = deuterium + $3
+		WHERE id = $4
+	`, metal, crystal, deut, celestialID)
+	return err
+}
+
+// stationShips moves a fleet's ship complement into a celestial's hangar.
+func (e *EventEngine) stationShips(ctx context.Context, tx *sql.Tx, celestialID, fleetID int64) error {
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO planet_ships (celestial_id, ship_code, quantity)
+		SELECT $1, ship_code, count FROM fleet_ships WHERE fleet_id = $2
+		ON CONFLICT (celestial_id, ship_code)
+		DO UPDATE SET quantity = planet_ships.quantity + EXCLUDED.quantity
+	`, celestialID, fleetID)
+	return err
 }
