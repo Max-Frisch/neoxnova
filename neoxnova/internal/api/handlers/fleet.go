@@ -3,15 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-
-	"neoxnova/internal/cache"
 	"neoxnova/internal/models"
 	"neoxnova/internal/store"
 )
@@ -37,10 +33,7 @@ func (h *Handler) FleetDispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Redis.ZAdd(r.Context(), cache.FleetEventsKey(h.UniverseID), redis.Z{
-		Score:  float64(result.Arrival.UnixMilli()),
-		Member: fmt.Sprintf("%d", result.FleetID),
-	})
+	h.notifyScheduler(r.Context())
 
 	log.Printf("[FLEET DISPATCHED] Fleet #%d mission %s launched to [%d:%d:%d]",
 		result.FleetID, req.Mission, req.Target.Galaxy, req.Target.System, req.Target.Position)
@@ -75,10 +68,7 @@ func (h *Handler) FleetRecall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Redis.ZAdd(r.Context(), cache.FleetEventsKey(h.UniverseID), redis.Z{
-		Score:  float64(result.Arrival.UnixMilli()),
-		Member: fmt.Sprintf("%d", fleetID),
-	})
+	h.notifyScheduler(r.Context())
 
 	log.Printf("[FLEET RECALLED] Fleet #%d reversed safely. Returning in %v", fleetID, result.Elapsed)
 

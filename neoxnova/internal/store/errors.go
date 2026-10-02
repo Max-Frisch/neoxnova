@@ -6,10 +6,16 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrInsufficientShips = errors.New("insufficient ships")
-	ErrInsufficientFuel  = errors.New("insufficient deuterium")
-	ErrCannotRecall      = errors.New("fleet cannot be recalled")
+	ErrNotFound              = errors.New("resource not found")
+	ErrInsufficientShips     = errors.New("insufficient ships")
+	ErrInsufficientFuel      = errors.New("insufficient deuterium")
+	ErrCannotRecall          = errors.New("fleet cannot be recalled")
+	ErrInsufficientResources = errors.New("insufficient resources")
+	ErrQueueBusy             = errors.New("build queue is busy")
+	ErrPrerequisites         = errors.New("prerequisites not met")
+	ErrNoFields              = errors.New("not enough fields")
+	ErrUnknownCode           = errors.New("unknown build code")
+	ErrInvalidQuantity       = errors.New("invalid quantity")
 )
 
 type InsufficientShipsError struct {

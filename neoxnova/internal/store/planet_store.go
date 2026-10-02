@@ -60,7 +60,7 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 		DeutCurrent:       outDeut,
 		DeutLimit:         deutCap,
 		DeutHourlyRate:    deutRate,
-		EnergyAvailable:   energyAvailable,
+		EnergyAvailable:   energyMax - energyAvailable,
 		EnergyMax:         energyMax,
 		LastCalculatedAt:  outLastCalc,
 	}, nil
@@ -124,7 +124,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 			DeutCurrent:       outDeut,
 			DeutLimit:         deutCap,
 			DeutHourlyRate:    deutRate,
-			EnergyAvailable:   energyUsed,
+			EnergyAvailable:   energyMax - energyUsed,
 			EnergyMax:         energyMax,
 			LastCalculatedAt:  outLastCalc,
 		},

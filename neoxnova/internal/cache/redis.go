@@ -20,6 +20,8 @@ func NewRedis(ctx context.Context, addr, password string, db int) (*redis.Client
 	return client, nil
 }
 
-func FleetEventsKey(universeID string) string {
-	return fmt.Sprintf("universe:%s:fleet_events", universeID)
+// WakeKey is the Redis list the API pushes to for a low-latency scheduler nudge.
+// It is an accelerator only; Postgres remains the source of truth.
+func WakeKey(universeID string) string {
+	return fmt.Sprintf("universe:%s:wake", universeID)
 }

@@ -1,0 +1,967 @@
+{
+  "variant": "XNova (GOW theme) - niburuspace.com",
+  "structures": [
+    {
+      "code": 1,
+      "name": "Metal Mine",
+      "level": 48,
+      "next_cost": {
+        "metal": 17003240006,
+        "crystal": 4250810001,
+        "deuterium": 0
+      },
+      "duration_seconds": 367,
+      "kind": "structure"
+    },
+    {
+      "code": 2,
+      "name": "Crystal Mine",
+      "level": 46,
+      "next_cost": {
+        "metal": 6045596446,
+        "crystal": 3022798223,
+        "deuterium": 0
+      },
+      "duration_seconds": 156,
+      "kind": "structure"
+    },
+    {
+      "code": 3,
+      "name": "Deuterium Refinery",
+      "level": 43,
+      "next_cost": {
+        "metal": 8396661731,
+        "crystal": 2798887244,
+        "deuterium": 0
+      },
+      "duration_seconds": 193,
+      "kind": "structure"
+    },
+    {
+      "code": 4,
+      "name": "Solar Power plant",
+      "level": 38,
+      "next_cost": {
+        "metal": 368577744,
+        "crystal": 147431098,
+        "deuterium": 0
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 6,
+      "name": "University",
+      "level": 6,
+      "next_cost": {
+        "metal": 6400000000,
+        "crystal": 3200000000,
+        "deuterium": 1600000000
+      },
+      "duration_seconds": 166,
+      "kind": "structure"
+    },
+    {
+      "code": 12,
+      "name": "Deuterium Power Plant",
+      "next_cost": {
+        "metal": 900,
+        "crystal": 360,
+        "deuterium": 180
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 14,
+      "name": "Robot Factory",
+      "level": 22,
+      "next_cost": {
+        "metal": 1677721600,
+        "crystal": 503316480,
+        "deuterium": 838860800
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 15,
+      "name": "Nanite Factory",
+      "level": 11,
+      "next_cost": {
+        "metal": 2048000000,
+        "crystal": 1024000000,
+        "deuterium": 204800000
+      },
+      "duration_seconds": 1443,
+      "kind": "structure"
+    },
+    {
+      "code": 21,
+      "name": "Shipyard",
+      "level": 18,
+      "next_cost": {
+        "metal": 104857600,
+        "crystal": 52428800,
+        "deuterium": 26214400
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 22,
+      "name": "Metal Storage",
+      "level": 13,
+      "next_cost": {
+        "metal": 16384000,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 23,
+      "name": "Crystal Storage",
+      "level": 12,
+      "next_cost": {
+        "metal": 8192000,
+        "crystal": 4096000,
+        "deuterium": 0
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 24,
+      "name": "Deuterium Storage",
+      "level": 11,
+      "next_cost": {
+        "metal": 4096000,
+        "crystal": 4096000,
+        "deuterium": 0
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 31,
+      "name": "Research Lab",
+      "level": 24,
+      "next_cost": {
+        "metal": 3355443200,
+        "crystal": 6710886400,
+        "deuterium": 3355443200
+      },
+      "duration_seconds": 174,
+      "kind": "structure"
+    },
+    {
+      "code": 33,
+      "name": "Terraformer",
+      "level": 7,
+      "next_cost": {
+        "metal": 0,
+        "crystal": 6400000,
+        "deuterium": 12800000
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 34,
+      "name": "Alliance Depot",
+      "level": 1,
+      "next_cost": {
+        "metal": 40000,
+        "crystal": 80000,
+        "deuterium": 0
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 44,
+      "name": "Missile Silo",
+      "next_cost": {
+        "metal": 20000,
+        "crystal": 20000,
+        "deuterium": 1000
+      },
+      "kind": "structure"
+    },
+    {
+      "code": 71,
+      "name": "Light conveyor",
+      "level": 11,
+      "next_cost": {
+        "metal": 3072000000,
+        "crystal": 1024000000,
+        "deuterium": 409600000
+      },
+      "duration_seconds": 70,
+      "kind": "structure"
+    },
+    {
+      "code": 72,
+      "name": "Average conveyor",
+      "level": 11,
+      "next_cost": {
+        "metal": 7168000000,
+        "crystal": 3072000000,
+        "deuterium": 1228800000
+      },
+      "duration_seconds": 177,
+      "kind": "structure"
+    },
+    {
+      "code": 73,
+      "name": "Heavy conveyor",
+      "level": 10,
+      "next_cost": {
+        "metal": 7680000000,
+        "crystal": 3584000000,
+        "deuterium": 1536000000
+      },
+      "duration_seconds": 194,
+      "kind": "structure"
+    }
+  ],
+  "techs": [
+    {
+      "code": 106,
+      "name": "Spy Technology",
+      "level": 19,
+      "next_cost": {
+        "metal": 104857600,
+        "crystal": 524288000,
+        "deuterium": 104857600
+      },
+      "duration_seconds": 469,
+      "kind": "tech"
+    },
+    {
+      "code": 108,
+      "name": "Computer Technology",
+      "level": 21,
+      "next_cost": {
+        "metal": 0,
+        "crystal": 838860800,
+        "deuterium": 1258291200
+      },
+      "duration_seconds": 626,
+      "kind": "tech"
+    },
+    {
+      "code": 109,
+      "name": "Weapons Technology",
+      "level": 15,
+      "next_cost": {
+        "metal": 26214400,
+        "crystal": 6553600,
+        "deuterium": 0
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 110,
+      "name": "Shield Technology",
+      "level": 15,
+      "next_cost": {
+        "metal": 6553600,
+        "crystal": 19660800,
+        "deuterium": 0
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 111,
+      "name": "Armour Technology",
+      "level": 15,
+      "next_cost": {
+        "metal": 32768000,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 113,
+      "name": "Energy Technology",
+      "level": 20,
+      "next_cost": {
+        "metal": 0,
+        "crystal": 838860800,
+        "deuterium": 419430400
+      },
+      "duration_seconds": 626,
+      "kind": "tech"
+    },
+    {
+      "code": 114,
+      "name": "Hyperspace Technology",
+      "level": 14,
+      "next_cost": {
+        "metal": 0,
+        "crystal": 65536000,
+        "deuterium": 32768000
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 115,
+      "name": "Combustion Engine",
+      "level": 17,
+      "next_cost": {
+        "metal": 52428800,
+        "crystal": 0,
+        "deuterium": 78643200
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 117,
+      "name": "Impulse Engine",
+      "level": 18,
+      "next_cost": {
+        "metal": 524288000,
+        "crystal": 1048576000,
+        "deuterium": 157286400
+      },
+      "duration_seconds": 1174,
+      "kind": "tech"
+    },
+    {
+      "code": 118,
+      "name": "Hyperspace Engine",
+      "level": 17,
+      "next_cost": {
+        "metal": 1310720000,
+        "crystal": 2621440000,
+        "deuterium": 786432000
+      },
+      "duration_seconds": 2937,
+      "kind": "tech"
+    },
+    {
+      "code": 120,
+      "name": "Laser Technology",
+      "level": 22,
+      "next_cost": {
+        "metal": 838860800,
+        "crystal": 419430400,
+        "deuterium": 0
+      },
+      "duration_seconds": 939,
+      "kind": "tech"
+    },
+    {
+      "code": 121,
+      "name": "Ion Technology",
+      "level": 20,
+      "next_cost": {
+        "metal": 1048576000,
+        "crystal": 314572800,
+        "deuterium": 104857600
+      },
+      "duration_seconds": 1018,
+      "kind": "tech"
+    },
+    {
+      "code": 122,
+      "name": "Plasma Technology",
+      "level": 18,
+      "next_cost": {
+        "metal": 524288000,
+        "crystal": 1048576000,
+        "deuterium": 262144000
+      },
+      "duration_seconds": 1174,
+      "kind": "tech"
+    },
+    {
+      "code": 123,
+      "name": "Intergalactic Research Network",
+      "level": 12,
+      "next_cost": {
+        "metal": 983040000,
+        "crystal": 1638400000,
+        "deuterium": 655360000
+      },
+      "duration_seconds": 1958,
+      "kind": "tech"
+    },
+    {
+      "code": 124,
+      "name": "Astrophysics",
+      "level": 8,
+      "next_cost": {
+        "metal": 1319458237,
+        "crystal": 2638916473,
+        "deuterium": 1319458237
+      },
+      "duration_seconds": 2956,
+      "kind": "tech"
+    },
+    {
+      "code": 125,
+      "name": "Brother Hood",
+      "level": 5,
+      "next_cost": {
+        "metal": 7594,
+        "crystal": 13289,
+        "deuterium": 0
+      },
+      "kind": "tech"
+    },
+    {
+      "code": 131,
+      "name": "Mineral Research",
+      "level": 20,
+      "next_cost": {
+        "metal": 786432000,
+        "crystal": 524288000,
+        "deuterium": 262144000
+      },
+      "duration_seconds": 979,
+      "kind": "tech"
+    },
+    {
+      "code": 132,
+      "name": "Semi-Crystals Research",
+      "level": 20,
+      "next_cost": {
+        "metal": 1048576000,
+        "crystal": 786432000,
+        "deuterium": 524288000
+      },
+      "duration_seconds": 1370,
+      "kind": "tech"
+    },
+    {
+      "code": 133,
+      "name": "Fuel Research",
+      "level": 20,
+      "next_cost": {
+        "metal": 1310720000,
+        "crystal": 1048576000,
+        "deuterium": 786432000
+      },
+      "duration_seconds": 1762,
+      "kind": "tech"
+    },
+    {
+      "code": 199,
+      "name": "Graviton Research",
+      "level": 3,
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "tech"
+    }
+  ],
+  "ships": [
+    {
+      "code": 202,
+      "name": "Light Cargo",
+      "next_cost": {
+        "metal": 2000,
+        "crystal": 2000,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 203,
+      "name": "Heavy Cargo",
+      "next_cost": {
+        "metal": 6000,
+        "crystal": 6000,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 204,
+      "name": "Light Fighter",
+      "next_cost": {
+        "metal": 3000,
+        "crystal": 1000,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 205,
+      "name": "Heavy Fighter",
+      "next_cost": {
+        "metal": 8000,
+        "crystal": 3000,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 206,
+      "name": "Cruiser",
+      "next_cost": {
+        "metal": 15000,
+        "crystal": 9500,
+        "deuterium": 2000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 207,
+      "name": "Battleship",
+      "next_cost": {
+        "metal": 41000,
+        "crystal": 17000,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 208,
+      "name": "Colony Ship",
+      "next_cost": {
+        "metal": 250000,
+        "crystal": 200000,
+        "deuterium": 100000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 209,
+      "name": "Recycler",
+      "next_cost": {
+        "metal": 10000,
+        "crystal": 6000,
+        "deuterium": 2000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 210,
+      "name": "Spy Probe",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 7500,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 211,
+      "name": "Planet Bomber",
+      "next_cost": {
+        "metal": 70000,
+        "crystal": 45000,
+        "deuterium": 5000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 212,
+      "name": "Solar Satellite",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 4000,
+        "deuterium": 2000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 213,
+      "name": "Star Fighter",
+      "next_cost": {
+        "metal": 60000,
+        "crystal": 50000,
+        "deuterium": 15000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 214,
+      "name": "Battle Fortress",
+      "next_cost": {
+        "metal": 6000000,
+        "crystal": 3500000,
+        "deuterium": 1000000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 215,
+      "name": "Battle Cruiser",
+      "next_cost": {
+        "metal": 50000,
+        "crystal": 40000,
+        "deuterium": 10000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 216,
+      "name": "Black Moon",
+      "next_cost": {
+        "metal": 8000000,
+        "crystal": 4000000,
+        "deuterium": 500000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 217,
+      "name": "Battle Transporter",
+      "next_cost": {
+        "metal": 35000,
+        "crystal": 20000,
+        "deuterium": 1500
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 218,
+      "name": "Avatar",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 219,
+      "name": "Battle Recycler",
+      "next_cost": {
+        "metal": 1000000,
+        "crystal": 600000,
+        "deuterium": 200000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 220,
+      "name": "Dark Matter Collector",
+      "next_cost": {
+        "metal": 60000000,
+        "crystal": 70000000,
+        "deuterium": 30000000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 221,
+      "name": "Battleship class ONill",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 222,
+      "name": "Flying death",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 223,
+      "name": "Scrappy",
+      "next_cost": {
+        "metal": 50000,
+        "crystal": 2500000,
+        "deuterium": 10000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 225,
+      "name": "Galleon",
+      "next_cost": {
+        "metal": 900000,
+        "crystal": 700000,
+        "deuterium": 200000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 226,
+      "name": "destroyer",
+      "next_cost": {
+        "metal": 3000000,
+        "crystal": 2000000,
+        "deuterium": 200000
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 227,
+      "name": "Frigate",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    },
+    {
+      "code": 228,
+      "name": "Black Wanderer",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "ship"
+    }
+  ],
+  "defenses": [
+    {
+      "code": 401,
+      "name": "Missile Launcher",
+      "next_cost": {
+        "metal": 2000,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 402,
+      "name": "Light Laser Turret",
+      "next_cost": {
+        "metal": 1500,
+        "crystal": 500,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 403,
+      "name": "Heavy Laser Turret",
+      "next_cost": {
+        "metal": 6000,
+        "crystal": 2000,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 404,
+      "name": "Gauss Cannon",
+      "next_cost": {
+        "metal": 20000,
+        "crystal": 15000,
+        "deuterium": 2000
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 405,
+      "name": "Ion Cannon",
+      "next_cost": {
+        "metal": 2000,
+        "crystal": 6000,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 406,
+      "name": "Plasma Cannon",
+      "next_cost": {
+        "metal": 50000,
+        "crystal": 50000,
+        "deuterium": 30000
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 407,
+      "name": "Small Shield Dome",
+      "next_cost": {
+        "metal": 1000000,
+        "crystal": 1000000,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 408,
+      "name": "Large Shield Dome",
+      "next_cost": {
+        "metal": 5000000,
+        "crystal": 5000000,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 409,
+      "name": "Atmospheric Shield",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 410,
+      "name": "Gravitons Cannon",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 411,
+      "name": "Orbital Defence Platform",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 412,
+      "name": "Lepton Gun",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 413,
+      "name": "Proton Gun",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 414,
+      "name": "Canyon",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 415,
+      "name": "Quantum Gun",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 416,
+      "name": "Hydrogen Gun",
+      "next_cost": {
+        "metal": 200000,
+        "crystal": 150000,
+        "deuterium": 50000
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 417,
+      "name": "Dora Gun",
+      "next_cost": {
+        "metal": 350000,
+        "crystal": 150000,
+        "deuterium": 75000
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 418,
+      "name": "Photon Cannon",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 419,
+      "name": "Particle Emitter",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 502,
+      "name": "Interceptor",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    },
+    {
+      "code": 503,
+      "name": "Interplanetary missiles",
+      "next_cost": {
+        "metal": 0,
+        "crystal": 0,
+        "deuterium": 0
+      },
+      "kind": "defense"
+    }
+  ],
+  "production": [
+    {
+      "label": "Basic Production",
+      "metal": 30000000,
+      "crystal": 20000000,
+      "deuterium": 10000000,
+      "energy": 0
+    },
+    {
+      "label": "Metal Mine (Level 48)",
+      "metal": 1397048167,
+      "crystal": 0,
+      "deuterium": 0,
+      "energy": -46568
+    },
+    {
+      "label": "Crystal Mine (Level 46)",
+      "metal": 0,
+      "crystal": 737651695,
+      "deuterium": 0,
+      "energy": -55324
+    },
+    {
+      "label": "Daily Production:",
+      "metal": 89236971830,
+      "crystal": 47217611388,
+      "deuterium": 22692007744,
+      "energy": 4504567
+    },
+    {
+      "label": "Weekly Production:",
+      "metal": 624658802807,
+      "crystal": 330523279719,
+      "deuterium": 158844054211,
+      "energy": 4504567
+    }
+  ]
+}

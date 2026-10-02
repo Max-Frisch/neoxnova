@@ -15,8 +15,8 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
 ## Commands (run from `neoxnova/`)
 - `make up` — start Postgres 16 + Redis 7 via compose (containers
   `neoxnova_postgres`, `neoxnova_redis`).
-- `make migrate`, then `make seed` — apply `migrations/0001_init.sql` /
-  `0002_seed.sql`.
+- `make migrate`, then `make seed` — apply `migrations/0001_init.sql` +
+  `0003_build_queues.sql`, then `0002_seed.sql`.
 - `make run` — `go run ./cmd/server`, listens on `:8080`.
 - `make build` → `bin/server`; `make test` → `go test ./...`; `make lint` →
   `go vet ./...`; format with `gofmt -w`.
@@ -26,16 +26,21 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
   auto-download 1.24 (`GOTOOLCHAIN=auto`).
 
 ## Testing / verification
-- There are **no test files**. `go test ./...` only compiles packages. Verify
-  behavior by running against the compose stack and hitting the API (endpoints
-  are listed in `README.md`).
-- Seeded state: homeworld id `1` at `1:1:1`, outpost id `2` at `1:2:3`, commander
-  with hangar ships. Schema and seed are idempotent; re-running is safe.
-- `UNIVERSE_ID` (default `universe_6_niburu`) must match the seeded universe. The
-  event engine uses Redis ZSET `universe:<UNIVERSE_ID>:fleet_events`.
-- Real flight times are minutes-to-hours, so you can't watch an arrival. To
-  exercise resolution, re-score the event to the past:
-  `docker exec -i neoxnova_redis redis-cli ZADD "universe:universe_6_niburu:fleet_events" <now_ms-1000> <fleet_id>`
+- Unit tests exist only for the pure formulas in `internal/game`
+  (`go test ./internal/game/`). There are no integration tests; verify runtime
+  behavior against the compose stack and the API (endpoints in `README.md`).
+- Seeded state: homeworld id `1` at `1:1:1` (with structures incl. a
+  `research_lab` and hangar ships), outpost id `2` at `1:2:3` as a fleet target,
+  commander user. Schema and seed are idempotent; re-running is safe. The seed
+  does **not** reset levels you have already built — delete rows to re-seed.
+- `UNIVERSE_ID` (default `universe_6_niburu`) must match the seeded universe
+  (`universes.code_name`).
+- The scheduler polls Postgres, so events cannot be watched in real time (flights
+  are minutes and builds longer). Fast-forward by moving the row's due time into
+  the past, keeping the timeline check valid:
+  `UPDATE fleets SET start_time = NOW() - interval '5 seconds', arrival_time = NOW() - interval '1 second' WHERE id = <id>;`
+  For `construction_queues`/`shipyard_queues`/`research_queues` set **both**
+  `start_time` and `end_time` (constraint requires `start_time < end_time`).
 
 ## Environment
 - `DATABASE_URL` is the only required variable; `config.Load` fails without it.
@@ -44,20 +49,47 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
   Makefile exports defaults, so `make run` works with no `.env`.
 
 ## Architecture notes (non-obvious)
-- `cmd/server/main.go` wires Postgres → Redis → event-engine goroutine → HTTP
-  server, with graceful shutdown.
+- `cmd/server/main.go` wires Postgres → optional Redis → scheduler goroutine →
+  HTTP server, with graceful shutdown. Redis being down is non-fatal (logged
+  warning, `rdb = nil`); it is only a wake accelerator.
+- **Durable scheduler** (`internal/engine/event_engine.go`): every 200 ms it
+  selects due rows (`fleets.arrival_time`, `construction_queues.end_time`, etc.),
+  then each resolver re-locks one row with `FOR UPDATE SKIP LOCKED` and re-checks
+  its due condition. At-least-once, idempotent, multi-instance safe. Redis is
+  only a wake hint (`cache.WakeKey`), not the source of truth.
 - Resources are never cron-updated: `update_celestial_resources(id)` (PL/pgSQL)
   accrues on demand, takes a row lock, and returns the fresh state. Call it
-  before crediting cargo.
-- Fleet state is split: phase/timeline in Postgres (`fleets`), arrival score in
-  Redis. A 10 Hz loop Lua-pops due fleet ids and resolves
-  `OUTBOUND`/`HOLDING`/`RETURNING` in one transaction.
+  before crediting cargo or spending on a build.
+- Builds: costs/durations/production live in the typed Go catalog
+  (`internal/game/catalog.go`, `economy.go`). `internal/store/build_store.go`
+  deducts resources and inserts a queue row atomically; the scheduler applies the
+  level and calls `RecomputeCelestial` (which rewrites cached
+  `*_prod_hourly`/`energy_*`/`fields_used`). Research costs draw from the supplied
+  planet and require `research_lab >= target level`.
 - `Dispatch` resolves `fleets.target_id` by coordinates. Empty-space targets stay
   `NULL`, and the engine logs an error — the fleet never resolves. Point
   transports/deploys at an existing celestial.
 - Universe fleet speed is hardcoded `15.0` in `internal/game/game_math.go`;
-  editing the `universes` table does not change it.
+  editing the `universes` table does not change it. Build durations, by contrast,
+  read `universes.game_speed`.
 - Coordinate domains: galaxy 1-9, system 1-499, position 1-21 (21 = deep space).
+
+## Game data / balance provenance
+- Costs in `internal/game/catalog.go` are **calibrated** from a niburuspace.com
+  HAR via `cmd/harparse` → `testdata/niburus_catalog.json`; real numeric unit
+  codes are used (e.g. `207` Battleship, `212` Solar Satellite). `catalog_test.go`
+  locks costs to the fixture.
+- Durations, unit combat stats, prerequisites and the server's custom systems
+  (University, conveyors, custom research, peaceful/combat levels) are still
+  approximate or unmodelled. Read `neoxnova/docs/BALANCE_DATA_NEEDED.md` before
+  trusting or "fixing" balance, and read tests via `go test ./internal/game/`.
+- Real server rates are seeded into `universes`: `game_speed` 4000,
+  `resource_speed` 10000, `fleet_speed` 15 (player override; server advertises
+  5), `debris_rate` 0.50, `base_colonies` 5. `resource_speed` scales production,
+  `game_speed` divides build times, `fleet_speed` divides flight time — all read
+  from `universes`, so edit that row to retune rather than hardcoding.
+- Raw network captures (`*.HAR`) are gitignored and may contain session cookies;
+  never commit them.
 
 ## Editing gotchas
 - lib/pq uses the extended query protocol once parameters are present, which
@@ -68,6 +100,10 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
   `&x.Int64` leaves `Valid=false` and writes NULL.
 - No migration framework: schema changes are numbered SQL files applied manually
   via `psql`. Keep them idempotent (`CREATE TABLE/INDEX IF NOT EXISTS`,
-  `DO $$ ... EXCEPTION WHEN duplicate_object`, `CREATE OR REPLACE`).
+  `DO $$ ... EXCEPTION WHEN duplicate_object`, `CREATE OR REPLACE`). When you add
+  a schema migration, add it to the `migrate` target in the Makefile too.
+- One active build per scope is enforced by partial unique indexes
+  (`0003_build_queues.sql`). Build code catches pq `23505` and maps it to
+  `store.ErrQueueBusy`; don't rely on read-then-write checks alone.
 - Commit messages follow Conventional Commits (`feat:`, `docs:`, `refactor:`).
   Do not commit unless asked.

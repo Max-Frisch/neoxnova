@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
 
 	"github.com/redis/go-redis/v9"
 
+	"neoxnova/internal/cache"
 	"neoxnova/internal/store"
 )
 
@@ -16,6 +18,7 @@ type Handler struct {
 	UniverseID string
 	Planets    *store.PlanetStore
 	Fleets     *store.FleetStore
+	Builds     *store.BuildStore
 }
 
 func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
@@ -25,6 +28,19 @@ func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
 		UniverseID: universeID,
 		Planets:    store.NewPlanetStore(db),
 		Fleets:     store.NewFleetStore(db),
+		Builds:     store.NewBuildStore(db),
+	}
+}
+
+// notifyScheduler gives the scheduler a low-latency nudge. It is best-effort;
+// the scheduler polls Postgres regardless, so a Redis failure is harmless.
+func (h *Handler) notifyScheduler(ctx context.Context) {
+	if h.Redis == nil {
+		return
+	}
+	key := cache.WakeKey(h.UniverseID)
+	if err := h.Redis.LPush(ctx, key, "1").Err(); err == nil {
+		h.Redis.LTrim(ctx, key, 0, 0)
 	}
 }
 

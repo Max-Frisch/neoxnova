@@ -3,72 +3,132 @@ package engine
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"neoxnova/internal/cache"
+	"neoxnova/internal/game"
+	"neoxnova/internal/store"
 )
 
+// EventEngine is a durable, at-least-once scheduler. Postgres is the source of
+// truth: every tick it claims due rows with FOR UPDATE SKIP LOCKED (safe for
+// multiple instances) and resolves them idempotently. Redis is an optional
+// wake-up accelerator only — correctness never depends on it.
 type EventEngine struct {
-	rdb *redis.Client
-	db  *sql.DB
+	rdb    *redis.Client
+	db     *sql.DB
+	builds *store.BuildStore
 }
 
 func NewEventEngine(rdb *redis.Client, db *sql.DB) *EventEngine {
-	return &EventEngine{rdb: rdb, db: db}
+	return &EventEngine{rdb: rdb, db: db, builds: store.NewBuildStore(db)}
 }
 
-// StartEventLoop runs an autonomous tick loop checking Redis ZSET
-func (e *EventEngine) StartEventLoop(ctx context.Context, universeID string) {
-	ticker := time.NewTicker(100 * time.Millisecond) // 10Hz tick loop
-	zsetKey := fmt.Sprintf("universe:%s:fleet_events", universeID)
+// StartScheduler runs the resolution loop until the context is cancelled.
+func (e *EventEngine) StartScheduler(ctx context.Context, universeID string) {
+	log.Printf("[SCHEDULER] Started durable event scheduler for universe %s", universeID)
 
-	log.Printf("[EVENT ENGINE] Started time-wheel worker for universe %s", universeID)
+	wake := make(chan struct{}, 1)
+	go e.watchWake(ctx, cache.WakeKey(universeID), wake)
 
-	// Thread-safe atomic Lua script: Pops matching events whose arrival <= nowMs
-	luaScript := redis.NewScript(`
-		local matches = redis.call('ZRANGEBYSCORE', KEYS[1], ARGV[1], ARGV[2], 'LIMIT', 0, tonumber(ARGV[3]))
-		if #matches > 0 then
-			for _, member in ipairs(matches) do
-				redis.call('ZREM', KEYS[1], member)
-			end
-			return matches
-		end
-		return {}
-	`)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[EVENT ENGINE] Shutting down event loop worker gracefully.")
+			log.Println("[SCHEDULER] Shutting down event scheduler gracefully.")
 			return
 		case <-ticker.C:
-			nowMs := float64(time.Now().UnixMilli())
-
-			// Execute script pipeline passing current universe timestamp bounds
-			res, err := luaScript.Run(ctx, e.rdb, []string{zsetKey}, "-inf", fmt.Sprintf("%f", nowMs), "100").Result()
-			if err != nil && err != redis.Nil {
-				log.Printf("[ERROR] Failed to query event ZSET layer: %v", err)
-				continue
-			}
-
-			// Map interface slice string assertions safely
-			slice, ok := res.([]interface{})
-			if ok && len(slice) > 0 {
-				for _, item := range slice {
-					fleetID, isString := item.(string)
-					if isString {
-						go e.resolveFleetEvent(ctx, zsetKey, fleetID)
-					}
-				}
-			}
+			e.processDue(ctx, universeID)
+		case <-wake:
+			e.processDue(ctx, universeID)
 		}
 	}
 }
 
-// resolveFleetEvent resolves the fleet arrival atomically
-func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID string) {
+// watchWake blocks on Redis for a low-latency nudge from API handlers. It is
+// best-effort: if Redis is unavailable the ticker still drives the scheduler.
+func (e *EventEngine) watchWake(ctx context.Context, key string, out chan<- struct{}) {
+	if e.rdb == nil {
+		return
+	}
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		_, err := e.rdb.BLPop(ctx, 2*time.Second, key).Result()
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			if err != redis.Nil {
+				time.Sleep(2 * time.Second)
+			}
+			continue
+		}
+		select {
+		case out <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (e *EventEngine) processDue(ctx context.Context, universeID string) {
+	for _, id := range e.dueIDs(ctx, `
+		SELECT id FROM fleets
+		WHERE phase IN ('OUTBOUND', 'HOLDING', 'RETURNING') AND arrival_time <= NOW()
+		ORDER BY arrival_time LIMIT 200`) {
+		e.resolveFleetEvent(ctx, id)
+	}
+	for _, id := range e.dueIDs(ctx, `
+		SELECT id FROM construction_queues
+		WHERE status = 'IN_PROGRESS' AND end_time <= NOW()
+		ORDER BY end_time LIMIT 200`) {
+		e.resolveConstruction(ctx, id)
+	}
+	for _, id := range e.dueIDs(ctx, `
+		SELECT id FROM shipyard_queues
+		WHERE status = 'IN_PROGRESS' AND end_time <= NOW()
+		ORDER BY end_time LIMIT 200`) {
+		e.resolveShipyard(ctx, id)
+	}
+	for _, id := range e.dueIDs(ctx, `
+		SELECT id FROM research_queues
+		WHERE status = 'IN_PROGRESS' AND end_time <= NOW()
+		ORDER BY end_time LIMIT 200`) {
+		e.resolveResearch(ctx, id)
+	}
+	_ = universeID
+}
+
+// dueIDs collects candidate ids without locking; each resolver re-locks and
+// re-checks its own row, so a candidate may be skipped if another worker won.
+func (e *EventEngine) dueIDs(ctx context.Context, query string) []int64 {
+	rows, err := e.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Printf("[ERROR] Scheduler due-query failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			log.Printf("[ERROR] Scheduler row scan failed: %v", err)
+			return ids
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// resolveFleetEvent resolves one due fleet atomically.
+func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 	tx, err := e.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		log.Printf("[ERROR] Tx begin error: %v", err)
@@ -76,14 +136,13 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 	}
 	defer tx.Rollback()
 
-	// 1. Acquire exclusive row lock. Rejects any concurrent recall API request
 	query := `
-		SELECT id, user_id, mission, phase, origin_id, target_id, 
+		SELECT id, user_id, mission, phase, origin_id, target_id,
 		       cargo_metal, cargo_crystal, cargo_deuterium,
 		       holding_end_time, return_time
 		FROM fleets
-		WHERE id = $1 AND phase IN ('OUTBOUND', 'HOLDING', 'RETURNING')
-		FOR UPDATE;
+		WHERE id = $1 AND phase IN ('OUTBOUND', 'HOLDING', 'RETURNING') AND arrival_time <= NOW()
+		FOR UPDATE SKIP LOCKED;
 	`
 	var (
 		id, userID, originID                int64
@@ -98,43 +157,29 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 		&cargoMetal, &cargoCrystal, &cargoDeut,
 		&holdingEndTime, &returnTime,
 	)
-
 	if err == sql.ErrNoRows {
-		// Fleet was already recalled or resolved under concurrent lock
-		return
+		return // claimed/completed elsewhere
 	} else if err != nil {
-		log.Printf("[ERROR] Fleet lock acquisition failed for fleet #%s: %v", fleetID, err)
+		log.Printf("[ERROR] Fleet lock acquisition failed for fleet #%d: %v", fleetID, err)
 		return
 	}
 
-	// 2. State transition logic based on phase and mission
 	switch phase {
 	case "OUTBOUND":
 		switch mission {
 		case "EXPEDITION":
-			// Transition to HOLDING phase at deep space slot
 			if !holdingEndTime.Valid {
 				log.Printf("[ERROR] Fleet #%d has null holding_end_time for expedition", id)
 				return
 			}
-			_, err = tx.ExecContext(ctx, `
-				UPDATE fleets 
-				SET phase = 'HOLDING', arrival_time = holding_end_time 
-				WHERE id = $1
-			`, id)
-			if err != nil {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE fleets SET phase = 'HOLDING', arrival_time = holding_end_time WHERE id = $1
+			`, id); err != nil {
 				log.Printf("[ERROR] Failed to transition fleet #%d to HOLDING: %v", id, err)
 				return
 			}
 
-			// Re-enqueue event into Redis ZSET for holding phase expiration!
-			e.rdb.ZAdd(ctx, zsetKey, redis.Z{
-				Score:  float64(holdingEndTime.Time.UnixMilli()),
-				Member: fleetID,
-			})
-
 		case "DEPLOY":
-			// Arrived at target colony: unload cargo and station ships there.
 			if !targetID.Valid {
 				log.Printf("[ERROR] Fleet #%d has no target celestial for DEPLOY", id)
 				return
@@ -157,7 +202,6 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 			}
 
 		case "TRANSPORT":
-			// Unload cargo at the target, then return empty to origin.
 			if !targetID.Valid {
 				log.Printf("[ERROR] Fleet #%d has no target celestial for TRANSPORT", id)
 				return
@@ -171,7 +215,7 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 				return
 			}
 			if _, err := tx.ExecContext(ctx, `
-				UPDATE fleets 
+				UPDATE fleets
 				SET phase = 'RETURNING', arrival_time = return_time,
 				    cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
 				WHERE id = $1
@@ -180,55 +224,24 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 				return
 			}
 
-			// Re-enqueue return journey into Redis ZSET!
-			if returnTime.Valid {
-				e.rdb.ZAdd(ctx, zsetKey, redis.Z{
-					Score:  float64(returnTime.Time.UnixMilli()),
-					Member: fleetID,
-				})
-			}
-
 		default:
-			// For generic missions (Attack return, Espionage, Recycle): transition to RETURNING
-			_, err = tx.ExecContext(ctx, `
-				UPDATE fleets 
-				SET phase = 'RETURNING', arrival_time = return_time 
-				WHERE id = $1
-			`, id)
-			if err != nil {
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1
+			`, id); err != nil {
 				log.Printf("[ERROR] Failed to set fleet #%d to RETURNING: %v", id, err)
 				return
-			}
-
-			if returnTime.Valid {
-				e.rdb.ZAdd(ctx, zsetKey, redis.Z{
-					Score:  float64(returnTime.Time.UnixMilli()),
-					Member: fleetID,
-				})
 			}
 		}
 
 	case "HOLDING":
-		// Holding period expired (e.g. Expedition exploration completed) -> Return to origin
-		_, err = tx.ExecContext(ctx, `
-			UPDATE fleets 
-			SET phase = 'RETURNING', arrival_time = return_time 
-			WHERE id = $1
-		`, id)
-		if err != nil {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1
+		`, id); err != nil {
 			log.Printf("[ERROR] Failed to transition fleet #%d from HOLDING to RETURNING: %v", id, err)
 			return
 		}
 
-		if returnTime.Valid {
-			e.rdb.ZAdd(ctx, zsetKey, redis.Z{
-				Score:  float64(returnTime.Time.UnixMilli()),
-				Member: fleetID,
-			})
-		}
-
 	case "RETURNING":
-		// Deposit cargo and restore ships back to the origin planet.
 		if err := e.accrueResources(ctx, tx, originID); err != nil {
 			log.Printf("[ERROR] Failed to accrue resources for fleet #%d: %v", id, err)
 			return
@@ -248,11 +261,160 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Printf("[ERROR] Tx commit failed for fleet #%s: %v", fleetID, err)
+		log.Printf("[ERROR] Tx commit failed for fleet #%d: %v", fleetID, err)
+		return
+	}
+	log.Printf("[EVENT RESOLVED] Fleet #%d phase '%s' processed", fleetID, phase)
+}
+
+// resolveConstruction completes a due building level.
+func (e *EventEngine) resolveConstruction(ctx context.Context, queueID int64) {
+	tx, err := e.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		log.Printf("[ERROR] Tx begin error: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	var celestialID int64
+	var code string
+	var targetLevel int
+	err = tx.QueryRowContext(ctx, `
+		SELECT celestial_id, structure_code, target_level
+		FROM construction_queues
+		WHERE id = $1 AND status = 'IN_PROGRESS' AND end_time <= NOW()
+		FOR UPDATE SKIP LOCKED
+	`, queueID).Scan(&celestialID, &code, &targetLevel)
+	if err == sql.ErrNoRows {
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Construction lock failed for queue #%d: %v", queueID, err)
 		return
 	}
 
-	log.Printf("[EVENT RESOLVED] Fleet #%s phase '%s' processed cleanly without hanging", fleetID, phase)
+	if err := e.accrueResources(ctx, tx, celestialID); err != nil {
+		log.Printf("[ERROR] Failed to accrue before construction #%d: %v", queueID, err)
+		return
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO planet_structures (celestial_id, structure_code, level)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (celestial_id, structure_code)
+		DO UPDATE SET level = EXCLUDED.level
+	`, celestialID, code, targetLevel); err != nil {
+		log.Printf("[ERROR] Failed to apply structure for queue #%d: %v", queueID, err)
+		return
+	}
+	if err := e.builds.RecomputeCelestial(ctx, tx, celestialID); err != nil {
+		log.Printf("[ERROR] Failed to recompute celestial %d: %v", celestialID, err)
+		return
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE construction_queues SET status = 'COMPLETED' WHERE id = $1`, queueID); err != nil {
+		log.Printf("[ERROR] Failed to complete construction queue #%d: %v", queueID, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("[ERROR] Tx commit failed for construction #%d: %v", queueID, err)
+		return
+	}
+	log.Printf("[EVENT RESOLVED] Construction queue #%d: %s -> level %d on celestial %d", queueID, code, targetLevel, celestialID)
+}
+
+// resolveShipyard completes a due ship batch.
+func (e *EventEngine) resolveShipyard(ctx context.Context, queueID int64) {
+	tx, err := e.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		log.Printf("[ERROR] Tx begin error: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	var celestialID, quantity int64
+	var unitCode string
+	err = tx.QueryRowContext(ctx, `
+		SELECT celestial_id, unit_code, quantity_total
+		FROM shipyard_queues
+		WHERE id = $1 AND status = 'IN_PROGRESS' AND end_time <= NOW()
+		FOR UPDATE SKIP LOCKED
+	`, queueID).Scan(&celestialID, &unitCode, &quantity)
+	if err == sql.ErrNoRows {
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Shipyard lock failed for queue #%d: %v", queueID, err)
+		return
+	}
+
+	table := "planet_ships"
+	codeColumn := "ship_code"
+	if _, ok := game.Ships[unitCode]; !ok {
+		table = "planet_defenses"
+		codeColumn = "defense_code"
+	}
+
+	// Table/column names are selected from fixed literals above, never user input.
+	insert := "INSERT INTO " + table + " (celestial_id, " + codeColumn + ", quantity) VALUES ($1, $2, $3) " +
+		"ON CONFLICT (celestial_id, " + codeColumn + ") DO UPDATE SET quantity = " + table + ".quantity + EXCLUDED.quantity"
+	if _, err := tx.ExecContext(ctx, insert, celestialID, unitCode, quantity); err != nil {
+		log.Printf("[ERROR] Failed to station ships for queue #%d: %v", queueID, err)
+		return
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE shipyard_queues SET status = 'COMPLETED', quantity_completed = quantity_total WHERE id = $1`, queueID); err != nil {
+		log.Printf("[ERROR] Failed to complete shipyard queue #%d: %v", queueID, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("[ERROR] Tx commit failed for shipyard #%d: %v", queueID, err)
+		return
+	}
+	log.Printf("[EVENT RESOLVED] Shipyard queue #%d: %d x %s stationed on celestial %d", queueID, quantity, unitCode, celestialID)
+}
+
+// resolveResearch completes a due technology.
+func (e *EventEngine) resolveResearch(ctx context.Context, queueID int64) {
+	tx, err := e.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		log.Printf("[ERROR] Tx begin error: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	var userID int64
+	var techCode string
+	var targetLevel int
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id, tech_code, target_level
+		FROM research_queues
+		WHERE id = $1 AND status = 'IN_PROGRESS' AND end_time <= NOW()
+		FOR UPDATE SKIP LOCKED
+	`, queueID).Scan(&userID, &techCode, &targetLevel)
+	if err == sql.ErrNoRows {
+		return
+	} else if err != nil {
+		log.Printf("[ERROR] Research lock failed for queue #%d: %v", queueID, err)
+		return
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO user_technologies (user_id, tech_code, level)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, tech_code)
+		DO UPDATE SET level = EXCLUDED.level
+	`, userID, techCode, targetLevel); err != nil {
+		log.Printf("[ERROR] Failed to apply research for queue #%d: %v", queueID, err)
+		return
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE research_queues SET status = 'COMPLETED' WHERE id = $1`, queueID); err != nil {
+		log.Printf("[ERROR] Failed to complete research queue #%d: %v", queueID, err)
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("[ERROR] Tx commit failed for research #%d: %v", queueID, err)
+		return
+	}
+	log.Printf("[EVENT RESOLVED] Research queue #%d: %s -> level %d for user %d", queueID, techCode, targetLevel, userID)
 }
 
 // accrueResources applies the zero-cron accumulator before crediting a deposit.

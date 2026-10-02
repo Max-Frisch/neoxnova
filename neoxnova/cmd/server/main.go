@@ -41,14 +41,18 @@ func main() {
 	}
 	defer db.Close()
 
+	// Redis is an optional wake-up accelerator; the durable scheduler polls
+	// Postgres regardless, so startup proceeds even if Redis is unavailable.
 	rdb, err := cache.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to connect to Redis: %v", err)
+		log.Printf("[WARN] Redis unavailable (%v); continuing without wake accelerator", err)
+		rdb = nil
+	} else {
+		defer rdb.Close()
 	}
-	defer rdb.Close()
 
 	eventEngine := engine.NewEventEngine(rdb, db)
-	go eventEngine.StartEventLoop(ctx, cfg.UniverseID)
+	go eventEngine.StartScheduler(ctx, cfg.UniverseID)
 
 	server := &http.Server{
 		Addr:    cfg.HTTPAddr,

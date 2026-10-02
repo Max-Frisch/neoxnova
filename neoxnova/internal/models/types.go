@@ -141,3 +141,33 @@ type FleetDispatchRequest struct {
 type FleetRecallRequest struct {
 	FleetID int64 `json:"fleet_id" validate:"required"`
 }
+
+type StructureBuildRequest struct {
+	StructureCode string `json:"structure_code"`
+}
+
+type ShipyardBuildRequest struct {
+	UnitCode string `json:"unit_code"`
+	Quantity int64  `json:"quantity"`
+}
+
+type ResearchRequest struct {
+	TechCode string `json:"tech_code"`
+}
+
+type QueueEntrySummary struct {
+	ID            int64     `json:"id"`
+	Code          string    `json:"code"`
+	TargetLevel   int       `json:"target_level,omitempty"`
+	Quantity      int64     `json:"quantity,omitempty"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	RemainingSecs int64     `json:"remaining_seconds"`
+}
+
+type BuildingsResponse struct {
+	PlanetID  int64                    `json:"planet_id"`
+	Levels    map[string]int           `json:"levels"`
+	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
+	NextCosts map[string]CargoManifest `json:"next_costs,omitempty"`
+}

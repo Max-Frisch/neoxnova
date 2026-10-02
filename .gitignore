@@ -16,3 +16,7 @@
 # 5. Ignore build artifacts and local environment overrides
 neoxnova/bin/
 neoxnova/.env
+
+# 6. Never commit raw network captures (HARs contain session cookies/tokens)
+*.HAR
+*.har

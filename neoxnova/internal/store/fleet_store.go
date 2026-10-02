@@ -36,11 +36,13 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	var oG, oS, oP int
 	var universeID string
 	var userID int64
-	var originDeut float64
-	originQuery := `SELECT universe_id, user_id, galaxy, system, position, deuterium
-	                FROM celestial_objects WHERE id = $1 FOR UPDATE`
+	var originDeut, fleetSpeed float64
+	originQuery := `SELECT c.universe_id, c.user_id, c.galaxy, c.system, c.position, c.deuterium, u.fleet_speed
+	                FROM celestial_objects c
+	                JOIN universes u ON u.id = c.universe_id
+	                WHERE c.id = $1 FOR UPDATE OF c`
 	err = tx.QueryRowContext(ctx, originQuery, req.OriginPlanetID).Scan(
-		&universeID, &userID, &oG, &oS, &oP, &originDeut,
+		&universeID, &userID, &oG, &oS, &oP, &originDeut, &fleetSpeed,
 	)
 	if err != nil {
 		return DispatchResult{}, ErrNotFound
@@ -81,7 +83,7 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 
 	dist := game.CalculateCoordinateDistance(oG, oS, oP, req.Target.Galaxy, req.Target.System, req.Target.Position)
 	baseSpeed := 10000 // default battleship baseline
-	durationSecs := game.CalculateFlightDuration(dist, baseSpeed, req.SpeedPercent)
+	durationSecs := game.CalculateFlightDuration(dist, baseSpeed, req.SpeedPercent, fleetSpeed)
 
 	var totalShipCount int64
 	for _, c := range req.Ships {

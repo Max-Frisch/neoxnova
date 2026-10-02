@@ -11,14 +11,23 @@
 -- ============================================================================
 
 -- 1. Universe (code_name must match UNIVERSE_ID in .env / Makefile) ----------
+-- Rates taken verbatim from the niburuspace.com in-game "Server rates" info:
+--   Game Speed 4000x, Resource production 10000x, Fleet speed 5x, debris 50%,
+--   5 free colonies, hard cap 35 (+ academy). fleet_speed is stored as the
+--   player's in-game modifier (15x) rather than the advertised 5x.
 INSERT INTO universes (
     code_name, display_name, game_speed, resource_speed, fleet_speed,
     debris_rate, max_galaxies, base_colonies
 ) VALUES (
-    'universe_6_niburu', 'Niburu Universe 6', 4.00, 10.00, 15.00,
+    'universe_6_niburu', 'Niburu Universe 6', 4000.00, 10000.00, 15.00,
     0.50, 1, 5
 )
-ON CONFLICT (code_name) DO NOTHING;
+ON CONFLICT (code_name) DO UPDATE SET
+    game_speed = EXCLUDED.game_speed,
+    resource_speed = EXCLUDED.resource_speed,
+    fleet_speed = EXCLUDED.fleet_speed,
+    debris_rate = EXCLUDED.debris_rate,
+    base_colonies = EXCLUDED.base_colonies;
 
 -- 2. Test commander ----------------------------------------------------------
 -- Repair the users serial sequence first: prior ad-hoc test data may have been
@@ -88,10 +97,10 @@ SELECT c.id, s.ship_code, s.quantity
 FROM celestial_objects c
 JOIN universes u ON u.id = c.universe_id AND u.code_name = 'universe_6_niburu'
 CROSS JOIN (VALUES
-    ('202', 500),   -- small cargo
-    ('212', 200),   -- battleship
-    ('217', 100),   -- battle transporter
-    ('219', 50)     -- battle recycler
+    ('202', 500),   -- Light Cargo
+    ('207', 200),   -- Battleship
+    ('217', 100),   -- Battle Transporter
+    ('219', 50)     -- Battle Recycler
 ) AS s(ship_code, quantity)
 WHERE c.galaxy = 1 AND c.system = 1 AND c.position = 1 AND c.object_type = 'PLANET'
 ON CONFLICT (celestial_id, ship_code) DO NOTHING;
@@ -107,7 +116,8 @@ CROSS JOIN (VALUES
     ('deuterium_synthesizer', 6),
     ('solar_plant', 12),
     ('robotics_factory', 2),
-    ('shipyard', 4)
+    ('shipyard', 4),
+    ('research_lab', 3)
 ) AS s(structure_code, lvl)
 WHERE c.galaxy = 1 AND c.system = 1 AND c.position = 1 AND c.object_type = 'PLANET'
 ON CONFLICT (celestial_id, structure_code) DO NOTHING;

@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS planet_defenses (
 
 CREATE TABLE IF NOT EXISTS planet_ships (
     celestial_id BIGINT NOT NULL REFERENCES celestial_objects(id) ON DELETE CASCADE,
-    ship_code VARCHAR(32) NOT NULL, -- e.g., '202' (small_cargo), '212' (battleship), '217' (battle_transporter), '219' (battle_recycler)
+    ship_code VARCHAR(32) NOT NULL, -- numeric unit id, e.g. '202' (Light Cargo), '207' (Battleship), '212' (Solar Satellite)
     quantity BIGINT NOT NULL DEFAULT 0 CHECK (quantity >= 0),
     PRIMARY KEY (celestial_id, ship_code)
 );
@@ -266,7 +266,7 @@ CREATE INDEX IF NOT EXISTS idx_active_fleets_user ON fleets(user_id)
 
 CREATE TABLE IF NOT EXISTS fleet_ships (
     fleet_id BIGINT NOT NULL REFERENCES fleets(id) ON DELETE CASCADE,
-    ship_code VARCHAR(32) NOT NULL, -- '202' (small_cargo), '212' (battleship), '217' (battle_transporter), '219' (battle_recycler)
+    ship_code VARCHAR(32) NOT NULL, -- numeric unit id, e.g. '202' (Light Cargo), '207' (Battleship), '219' (Battle Recycler)
     count BIGINT NOT NULL CHECK (count > 0),
     PRIMARY KEY (fleet_id, ship_code)
 );
