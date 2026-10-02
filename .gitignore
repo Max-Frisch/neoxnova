@@ -3,6 +3,7 @@
 
 # 2. Allow the .gitignore file itself so changes are tracked
 !.gitignore
+!README.md
 
 # 3. Allow your specific project folders (leave the trailing slash)
 !neoxnova/
