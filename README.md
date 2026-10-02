@@ -22,17 +22,42 @@ This engine resolves critical flaws common in legacy PHP strategy game implement
 
 ```
 /neoxnova/
-├── engine/
-│   └── event_engine.go    # Background event loop, Redis Lua pop, and mission resolver
-├── models/
-│   └── types.go           # Strong Go types, REST API payload structures, and enums
-├── utils/
-│   └── game_math.go       # Topology distance, flight duration, and deuterium fuel formulas
-├── databasefile.sql       # PostgreSQL 16+ DDL (Schemas, constraints, and triggers)
-├── docker-compose.yml     # Local services definition (PostgreSQL and Redis)
-├── go.mod                 # Go module definition
-├── go.sum                 # Dependency checksums
-└── main.go                # API Gateway, route handlers, and graceful shutdown coordinator
+├── cmd/
+│   └── server/
+│       └── main.go            # Thin entrypoint: config -> wiring -> graceful shutdown
+├── internal/
+│   ├── api/
+│   │   ├── router.go          # Route registration and middleware chain
+│   │   ├── middleware.go      # Request logging and panic recovery
+│   │   └── handlers/
+│   │       ├── handler.go     # Shared handler dependencies and JSON helpers
+│   │       ├── health.go      # GET /api/v1/health
+│   │       ├── planet.go      # Planet resources and overview endpoints
+│   │       ├── fleet.go       # Fleet dispatch and recall endpoints
+│   │       └── dashboard.go   # Developer dashboard
+│   ├── cache/
+│   │   └── redis.go           # Redis client and event-wheel key helpers
+│   ├── config/
+│   │   └── config.go          # Environment-driven configuration
+│   ├── engine/
+│   │   └── event_engine.go    # Background event loop, Redis Lua pop, and mission resolver
+│   ├── game/
+│   │   └── game_math.go       # Topology distance, flight duration, and fuel formulas
+│   ├── models/
+│   │   └── types.go           # Strong Go types, REST API payload structures, and enums
+│   └── store/
+│       ├── postgres.go        # PostgreSQL pool setup
+│       ├── errors.go          # Repository sentinel and typed errors
+│       ├── planet_store.go    # Planet resource/overview queries
+│       └── fleet_store.go     # Atomic fleet dispatch/recall transactions
+├── migrations/
+│   └── 0001_init.sql          # PostgreSQL 16+ DDL (schemas, constraints, functions)
+├── .env.example               # Runtime environment template
+├── docker-compose.yml         # Local services definition (PostgreSQL and Redis)
+├── Makefile                   # run / build / test / lint / migrate / up / down
+├── go.mod                     # Go module definition
+├── go.sum                     # Dependency checksums
+└── README.md
 ```
 
 ---
@@ -51,15 +76,26 @@ docker-compose up -d
 ```
 
 ### 2. Initialize Database Schema
-Apply the schema and the continuous resource accumulator function located in `databasefile.sql` to your active PostgreSQL instance.
-
-### 3. Run the Engine
-Run the main server to start both the REST API gateway and the background time-wheel event engine:
+Apply the schema and the continuous resource accumulator function located in `migrations/0001_init.sql` to your active PostgreSQL instance:
 ```bash
-go run main.go
+make migrate
 ```
 
-The web server will listen on port `8080`.
+### 3. Configure Environment
+Copy `.env.example` to `.env`; it is auto-loaded on startup (via `godotenv`) during local development:
+```bash
+cp .env.example .env
+```
+The `Makefile` also provides sane defaults if `.env` is absent.
+
+### 4. Run the Engine
+Run the server to start both the REST API gateway and the background time-wheel event engine:
+```bash
+make run
+# or: go run ./cmd/server
+```
+
+The web server will listen on port `8080` (override with `HTTP_ADDR`).
 
 ---
 

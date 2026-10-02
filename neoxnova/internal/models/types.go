@@ -3,6 +3,7 @@ package models
 import "time"
 
 type CelestialType string
+
 const (
 	TypePlanet    CelestialType = "PLANET"
 	TypeMoon      CelestialType = "MOON"
@@ -11,19 +12,21 @@ const (
 )
 
 type MissionType string
+
 const (
-	MissionAttack     MissionType = "ATTACK"
-	MissionTransport  MissionType = "TRANSPORT"
-	MissionDeploy     MissionType = "DEPLOY"
-	MissionHold       MissionType = "HOLD"
-	MissionEspionage  MissionType = "ESPIONAGE"
-	MissionColonize   MissionType = "COLONIZE"
-	MissionRecycle    MissionType = "RECYCLE"
+	MissionAttack      MissionType = "ATTACK"
+	MissionTransport   MissionType = "TRANSPORT"
+	MissionDeploy      MissionType = "DEPLOY"
+	MissionHold        MissionType = "HOLD"
+	MissionEspionage   MissionType = "ESPIONAGE"
+	MissionColonize    MissionType = "COLONIZE"
+	MissionRecycle     MissionType = "RECYCLE"
 	MissionDestroyMoon MissionType = "DESTROY_MOON"
-	MissionExpedition MissionType = "EXPEDITION"
+	MissionExpedition  MissionType = "EXPEDITION"
 )
 
 type FleetPhase string
+
 const (
 	PhaseOutbound  FleetPhase = "OUTBOUND"
 	PhaseHolding   FleetPhase = "HOLDING"

@@ -1,4 +1,4 @@
-package utils
+package game
 
 import (
 	"math"
@@ -24,10 +24,10 @@ func CalculateCoordinateDistance(g1, s1, p1, g2, s2, p2 int) float64 {
 func CalculateFlightDuration(distance float64, baseMaxSpeed int, speedPercent int) int64 {
 	// speedPercent is the user velocity toggle throttle (10 to 100)
 	velocityModifier := float64(speedPercent) / 100.0
-	
+
 	// Traditional OGame/2Moons flight duration formula mapping
 	rawDuration := math.Round(35000.0/velocityModifier*math.Sqrt(distance*10.0/float64(baseMaxSpeed))) + 10.0
-	
+
 	// Accelerate the time steps using the server's native high-rate speed multiplier scale
 	return int64(math.Max(1, math.Round(rawDuration/UniverseFleetSpeed)))
 }

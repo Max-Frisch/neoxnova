@@ -86,10 +86,10 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, zsetKey, fleetID st
 		FOR UPDATE;
 	`
 	var (
-		id, userID, originID, targetID                 int64
-		cargoMetal, cargoCrystal, cargoDeut            int64
-		mission, phase                                 string
-		holdingEndTime, returnTime                     sql.NullTime
+		id, userID, originID, targetID      int64
+		cargoMetal, cargoCrystal, cargoDeut int64
+		mission, phase                      string
+		holdingEndTime, returnTime          sql.NullTime
 	)
 
 	err = tx.QueryRowContext(ctx, query, fleetID).Scan(
