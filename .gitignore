@@ -1,0 +1,12 @@
+# 1. Ignore absolutely everything by default
+*
+
+# 2. Allow the .gitignore file itself so changes are tracked
+!.gitignore
+
+# 3. Allow your specific project folders (leave the trailing slash)
+!neoxnova/
+
+# 4. IMPORTANT: If you want to allow files nested deeply inside those folders, 
+# you must ensure Git doesn't block any subdirectories inside them
+!neoxnova/**
