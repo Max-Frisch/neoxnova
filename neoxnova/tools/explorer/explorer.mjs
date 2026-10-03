@@ -95,10 +95,26 @@ async function login(page) {
   }
 }
 
+async function dismissModals(page) {
+  // Auto-opened fancybox popups (e.g. manualinfo) intercept pointer events.
+  await page.evaluate(() => {
+    for (const sel of ['.fancybox-close', 'a.fancybox-item.fancybox-close', '.fancybox-overlay', '#fancybox-overlay']) {
+      const el = document.querySelector(sel);
+      if (el) { try { el.click(); } catch {} if (el.style) el.style.display = 'none'; }
+    }
+    const wrap = document.querySelector('#fancybox-wrap');
+    if (wrap) wrap.style.display = 'none';
+  }).catch(() => {});
+}
+
 async function goto(page, url) {
   for (let i = 0; i < 3; i++) {
-    try { await humanDelay(); await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 }); return; }
-    catch (e) { console.error(`[!] goto ${url} attempt ${i + 1}: ${e.message}`); await sleep(3000); }
+    try {
+      await humanDelay();
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await dismissModals(page);
+      return;
+    } catch (e) { console.error(`[!] goto ${url} attempt ${i + 1}: ${e.message}`); await sleep(3000); }
   }
   throw new Error(`Failed to navigate: ${url}`);
 }
@@ -346,6 +362,22 @@ async function officerExperiment(page) {
   console.log(`[+] Wrote ${out}`);
 }
 
+async function levels(page, outArg) {
+  const data = { updatedAt: new Date().toISOString(), account: USER, buildings: {}, research: {}, ships: {}, defenses: {}, resources: {} };
+  const pages = [['buildings', 'buildings'], ['research', 'research'], ['ships', 'shipyard&mode=fleet'], ['defenses', 'shipyard&mode=defense']];
+  for (const [key, q] of pages) {
+    await goto(page, `${GAME_URL}?page=${q}`);
+    for (const it of parseBuildPage(await page.content())) data[key][it.code] = { name: it.name, level: it.level };
+  }
+  await goto(page, `${GAME_URL}?page=overview`);
+  data.resources = resourcesFromPage(await page.content());
+  const outPath = outArg || 'data/levels.json';
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
+  console.log(`WROTE ${outPath}`);
+  console.log(JSON.stringify(data));
+}
+
 async function status(page) {
   for (const pageNameStr of ['buildings', 'research', 'shipyard&mode=fleet']) {
     await goto(page, `${GAME_URL}?page=${pageNameStr}`);
@@ -417,6 +449,7 @@ async function build(page, steps) {
 const cmd = process.argv[2] || 'scan';
 const stepsArg = process.argv.indexOf('--steps');
 const steps = stepsArg > 0 ? parseInt(process.argv[stepsArg + 1], 10) : 30;
+const outArg = (() => { const i = process.argv.indexOf('--out'); return i > 0 ? process.argv[i + 1] : null; })();
 
 await withBrowser(async (page) => {
   if (cmd === 'scan') await scan(page);
@@ -427,6 +460,7 @@ await withBrowser(async (page) => {
   else if (cmd === 'sats') await buildSatellites(page, steps);
   else if (cmd === 'map') await mapPages(page);
   else if (cmd === 'officers') await officerExperiment(page);
+  else if (cmd === 'levels') await levels(page, outArg);
   else if (cmd === 'login') console.log('[+] login ok');
   else { console.error('Unknown command. Use: scan | build | status | queue | cancel | sats | login'); process.exit(1); }
 }).catch((e) => { console.error('[FATAL]', e.message); process.exit(1); });
