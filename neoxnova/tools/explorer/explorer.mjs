@@ -401,6 +401,10 @@ async function resolve(page, goalsPath, steps) {
       for (const r of graph[code] || []) visit(r.id, r.required);
     };
     for (const [code, lvl] of Object.entries(goalMap)) visit(code, lvl);
+    if (step === 0) {
+      console.log(`[dbg] goalMap=${Object.keys(goalMap).join(',')}`);
+      console.log(`[dbg] need=${Object.keys(need).join(',')}`);
+    }
 
     const unmet = Object.entries(need).filter(([c, l]) => eff(c) < l);
     if (unmet.length === 0) { console.log('[*] All goals satisfied.'); break; }
