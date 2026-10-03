@@ -28,3 +28,6 @@ neoxnova/tools/explorer/data/
 neoxnova/tools/explorer/*.state.json
 neoxnova/tools/explorer/session*.json
 neoxnova/tools/explorer/*.log
+
+# 8. Local account tracking snapshots (not source)
+neoxnova/data/
