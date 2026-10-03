@@ -1,0 +1,150 @@
+
+===================== senat =====================
+id="content">
+Senate
+?
+Officers
+Officers - Hire high ranking engineers and scientists for your empire.
+Governators
+Governators - Hire governors who are managing and optimising your empire.
+
+===================== officier =====================
+id="content">
+Officiers
+Back
+Geologist
+(Level 10/30)
+The Geologist is a expert in astro-mineralogy and crystalography. He assists his teams in metallurgy and chemistry as he also takes care of the interplanetary communications optimising the use and refining of the raw material along the empire.
+Recruit:  Dark Matter:
+4.046
+Admiral
+(Level 5/20)
+The Admiral is an experienced veteran and a skillful strategist. The hardest battle is able to get an idea of the situation and contact their admirals subordinates. A wise emperor could rely on their help during the fighting.
+Recruit:  Dark Matter:
+2.488
+Engineer
+(Level 5/10)
+The Engineer is a specialist in energy management. In peacetime, it increases the energy of all the colonies.
+Recruit:  Dark Matter:
+11.391
+Technocrat
+(Level 1/10)
+The guild of the Technocrats is composed of genius scientists, and you will find them always over the realm where all human logic would be defied. For thousands of years, no normal humans have ever cracked the code of a Technocrat. The Technocrat inspires the researchers of the empire with his presence.
+Recruit:  Dark Matter:
+2.250
+Constructor
+(Level 0/3)
+The Constructor has altered their DNA, only one of these men can build an entire city in a short time.
+Recruit:  Dark Matter:
+3.000
+Scientologist
+(Level 3/3)
+Scientists are part of a guild to concurrent technocrats. They specialize in the improvement of technologies.
+Maximum level reached
+Minister of Defence
+(Level 0/2)
+The Minister of Defence is a member of the Imperial Army. focus on your job allows you to build a formidable defense in a short period of time.
+Recruit:  Dark Matter:
+5.000
+
+===================== gubernators =====================
+id="content">
+Governators
+Achievment points:
+5103 / 0
+Weapons Upgrade
+[level 0/65]
++
+10
+%
+Attack
++
+10
+%
+Armor
+Dark Matter:
+40000
+Days:
+Hire
+Achievment points:
+50
+To improve the level
+Shield Upgrade
+[level 0/65]
++
+10
+%
+for shields
+Dark Matter:
+40000
+Days:
+Hire
+Achievment points:
+50
+To improve the level
+Building Upgrade
+[level 0/50]
+-
+10
+%
+construction time
+Dark Matter:
+7500
+Days:
+Hire
+Achievment points:
+20
+To improve the level
+Ressource Upgrade
+[level 0/250]
++
+10
+%
+the extraction of  materials
+Dark Matter:
+30000
+Days:
+Hire
+Achievment points:
+100
+To improve the level
+Energy Upgrade
+[level 0/100]
++
+10
+%
+to energy production
+Dark Matter:
+10000
+Days:
+Hire
+Achievment points:
+50
+To improve the level
+Research Upgrade
+[level 0/40]
++
+10
+%
+time research
+Dark Matter:
+25000
+Days:
+Hire
+Achievment points:
+100
+To improve the level
+Fleet Upgrade
+[level 0/20]
++
+10
+%
+ship fyling time
+Dark Matter:
+50000
+Days:
+Hire
+Achievment points:
+100
+To improve the level
+

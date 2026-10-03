@@ -20,3 +20,11 @@ neoxnova/.env
 # 6. Never commit raw network captures (HARs contain session cookies/tokens)
 *.HAR
 *.har
+
+# 7. Explorer secrets, dependencies and generated data
+neoxnova/secrets/
+neoxnova/tools/explorer/node_modules/
+neoxnova/tools/explorer/data/
+neoxnova/tools/explorer/*.state.json
+neoxnova/tools/explorer/session*.json
+neoxnova/tools/explorer/*.log

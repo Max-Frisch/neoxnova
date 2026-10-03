@@ -1,0 +1,14 @@
+{
+  "name": "niburu-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Game environment explorer for niburuspace.com (crawl data, optionally build)",
+  "scripts": {
+    "scan": "node explorer.mjs scan",
+    "build": "node explorer.mjs build"
+  },
+  "dependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}

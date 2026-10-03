@@ -72,6 +72,74 @@ These appear in the capture but their effects are unknown:
 - **Storage capacities** and **field** growth (Terraformer).
 - **Debris field** generation/recycling at 50%.
 
+## Confirmed mechanics (owner-provided + captured)
+
+- **Building ratios** the owner targets: metal ~2-3 levels above crystal, deuterium
+  ~3-4 below crystal; solar plant just high enough to cover energy.
+- **Queue locks**: ships/defenses lock the shipyard + nanite factory (and vice
+  versa); research and University are mutually exclusive; robot factory is
+  independent.
+- **Cancel** a queued building and 100% of resources are refunded.
+- **Solar satellites**: once build time <= 1s, queue 100-200 at a time (shipyard
+  `fmenge[<code>]` form).
+- **Debris**: 50% of the *base* resource cost of destroyed ships piles up at the
+  coordinates; recyclers/battle recyclers collect it; expedition survivors return
+  it (a single surviving transporter can carry it all).
+- **Do NOT spend Dark Matter to instantly finish buildings/research/ships** — it's
+  a waste for our purposes.
+- **Premium account (24h new-account bonus)**: +1000% resource production,
+  +100% research speed, +5 construction/research queue slots, +100% experience.
+  The premium page exposes a `pblist` of purchasable bonuses with costs/factors.
+- **Bonus systems**: University +16% research speed; Deuterium Power Plant (energy
+  for deuterium); Light/Average/Heavy conveyor batch-build their unit class;
+  Brotherhood = alliance bank deposit/withdraw limit; Mineral/Semi-Crystals/Fuel
+  Research +5% metal/crystal/deuterium production per level; Energy Technology
+  +10% energy per level (account-wide); Plasma Technology +2% damage (plasma
+  weapons); Graviton Research +4% damage and costs the planet's max energy;
+  Terraformer +7 fields/level (also moons); "Basic Production" is a static
+  per-planet baseline.
+- **Unit stats**: every ship/defense info page carries weapon type(s)+attack,
+  structural armor, shields, engine+base speed, fuel, cargo and rapid-fire. A
+  `tools/explorer` scan captures these for all 26 ships and 21 defenses.
+- **Senate**: parent page linking Officers and Governators.
+  - **Officers** (page=officier), recruited with Dark Matter, empire-wide effects:
+    Geologist 0/30 (production), Admiral 0/20 (combat), Engineer 0/10 (energy of
+    all colonies), Technocrat 0/10 (research), Constructor 0/3 (construction
+    speed), Scientologist 0/3 (tech), Minister of Defence 0/2 (defence build).
+    Tooltip descriptions captured in `testdata/niburus_senate_officers.txt`.
+  - **Governators** (page=gubernators), cost **Dark Matter + Achievement Points**
+    and a number of **days**, each level +10%: Weapons (atk+armor, 0/65, 40k DM),
+    Shield (0/65, 40k), Building (-10% build time, 0/50, 7.5k), Resource (+10%
+    extraction, 0/250, 30k), Energy (+10%, 0/100, 10k), Research (0/40, 25k),
+    Fleet (+10% flight time, 0/20, 50k). Strategy: activate at the default % for
+    as many days as possible first, raise the % later — cheaper in Dark Matter.
+- **Peaceful level** (sidebar): grants ~+1%/level to mine extraction, research
+  speed and energy production, plus fleet slots (e.g. L14 = +14% each, +1 slot).
+  Combat level tracks combat XP. Achievements award Antimatter (not Dark Matter).
+- **Do not spend Dark Matter** on officers/governators or instant finishes during
+  data collection; effects must be measured against the resources tab instead.
+- **Achievements** (see `testdata/niburus_achievements.json`): 47 definitions in
+  groups General/Daily/Buildings/Research/Fleet/Defense/Misc; each grants
+  **Antimatter + Achievement Points**, with an increasing "tier". Examples:
+  "Metal Miner" at Metal Mine 51 → 1217 AM / 122 pts; "Geologist" needs all three
+  extraction researches at 22. Note: achievements award Antimatter, not Dark
+  Matter directly.
+
+## Explorer tool
+
+`neoxnova/tools/explorer/` (Node + playwright-core, drives installed Edge):
+
+```
+node explorer.mjs scan                 # crawl all info + build pages (read-only)
+node explorer.mjs status               # current building/research/shipyard levels
+node explorer.mjs build --steps 150    # economy-first build plan (mutates account)
+node explorer.mjs cancel               # clear the construction queue (100% refund)
+node explorer.mjs sats 150             # queue N solar satellites (shipyard fmenge[212])
+node achievements.mjs <file.har> [out] # offline achievement extraction
+```
+
+Credentials live in the gitignored `neoxnova/secrets/explorer.env`.
+
 ## How to capture more data
 
 1. Browser DevTools (F12) → **Network** → enable **Preserve log** and

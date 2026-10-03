@@ -1,0 +1,383 @@
+{
+  "source": "niburuspace.com_Archive [26-10-02 20-16-23].har",
+  "extractedAt": "2026-10-03T08:52:13.158Z",
+  "count": 47,
+  "items": [
+    {
+      "group": "all",
+      "name": "Peaceful 2 lvl.",
+      "requirement": "Peace level 15 .",
+      "levelPoints": 26,
+      "nextAntimatter": 71,
+      "nextPoints": 14
+    },
+    {
+      "group": "all",
+      "name": "Veteran 0 lvl.",
+      "requirement": "Battle level 5 .",
+      "levelPoints": 0,
+      "nextAntimatter": 125,
+      "nextPoints": 13
+    },
+    {
+      "group": "daily",
+      "name": "Raider 0 lvl.",
+      "requirement": "Winned 15 battles.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 50
+    },
+    {
+      "group": "daily",
+      "name": "Victory Hostal / twenty-four hours 0 lvl.",
+      "requirement": "Winned 20 battles in Hostal sector.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 50
+    },
+    {
+      "group": "daily",
+      "name": "Successful expo / twenty-four hours 0 lvl.",
+      "requirement": "20 successful flights in expedition.",
+      "levelPoints": 0,
+      "nextAntimatter": 250,
+      "nextPoints": 50
+    },
+    {
+      "group": "build",
+      "name": "Metal Miner 16 lvl.",
+      "requirement": "Metal mine 51 lvl.",
+      "levelPoints": 343,
+      "nextAntimatter": 1217,
+      "nextPoints": 122
+    },
+    {
+      "group": "build",
+      "name": "Crystal Miner 15 lvl.",
+      "requirement": "Crystal mine 48 lvl.",
+      "levelPoints": 391,
+      "nextAntimatter": 1461,
+      "nextPoints": 146
+    },
+    {
+      "group": "build",
+      "name": "Deuterium Miner 14 lvl.",
+      "requirement": "Deuterium mine 45 lvl.",
+      "levelPoints": 413,
+      "nextAntimatter": 1667,
+      "nextPoints": 167
+    },
+    {
+      "group": "build",
+      "name": "Small Producer 11 lvl.",
+      "requirement": "Small production facillity 12 lvl.",
+      "levelPoints": 89,
+      "nextAntimatter": 208,
+      "nextPoints": 21
+    },
+    {
+      "group": "build",
+      "name": "Medium Producer 11 lvl.",
+      "requirement": "Medium production facillity 12 lvl.",
+      "levelPoints": 112,
+      "nextAntimatter": 276,
+      "nextPoints": 28
+    },
+    {
+      "group": "build",
+      "name": "Large Producer 10 lvl.",
+      "requirement": "Large production facillity 11 lvl.",
+      "levelPoints": 111,
+      "nextAntimatter": 317,
+      "nextPoints": 32
+    },
+    {
+      "group": "build",
+      "name": "Mad Scientist 3 lvl.",
+      "requirement": "University 8 lvl.",
+      "levelPoints": 45,
+      "nextAntimatter": 335,
+      "nextPoints": 34
+    },
+    {
+      "group": "build",
+      "name": "Moon Coloniser 0 lvl.",
+      "requirement": "Moon base 2 lvl.",
+      "levelPoints": 0,
+      "nextAntimatter": 55,
+      "nextPoints": 6
+    },
+    {
+      "group": "build",
+      "name": "Phalanx Sensor 0 lvl.",
+      "requirement": "Phalanx sensor 2 lvl.",
+      "levelPoints": 0,
+      "nextAntimatter": 80,
+      "nextPoints": 8
+    },
+    {
+      "group": "build",
+      "name": "Terraformer 3 lvl.",
+      "requirement": "Terraformer 8 lvl.",
+      "levelPoints": 29,
+      "nextAntimatter": 178,
+      "nextPoints": 18
+    },
+    {
+      "group": "tech",
+      "name": "Spy 6 lvl.",
+      "requirement": "Espionage 21 lvl.",
+      "levelPoints": 327,
+      "nextAntimatter": 301,
+      "nextPoints": 151
+    },
+    {
+      "group": "tech",
+      "name": "Hacker 7 lvl.",
+      "requirement": "Computer technology 24 lvl.",
+      "levelPoints": 478,
+      "nextAntimatter": 422,
+      "nextPoints": 211
+    },
+    {
+      "group": "tech",
+      "name": "Unbeatable technology 7 lvl.",
+      "requirement": "Weapons technology 16 lvl. Shield technology 16 lvl. Armor Technology 16 lvl.",
+      "levelPoints": 440,
+      "nextAntimatter": 314,
+      "nextPoints": 157
+    },
+    {
+      "group": "tech",
+      "name": "Expedition members 2 lvl.",
+      "requirement": "Astrophysics 12 lvl.",
+      "levelPoints": 78,
+      "nextAntimatter": 166,
+      "nextPoints": 77
+    },
+    {
+      "group": "tech",
+      "name": "Gravitation 3 lvl.",
+      "requirement": "Gravitational technology 4 lvl.",
+      "levelPoints": 174,
+      "nextAntimatter": 206,
+      "nextPoints": 110
+    },
+    {
+      "group": "tech",
+      "name": "The power of guns 6 lvl.",
+      "requirement": "Laser technology 21 lvl. Ionic technology 21 lvl. Plasma technology 21 lvl.",
+      "levelPoints": 657,
+      "nextAntimatter": 839,
+      "nextPoints": 419
+    },
+    {
+      "group": "tech",
+      "name": "Energetic 6 lvl.",
+      "requirement": "Energy technology 21 lvl.",
+      "levelPoints": 277,
+      "nextAntimatter": 279,
+      "nextPoints": 139
+    },
+    {
+      "group": "tech",
+      "name": "Brotherhood 2 lvl.",
+      "requirement": "Brotherhood 6 lvl.",
+      "levelPoints": 23,
+      "nextAntimatter": 34,
+      "nextPoints": 17
+    },
+    {
+      "group": "tech",
+      "name": "Increase the Speed 8 lvl.",
+      "requirement": "Jet engine 18 lvl. Impulse engine 18 lvl. Hyperspace engineь 18 lvl.",
+      "levelPoints": 689,
+      "nextAntimatter": 590,
+      "nextPoints": 295
+    },
+    {
+      "group": "tech",
+      "name": "Geologist 10 lvl.",
+      "requirement": "Metal extraction technology 22 lvl. Crystal extraction technology 22 lvl. Deuterium extraction technology 22 lvl.",
+      "levelPoints": 427,
+      "nextAntimatter": 276,
+      "nextPoints": 138
+    },
+    {
+      "group": "fleet",
+      "name": "Fleet Fighters 0 lvl.",
+      "requirement": "Light fighters 200.000 units. Heavy fighter 200.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 150,
+      "nextPoints": 75
+    },
+    {
+      "group": "fleet",
+      "name": "Fleet Support 0 lvl.",
+      "requirement": "Cruisers 200.000 units. Battleships 200.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 100
+    },
+    {
+      "group": "fleet",
+      "name": "Battle fleet 0 lvl.",
+      "requirement": "Star fighter 200.000 units. Battle cruiser 200.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 250,
+      "nextPoints": 125
+    },
+    {
+      "group": "fleet",
+      "name": "Fleet Destruction 0 lvl.",
+      "requirement": "Black Moon 5.000 units. Galleon 20.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 300,
+      "nextPoints": 150
+    },
+    {
+      "group": "fleet",
+      "name": "Fleet Siege 0 lvl.",
+      "requirement": "Planet Bomber 100.000 units. Destroyers 10.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 100
+    },
+    {
+      "group": "fleet",
+      "name": "Heavy fleet 0 lvl.",
+      "requirement": "Frigate 2.500 units. Black Wanderer 1.500 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 350,
+      "nextPoints": 175
+    },
+    {
+      "group": "fleet",
+      "name": "Imperial fleet 0 lvl.",
+      "requirement": "Avatar 1.000 units. Flying death 1.000 units. Battleships class ONill 1.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 400,
+      "nextPoints": 250
+    },
+    {
+      "group": "def",
+      "name": "Light defense 0 lvl.",
+      "requirement": "Missile Launcher 200.000 units. Light Laser Turret 200.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 150,
+      "nextPoints": 75
+    },
+    {
+      "group": "def",
+      "name": "Simple defense 0 lvl.",
+      "requirement": "Heavy Laser Turret 150.000 units. Ion Cannon 100.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 175,
+      "nextPoints": 100
+    },
+    {
+      "group": "def",
+      "name": "Average defense 0 lvl.",
+      "requirement": "Gauss Cannon 125.000 units. Plasma Cannon 125.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 175,
+      "nextPoints": 100
+    },
+    {
+      "group": "def",
+      "name": "High defense 0 lvl.",
+      "requirement": "Hydrogen Gun 75.000 units. Dora gun 125.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 250,
+      "nextPoints": 125
+    },
+    {
+      "group": "def",
+      "name": "Heavy defense 0 lvl.",
+      "requirement": "Gravitons Cannon 15.000 units. Proton Gun 50.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 300,
+      "nextPoints": 150
+    },
+    {
+      "group": "def",
+      "name": "Massive defense 0 lvl.",
+      "requirement": "Canyon 10.000 units. Quantum Gun 5.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 350,
+      "nextPoints": 200
+    },
+    {
+      "group": "def",
+      "name": "Imperial defense 0 lvl.",
+      "requirement": "Proton Gun 20.000 units. Particle Emitter 15.000 units. Lepton Gun 35.000 units.",
+      "levelPoints": 0,
+      "nextAntimatter": 350,
+      "nextPoints": 200
+    },
+    {
+      "group": "varia",
+      "name": "Fighter 0 lvl.",
+      "requirement": "Winned 50 battles.",
+      "levelPoints": 0,
+      "nextAntimatter": 150,
+      "nextPoints": 15
+    },
+    {
+      "group": "varia",
+      "name": "Moon destroyer 0 lvl.",
+      "requirement": "Destroyed 3 moons.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 60
+    },
+    {
+      "group": "varia",
+      "name": "Mon maker 0 lvl.",
+      "requirement": "Creater 3 moons.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 50
+    },
+    {
+      "group": "varia",
+      "name": "Victory Hostal 0 lvl.",
+      "requirement": "Winned 20 battles in Hostal sector.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 40
+    },
+    {
+      "group": "varia",
+      "name": "Successfull expo 4 lvl.",
+      "requirement": "29 successful flights in expedition.",
+      "levelPoints": 233,
+      "nextAntimatter": 293,
+      "nextPoints": 73
+    },
+    {
+      "group": "varia",
+      "name": "Dark matter finder 0 lvl.",
+      "requirement": "Found 50.000 Dark Matter.",
+      "levelPoints": 0,
+      "nextAntimatter": 100,
+      "nextPoints": 20
+    },
+    {
+      "group": "varia",
+      "name": "Upgrade finder 0 lvl.",
+      "requirement": "Found 3 Upgrades.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 25
+    },
+    {
+      "group": "varia",
+      "name": "Upgrade engeneer 0 lvl.",
+      "requirement": "Activised 10 Upgrades.",
+      "levelPoints": 0,
+      "nextAntimatter": 200,
+      "nextPoints": 50
+    }
+  ]
+}
