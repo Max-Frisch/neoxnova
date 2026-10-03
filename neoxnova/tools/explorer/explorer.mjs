@@ -111,10 +111,15 @@ async function withBrowser(fn) {
     locale: 'de-DE',
   };
   if (fs.existsSync(STATE_FILE)) ctxOpts.storageState = STATE_FILE;
-  const browser = await chromium.launch({
-    channel: 'msedge', headless: HEADLESS,
+  // Browser: Edge on Windows dev, system Chromium on Linux VMs. Override with
+  // EXPLORER_CHANNEL (e.g. chromium) or EXPLORER_EXECUTABLE_PATH.
+  const launchOpts = {
+    headless: HEADLESS,
     args: ['--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage', '--no-sandbox'],
-  });
+  };
+  if (process.env.EXPLORER_EXECUTABLE_PATH) launchOpts.executablePath = process.env.EXPLORER_EXECUTABLE_PATH;
+  else launchOpts.channel = process.env.EXPLORER_CHANNEL || 'msedge';
+  const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext(ctxOpts);
   await context.addInitScript(STEALTH);
   const page = await context.newPage();
@@ -169,15 +174,17 @@ function resourcesFromPage(html) {
 // Strategy: metal ~2-3 above crystal, deuterium ~3-4 below crystal, solar just
 // high enough for energy. robot factory stays put once shipyard is unlocked.
 const BUILD_PLAN = [
-  { code: 4, target: 33 },  // Solar Plant — fix energy deficit first
-  { code: 1, target: 33 },  // Metal Mine
-  { code: 2, target: 31 },  // Crystal Mine (metal - 2)
-  { code: 3, target: 27 },  // Deuterium Refinery (crystal - 4)
+  { code: 31, target: 5 },  // Research Lab (unlocks research + officers)
+  { code: 21, target: 8 },  // Shipyard (needed for Nanite + ships)
+  { code: 14, target: 16 }, // Robot Factory
+  { code: 15, target: 5 },  // Nanite Factory (match robot roughly)
+  { code: 4, target: 33 },  // Solar Plant (keep energy covered)
+  { code: 1, target: 35 },  // Metal Mine
+  { code: 2, target: 33 },  // Crystal Mine (metal - 2)
+  { code: 3, target: 29 },  // Deuterium Refinery (crystal - 4)
   { code: 22, target: 12 }, // Metal Storage
   { code: 23, target: 12 }, // Crystal Storage
   { code: 24, target: 12 }, // Deuterium Storage
-  { code: 31, target: 3 },  // Research Lab
-  { code: 21, target: 3 },  // Shipyard
   { code: 33, target: 1 },  // Terraformer
 ];
 
