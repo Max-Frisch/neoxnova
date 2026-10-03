@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseInfo, parseTechtree, parseQueue, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseInfo, parseTechtree, parseTechtreeGraph, parseQueue, stripTags, num } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -362,6 +362,87 @@ async function officerExperiment(page) {
   console.log(`[+] Wrote ${out}`);
 }
 
+async function loadScope(page, query) {
+  await goto(page, `${GAME_URL}?page=${query}`);
+  const html = await page.content();
+  const items = parseBuildPage(html);
+  const levels = {}, nameToCode = {};
+  for (const it of items) { levels[it.code] = it.level; nameToCode[it.name] = it.code; }
+  const queued = {};
+  for (const q of parseQueue(html)) { const c = nameToCode[q.name]; if (c) queued[c] = (queued[c] || 0) + 1; }
+  return { html, byCode: Object.fromEntries(items.map((it) => [it.code, it])), levels, queued, res: resourcesFromPage(html) };
+}
+
+// Recursively satisfy building + research goals using the techtree requirement
+// graph. Enqueues at most one level per item per iteration and waits when the
+// queue is full or resources are short.
+async function resolve(page, goalsPath, steps) {
+  const goals = JSON.parse(fs.readFileSync(goalsPath, 'utf8'));
+  await goto(page, `${GAME_URL}?page=techtree`);
+  const graph = parseTechtreeGraph(await page.content());
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DIR, 'techtree-graph.json'), JSON.stringify(graph, null, 2));
+  console.log(`[graph] parsed ${Object.keys(graph).length} items from techtree`);
+
+  const goalMap = {};
+  for (const kind of ['buildings', 'research']) {
+    for (const [code, lvl] of Object.entries(goals[kind] || {})) goalMap[code] = Math.max(goalMap[code] || 0, lvl);
+  }
+
+  let stalls = 0;
+  for (let step = 0; step < steps && stalls < 100; step++) {
+    const B = await loadScope(page, 'buildings');
+    const R = await loadScope(page, 'research');
+    const eff = (code) => (B.levels[code] ?? R.levels[code] ?? 0) + (B.queued[code] ?? 0) + (R.queued[code] ?? 0);
+
+    const need = {};
+    const visit = (code, lvl) => {
+      if (!need[code] || need[code] < lvl) need[code] = lvl;
+      for (const r of graph[code] || []) visit(r.id, r.required);
+    };
+    for (const [code, lvl] of Object.entries(goalMap)) visit(code, lvl);
+
+    const unmet = Object.entries(need).filter(([c, l]) => eff(c) < l);
+    if (unmet.length === 0) { console.log('[*] All goals satisfied.'); break; }
+    const actionable = unmet.find(([c]) => (graph[c] || []).every((r) => eff(r.id) >= r.required));
+    if (!actionable) { console.log('[~] no actionable target (queue/resources); waiting'); stalls++; await sleep(20000); continue; }
+
+    const code = Number(actionable[0]);
+    const isBuilding = B.byCode[code] !== undefined;
+    const scope = isBuilding ? B : R;
+    const query = isBuilding ? 'buildings' : 'research';
+    const it = scope.byCode[code];
+    if (!it) { console.log(`[-] ${code} not on ${query} page; skipping`); stalls++; continue; }
+    if ((it.cost.metal + it.cost.crystal + it.cost.deuterium) === 0) { console.log(`[-] ${it.name} locked (no cost); skipping`); stalls++; continue; }
+    if (!it.hasBuild) { console.log(`[~] ${it.name} queue busy; waiting`); stalls++; await sleep(15000); continue; }
+
+    const res = B.res;
+    if (res.metal < it.cost.metal || res.crystal < it.cost.crystal || res.deuterium < it.cost.deuterium) {
+      console.log(`[~] waiting resources for ${it.name} (need M${it.cost.metal} C${it.cost.crystal} D${it.cost.deuterium})`);
+      stalls++; await sleep(20000); continue;
+    }
+
+    // (re)navigate to the correct scope page and submit.
+    await goto(page, `${GAME_URL}?page=${query}`);
+    const form = await page.$(`#build_${code} form.build_form`);
+    if (!form) { console.log(`[~] no form for ${it.name}; waiting`); stalls++; await sleep(15000); continue; }
+    const lvlInput = await form.$('input[name="lvlup"]');
+    if (lvlInput) await lvlInput.fill(String(it.level + 1));
+    await sleep(200 + Math.random() * 300);
+    const btn = await form.$('button[type="submit"]');
+    if (btn) await btn.click();
+    await sleep(500 + Math.random() * 500);
+    stalls = 0;
+    console.log(`[+] ${query}: ${it.name} L${it.level} -> L${it.level + 1}`);
+  }
+
+  const B = await loadScope(page, 'buildings');
+  const R = await loadScope(page, 'research');
+  const snap = { updatedAt: new Date().toISOString(), account: USER, buildings: B.levels, research: R.levels, resources: B.res };
+  fs.writeFileSync(path.join(DATA_DIR, 'resolve-levels.json'), JSON.stringify(snap, null, 2));
+  console.log('[+] resolve run finished');
+}
+
 async function levels(page, outArg) {
   const data = { updatedAt: new Date().toISOString(), account: USER, buildings: {}, research: {}, ships: {}, defenses: {}, resources: {} };
   const pages = [['buildings', 'buildings'], ['research', 'research'], ['ships', 'shipyard&mode=fleet'], ['defenses', 'shipyard&mode=defense']];
@@ -451,6 +532,7 @@ const cmd = process.argv[2] || 'scan';
 const stepsArg = process.argv.indexOf('--steps');
 const steps = stepsArg > 0 ? parseInt(process.argv[stepsArg + 1], 10) : 30;
 const outArg = (() => { const i = process.argv.indexOf('--out'); return i > 0 ? process.argv[i + 1] : null; })();
+const goalsArg = (() => { const i = process.argv.indexOf('--goals'); return i > 0 ? process.argv[i + 1] : null; })();
 
 await withBrowser(async (page) => {
   if (cmd === 'scan') await scan(page);
@@ -462,6 +544,7 @@ await withBrowser(async (page) => {
   else if (cmd === 'map') await mapPages(page);
   else if (cmd === 'officers') await officerExperiment(page);
   else if (cmd === 'levels') await levels(page, outArg);
+  else if (cmd === 'resolve') { if (!goalsArg) throw new Error('resolve needs --goals <file>'); await resolve(page, goalsArg, steps); }
   else if (cmd === 'login') console.log('[+] login ok');
   else { console.error('Unknown command. Use: scan | build | status | queue | cancel | sats | login'); process.exit(1); }
 }).catch((e) => { console.error('[FATAL]', e.message); process.exit(1); });

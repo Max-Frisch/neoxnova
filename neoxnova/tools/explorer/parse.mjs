@@ -99,6 +99,26 @@ export function parseQueue(html) {
   return out;
 }
 
+// Parse the techtree into a requirement graph: { itemId: [{id, required}] }.
+// Each table row is one item; its third cell holds required_block anchors of
+// the form "Name (Level current / required)".
+export function parseTechtreeGraph(html) {
+  const graph = {};
+  for (const row of html.split('<tr').slice(1)) {
+    const itemM = /Dialog\.info\((\d+)\)/.exec(row);
+    if (!itemM) continue;
+    const itemId = +itemM[1];
+    if (!graph[itemId]) graph[itemId] = [];
+    const blockRe = /required_block[\s\S]*?Dialog\.info\((\d+)\)[\s\S]*?class="text"[^>]*>\s*(\d+)\s*\/\s*(\d+)/g;
+    let m;
+    while ((m = blockRe.exec(row)) !== null) {
+      const id = +m[1], required = +m[3];
+      if (id !== itemId && !graph[itemId].some((r) => r.id === id)) graph[itemId].push({ id, required });
+    }
+  }
+  return graph;
+}
+
 // Best-effort requirement extraction from the techtree page.
 export function parseTechtree(html) {
   const body = html.replace(/<script[\s\S]*?<\/script>/gi, '');
