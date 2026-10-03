@@ -399,6 +399,7 @@ async function status(page) {
 
 async function build(page, steps) {
   const observed = [];
+  const skipped = new Set();
   let built = 0, stalls = 0;
   for (let i = 0; i < steps && stalls < 70; i++) {
     await goto(page, `${GAME_URL}?page=buildings`);
@@ -411,12 +412,12 @@ async function build(page, steps) {
     const queued = {};
     for (const q of parseQueue(html)) { const c = nameToCode[q.name]; if (c) queued[c] = (queued[c] || 0) + 1; }
     const effectiveLevel = (code) => (byCode[code]?.level ?? 0) + (queued[code] ?? 0);
-    const next = BUILD_PLAN.find((p) => effectiveLevel(p.code) < p.target);
-    if (!next) { console.log('[*] Build plan complete.'); break; }
+    const next = BUILD_PLAN.find((p) => !skipped.has(p.code) && effectiveLevel(p.code) < p.target);
+    if (!next) { console.log('[*] Build plan complete (or all remaining targets skipped).'); break; }
 
     const it = byCode[next.code];
     const hasCost = it && (it.cost.metal + it.cost.crystal + it.cost.deuterium) > 0;
-    if (!hasCost) { console.log(`[-] ${next.code} still locked (no cost shown)`); stalls++; await sleep(3000); continue; }
+    if (!hasCost) { console.log(`[-] ${next.code} (${it ? it.name : '?'}) locked; skipping for this run`); skipped.add(next.code); continue; }
     if (!it.hasBuild) { console.log(`[~] build queue busy (no form for ${it.name}); waiting`); stalls++; await sleep(20000); continue; }
     if (res.metal < it.cost.metal || res.crystal < it.cost.crystal || res.deuterium < it.cost.deuterium) {
       console.log(`[~] waiting for resources for ${it.name} (need M${it.cost.metal} C${it.cost.crystal} D${it.cost.deuterium}, have M${res.metal} C${res.crystal} D${res.deuterium})`);
