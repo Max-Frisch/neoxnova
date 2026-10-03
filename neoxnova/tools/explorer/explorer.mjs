@@ -404,6 +404,9 @@ async function resolve(page, goalsPath, steps) {
     if (step === 0) {
       console.log(`[dbg] goalMap=${Object.keys(goalMap).join(',')}`);
       console.log(`[dbg] need=${Object.keys(need).join(',')}`);
+      console.log(`[dbg] B levels>0: ${Object.entries(B.levels).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(',') || 'none'}`);
+      console.log(`[dbg] B byCode has 1=${B.byCode[1] !== undefined},15=${B.byCode[15] !== undefined},31=${B.byCode[31] !== undefined}`);
+      console.log(`[dbg] eff(1)=${eff(1)} eff(4)=${eff(4)} eff(31)=${eff(31)} eff(15)=${eff(15)}`);
     }
 
     const unmet = Object.entries(need).filter(([c, l]) => eff(c) < l);
