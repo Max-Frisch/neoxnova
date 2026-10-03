@@ -404,7 +404,12 @@ async function resolve(page, goalsPath, steps) {
 
     const unmet = Object.entries(need).filter(([c, l]) => eff(c) < l);
     if (unmet.length === 0) { console.log('[*] All goals satisfied.'); break; }
-    const actionable = unmet.find(([c]) => (graph[c] || []).every((r) => eff(r.id) >= r.required));
+    const actionable = unmet.find(([c]) => {
+      // Research implicitly requires a Research Lab (even if the techtree omits it).
+      if (!B.byCode[c] && eff(31) < 1) return false;
+      return (graph[c] || []).every((r) => eff(r.id) >= r.required);
+    });
+    if (step < 6) console.log(`[debug] unmet: ${unmet.slice(0, 8).map(([c, l]) => `${c}(need ${l}, eff ${eff(c)})`).join(', ')}`);
     if (!actionable) { console.log('[~] no actionable target (queue/resources); waiting'); stalls++; await sleep(20000); continue; }
 
     const code = Number(actionable[0]);
