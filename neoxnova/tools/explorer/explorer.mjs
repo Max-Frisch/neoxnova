@@ -436,7 +436,8 @@ async function resolve(page, goalsPath, steps) {
 
     // (re)navigate to the correct scope page and submit.
     await goto(page, `${GAME_URL}?page=${query}`);
-    const form = await page.$(`#build_${code} form.build_form`);
+    const boxId = isBuilding ? `build_${code}` : `research_${code}`;
+    const form = await page.$(`#${boxId} form.build_form`);
     if (!form) { console.log(`[~] no form for ${it.name}; waiting`); stalls++; await sleep(15000); continue; }
     const lvlInput = await form.$('input[name="lvlup"]');
     if (lvlInput) await lvlInput.fill(String(it.level + 1));
