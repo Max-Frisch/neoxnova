@@ -154,6 +154,33 @@ or durations at a known Nanite level with no officers.
   appears, expedition count/speed, expedition resource/fleet/upgrade finds, and
   combat XP. See the premium page's `pblist` (captured in scan output).
 
+## Academy / Online Bonus / Officers (mapped live)
+
+Raw page text saved under `testdata/niburus_map/`.
+
+- **Academy** (`page=academy`): a skill tree with per-branch tiers (I/II/III).
+  Skills cost **Academy points** and are upgraded via GET
+  `?page=academy&mode=up&skil=<id>`; branches reset for 5000 ?? / Antimatter /
+  Dark Matter (50% refund). Confirmed nodes: `1101 Weaponry` +1% Attack/level,
+  `1201 Production speed` +5% mine extraction/level, `1301 Defensive strategy`
+  +1% shields+armour/level; deeper nodes (e.g. Academy of Sciences +1 IRN,
+  Expanding Empire +1 planet) are gated by other nodes. **Academy points can be
+  obtained by donation** (`page=academy&mode=donation`, POST) and from Peaceful
+  levels/achievements (17 observed on one account).
+- **Online Bonus** (`page=bonus`): clicking/visiting grants **Dark Matter +
+  Peaceful XP** (observed: 8,838 DM + 11% / 4 XP). Premium options can raise the
+  XP gained and how often the button appears.
+- **Officers** (`page=officier`): recruit via POST `game.php?page=officer` with
+  `id=601..607` (Geologist/Admiral/Engineer/Technocrat/Constructor/
+  Scientologist/Minister of Defence), each level ~1,000 DM at level 1. Only
+  Geologist + Admiral were unlocked on the test account. **Measured**: Geologist
+  L1→L2 gave ~**+0.17%** to all three resource productions; Admiral L1→L2 had no
+  economic effect on the resources tab (combat only). See
+  `testdata/niburus_officers_experiment.json`.
+- **Energy matters**: after a bad build order the planet hit a 100% energy
+  deficit, which zeroes effective production (and masked the officer delta) until
+  Solar Plants were raised — solar must cover energy before measuring bonuses.
+
 ## Explorer tool
 
 `neoxnova/tools/explorer/` (Node + playwright-core, drives installed Edge):

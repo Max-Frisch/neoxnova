@@ -169,15 +169,15 @@ function resourcesFromPage(html) {
 // Strategy: metal ~2-3 above crystal, deuterium ~3-4 below crystal, solar just
 // high enough for energy. robot factory stays put once shipyard is unlocked.
 const BUILD_PLAN = [
-  { code: 1, target: 30 },  // Metal Mine
-  { code: 2, target: 28 },  // Crystal Mine (metal - 2)
-  { code: 4, target: 30 },  // Solar Plant
-  { code: 3, target: 24 },  // Deuterium Refinery (crystal - 4)
+  { code: 4, target: 33 },  // Solar Plant — fix energy deficit first
+  { code: 1, target: 33 },  // Metal Mine
+  { code: 2, target: 31 },  // Crystal Mine (metal - 2)
+  { code: 3, target: 27 },  // Deuterium Refinery (crystal - 4)
   { code: 22, target: 12 }, // Metal Storage
   { code: 23, target: 12 }, // Crystal Storage
   { code: 24, target: 12 }, // Deuterium Storage
-  { code: 31, target: 3 },  // Research Lab (unlocks research)
-  { code: 21, target: 3 },  // Shipyard (unlocks ships/satellites)
+  { code: 31, target: 3 },  // Research Lab
+  { code: 21, target: 3 },  // Shipyard
   { code: 33, target: 1 },  // Terraformer
 ];
 
@@ -228,6 +228,108 @@ async function queueDump(page) {
     console.log(`\n### '${kw}' @ ${i}`);
     if (i >= 0) console.log(html.slice(Math.max(0, i - 400), i + 700));
   }
+}
+
+const MAP_PAGES = {
+  overview: 'page=overview',
+  resources: 'page=resources',
+  academy: 'page=academy',
+  premium: 'page=premium',
+  senat: 'page=senat',
+  officier: 'page=officier',
+  gubernators: 'page=gubernators',
+  arsenal: 'page=arsenal',
+  bonus: 'page=bonus',
+  market: 'page=market',
+};
+
+async function mapPages(page) {
+  const dir = path.join(DATA_DIR, `map-${Date.now()}`);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [name, q] of Object.entries(MAP_PAGES)) {
+    await goto(page, `${GAME_URL}?${q}`);
+    const html = await page.content();
+    fs.writeFileSync(path.join(dir, `${name}.html`), html);
+    const text = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
+    fs.writeFileSync(path.join(dir, `${name}.txt`), text);
+    const title = (/<title>([^<]*)<\/title>/.exec(html) || [, ''])[1].trim();
+    const dm = /Dark Matter[:\s]*([\d.]+)/i.exec(text);
+    console.log(`  ${name.padEnd(12)} len=${String(html.length).padStart(6)} DM=${dm ? dm[1] : '?'}  title="${title}"`);
+  }
+  console.log(`[+] Saved mapped pages to ${dir}`);
+  return dir;
+}
+
+async function getProduction(page) {
+  await goto(page, `${GAME_URL}?page=resources`);
+  const html = await page.content();
+  // resourceTicker production values are the server-computed effective rates.
+  const prod = [...html.matchAll(/production:\s*([\d.]+)/g)].map((m) => Math.round(parseFloat(m[1])));
+  const text = stripTags(html);
+  const lack = /Lack of energy:\s*(\d+)%/.exec(text);
+  const free = /Free energy:\s*(\d+)%/.exec(text);
+  return {
+    metal: prod[0] || 0, crystal: prod[1] || 0, deuterium: prod[2] || 0,
+    lackEnergy: lack ? +lack[1] : 0, freeEnergy: free ? +free[1] : 0,
+  };
+}
+
+async function officerLevels(page) {
+  await goto(page, `${GAME_URL}?page=officier`);
+  const text = stripTags(await page.content());
+  const out = {};
+  for (const m of text.matchAll(/(Geologist|Admiral|Engineer|Technocrat|Constructor|Scientologist|Minister of Defence)\s*\(Level\s*(\d+)\/(\d+)\)/g)) {
+    out[m[1]] = { level: +m[2], max: +m[3] };
+  }
+  const dm = /Dark Matter[:\s]*([\d.]+)/i.exec(text);
+  out._dm = dm ? num(dm[1]) : null;
+  return out;
+}
+
+async function recruitOfficer(page, id) {
+  await goto(page, `${GAME_URL}?page=officier`);
+  const input = await page.$(`form[action="game.php?page=officier"] input[name="id"][value="${id}"]`);
+  if (!input) return false;
+  const form = await input.evaluateHandle((el) => el.closest('form'));
+  const btn = await form.asElement().$('button[type="submit"]');
+  if (!btn) return false;
+  await btn.click();
+  await sleep(900 + Math.random() * 600);
+  return true;
+}
+
+const OFFICERS = [[601, 'Geologist'], [602, 'Admiral'], [603, 'Engineer'], [604, 'Technocrat'], [605, 'Constructor'], [606, 'Scientologist'], [607, 'Minister of Defence']];
+
+async function officerExperiment(page) {
+  const results = [];
+  let prod = await getProduction(page);
+  let levels = await officerLevels(page);
+  console.log(`[start] production=${JSON.stringify(prod)}`);
+  console.log(`[start] DM=${levels._dm} officers=${JSON.stringify(Object.fromEntries(Object.entries(levels).filter(([k]) => k !== '_dm')))}`);
+  for (const [id, name] of OFFICERS) {
+    const beforeLvl = levels[name]?.level ?? 0;
+    const before = prod;
+    const beforeLevels = levels;
+    const ok = await recruitOfficer(page, id);
+    if (!ok) { console.log(`[-] ${name}: could not recruit`); continue; }
+    levels = await officerLevels(page);
+    prod = await getProduction(page);
+    const afterLvl = levels[name]?.level ?? 0;
+    const rec = {
+      id, name, from: beforeLvl, to: afterLvl, dmBefore: beforeLevels._dm, dmAfter: levels._dm,
+      prodBefore: before, prodAfter: prod,
+      deltaMetalPct: before.metal ? +(((prod.metal - before.metal) / before.metal) * 100).toFixed(3) : null,
+      deltaCrystalPct: before.crystal ? +(((prod.crystal - before.crystal) / before.crystal) * 100).toFixed(3) : null,
+      deltaDeutPct: before.deuterium ? +(((prod.deuterium - before.deuterium) / before.deuterium) * 100).toFixed(3) : null,
+      deltaFreeEnergy: prod.freeEnergy - before.freeEnergy,
+    };
+    results.push(rec);
+    console.log(`[+] ${name} L${beforeLvl}->L${afterLvl} DM ${beforeLevels._dm}->${levels._dm}  Δprod M${rec.deltaMetalPct}% C${rec.deltaCrystalPct}% D${rec.deltaDeutPct}%  ΔfreeEnergy ${rec.deltaFreeEnergy}  (prod M${prod.metal} C${prod.crystal} D${prod.deuterium})`);
+  }
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const out = path.join(DATA_DIR, `officers-${Date.now()}.json`);
+  fs.writeFileSync(out, JSON.stringify({ results }, null, 2));
+  console.log(`[+] Wrote ${out}`);
 }
 
 async function status(page) {
@@ -309,6 +411,8 @@ await withBrowser(async (page) => {
   else if (cmd === 'queue') await queueDump(page);
   else if (cmd === 'cancel') await cancelQueue(page);
   else if (cmd === 'sats') await buildSatellites(page, steps);
+  else if (cmd === 'map') await mapPages(page);
+  else if (cmd === 'officers') await officerExperiment(page);
   else if (cmd === 'login') console.log('[+] login ok');
   else { console.error('Unknown command. Use: scan | build | status | queue | cancel | sats | login'); process.exit(1); }
 }).catch((e) => { console.error('[FATAL]', e.message); process.exit(1); });

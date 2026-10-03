@@ -1,0 +1,56 @@
+{
+  "results": [
+    {
+      "id": 601,
+      "name": "Geologist",
+      "from": 1,
+      "to": 2,
+      "dmBefore": 1150,
+      "dmAfter": 1322,
+      "prodBefore": {
+        "metal": 1350228221,
+        "crystal": 375851143,
+        "deuterium": 109043717,
+        "lackEnergy": 0,
+        "freeEnergy": 0
+      },
+      "prodAfter": {
+        "metal": 1352613458,
+        "crystal": 376494054,
+        "deuterium": 109222658,
+        "lackEnergy": 0,
+        "freeEnergy": 0
+      },
+      "deltaMetalPct": 0.177,
+      "deltaCrystalPct": 0.171,
+      "deltaDeutPct": 0.164,
+      "deltaFreeEnergy": 0
+    },
+    {
+      "id": 602,
+      "name": "Admiral",
+      "from": 1,
+      "to": 2,
+      "dmBefore": 1322,
+      "dmAfter": 1322,
+      "prodBefore": {
+        "metal": 1352613458,
+        "crystal": 376494054,
+        "deuterium": 109222658,
+        "lackEnergy": 0,
+        "freeEnergy": 0
+      },
+      "prodAfter": {
+        "metal": 1352613458,
+        "crystal": 376494054,
+        "deuterium": 109222658,
+        "lackEnergy": 0,
+        "freeEnergy": 0
+      },
+      "deltaMetalPct": 0,
+      "deltaCrystalPct": 0,
+      "deltaDeutPct": 0,
+      "deltaFreeEnergy": 0
+    }
+  ]
+}
