@@ -91,6 +91,31 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
 - Raw network captures (`*.HAR`) are gitignored and may contain session cookies;
   never commit them.
 
+## Explorer bots (live game automation) — `neoxnova/tools/explorer/`
+- Prefer the browser-less **`httpbot.mjs`** (Node `fetch` + cookie jar, ~40 MB);
+  `explorer.mjs` is the Playwright version (Edge/Chromium, ~300 MB) — use it only
+  for debugging/UI inspection. Run from `tools/explorer/`.
+- Secrets (gitignored): `neoxnova/secrets/explorer.env` with `NIBURU_USER/PASS`
+  (account #1) and `NIBURU_SECOND_USER/PASS` (account #2); SSH key + config in
+  `neoxnova/secrets/ssh/`.
+- Commands: `node --max-old-space-size=96 httpbot.mjs levels --out data/levels.json`;
+  `... resolve --goals plans/account2-goals.json --steps 5000`; `... dump "page=research"`.
+  `explorer.mjs` additionally has `scan|status|build|cancel|sats|map|officers`.
+- Action POSTs: buildings `{cmd:insert,building,lvlup}`, research
+  `{cmd:insert,tech,lvlup}`, shipyard `{fmenge[<code>]:N}`. Research boxes are
+  `#research_<id>` (buildings `#build_<id>`).
+- Requirements come from `page=techtree`, parsed into a graph; `resolve`
+  recursively builds/researches prerequisites and skips locked targets.
+- Account #2 runs on an Azure VM (Ubuntu, 2 vCPU/1 GB; tmux) — never run a
+  browser there, only `httpbot.mjs`. Refresh `data/account2-levels.json`
+  (gitignored) with `refresh-levels.ps1`.
+
+## Session hygiene (token savings)
+- Prefer a fresh OpenCode session per task; long transcripts are re-sent every
+  turn. This file + `docs/` are the durable memory — put rules here, not in chat.
+- Reference files by path; never paste HARs/large JSON. Captures/secrets stay gitignored.
+- Run long jobs detached (tmux/nohup/Start-Process) and check with short `tail`s.
+
 ## Editing gotchas
 - lib/pq uses the extended query protocol once parameters are present, which
   **rejects multiple statements in one `Exec`**. Use separate `ExecContext`
