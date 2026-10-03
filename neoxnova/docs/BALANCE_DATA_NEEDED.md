@@ -125,6 +125,35 @@ These appear in the capture but their effects are unknown:
   extraction researches at 22. Note: achievements award Antimatter, not Dark
   Matter directly.
 
+## Duration calibration (updated)
+
+Base build-time constant fitted from the **fresh Bratwurst** account (Robotics 15,
+Nanite 0) over 6 samples: `buildingTimeCalibration = 1.20` in
+`internal/game/catalog.go`. The older officer/peaceful-buffed Fogigy capture runs
+**~1.88x faster** than this base — so its durations are not directly comparable.
+
+Still unconfirmed: the exact Nanite-Factory speedup exponent (we only have
+Nanite 0 and Nanite 11 samples, and the latter is confounded by officer bonuses).
+To separate them we need a fresh-account capture after building a Nanite Factory,
+or durations at a known Nanite level with no officers.
+
+## Arsenal / Academy / endgame
+
+- **Arsenal** (`page=arsenal`, raw text in `testdata/niburus_arsenal.txt`):
+  expedition-found **upgrades** give flat bonuses per category, e.g. weapon types
+  (Laser +0.75, Ion +0.75, Gravitational +0.75, Plasma +0.75), armor (Light +0.6,
+  Medium +0.5, Heavy +0.4), shields (Light +0.6, ...), engines (Jet +0.6, ...).
+  Upgrades become findable at specific fleet-point thresholds (~5k / 25k / 150k).
+- **Academy**: not captured (only appears as a nav link) — needs a `page=academy`
+  capture. Academy points likely come from Peaceful levels and/or Achievements and
+  give additive (or multiplicative) combat bonuses; vital for beating pirates and
+  aliens. TBD.
+- **Online Bonus** button (above "Premium account"): appears periodically and
+  grants Dark Matter + Peaceful-level experience.
+- **Premium** options affect: peaceful XP gain, how often the Online Bonus button
+  appears, expedition count/speed, expedition resource/fleet/upgrade finds, and
+  combat XP. See the premium page's `pblist` (captured in scan output).
+
 ## Explorer tool
 
 `neoxnova/tools/explorer/` (Node + playwright-core, drives installed Edge):

@@ -9,7 +9,7 @@ import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseInfo, parseTechtree, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseInfo, parseTechtree, parseQueue, stripTags, num } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -181,28 +181,27 @@ const BUILD_PLAN = [
   { code: 33, target: 1 },  // Terraformer
 ];
 
+async function queueRowCount(page) {
+  return page.evaluate(() => document.querySelectorAll('#buildlist .element_row').length).catch(() => -1);
+}
+
 async function cancelQueue(page) {
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     await goto(page, `${GAME_URL}?page=buildings`);
-    const forms = await page.$$('#buildlist form.build_form');
-    let clicked = false;
-    for (const f of forms) {
-      const cancelInput = await f.$('input[name="cmd"][value="cancel"]');
-      if (!cancelInput) continue;
-      const btn = await f.$('button.del, button[type="submit"]');
-      if (!btn) continue;
-      await btn.click();
-      clicked = true;
-      break;
-    }
-    if (!clicked) { console.log('[*] Queue empty.'); break; }
-    await sleep(700 + Math.random() * 400);
-    // Report how many queue rows remain.
-    const rows = await page.$$('#buildlist .element_row');
-    console.log(`[-] Cancelled one queue item (${rows.length} rows seen before click)`);
+    const before = await queueRowCount(page);
+    const submitted = await page.evaluate(() => {
+      const forms = [...document.querySelectorAll('#buildlist form')];
+      const f = forms.find((x) => x.querySelector('input[name="cmd"][value="cancel"]'));
+      if (!f) return false;
+      f.submit();
+      return true;
+    });
+    if (!submitted) { console.log(`[*] Queue empty (rows=${before}).`); break; }
+    await sleep(600 + Math.random() * 500);
+    console.log(`[-] Cancelled one item (rows before=${before})`);
   }
   await goto(page, `${GAME_URL}?page=buildings`);
-  console.log('[*] Remaining timers:', (await page.content()).match(/[0-9]{2}h [0-9]{2}m [0-9]{2}s/g) || []);
+  console.log(`[*] Remaining queue rows: ${await queueRowCount(page)}`);
 }
 
 async function buildSatellites(page, count) {
@@ -238,7 +237,7 @@ async function status(page) {
     const items = parseBuildPage(html);
     const shown = items.filter((it) => it.level > 0 || it.hasBuild);
     console.log(`\n--- ${pageNameStr} ---`);
-    for (const it of shown) console.log(`${String(it.code).padStart(3)} ${it.name.padEnd(28)} L${it.level} build=${it.hasBuild ? 'Y' : 'n'} M${it.cost.metal} C${it.cost.crystal}`);
+    for (const it of shown) console.log(`${String(it.code).padStart(3)} ${it.name.padEnd(28)} L${String(it.level).padStart(3)} M${it.cost.metal} C${it.cost.crystal} D${it.cost.deuterium} T${it.durationSec}`);
     const queue = [...html.matchAll(/class="[^"]*\bonlist\b[^"]*"[^>]*>([\s\S]{0,120}?)<\//g)].map((m) => stripTags(m[1])).filter((s) => s && s.length > 2).slice(0, 12);
     const timers = [...html.matchAll(/[0-9]{2}h [0-9]{2}m [0-9]{2}s|[0-9]{2}m [0-9]{2}s/g)].map((m) => m[0]);
     console.log(`  queue-labels: ${JSON.stringify(queue)}`);
@@ -260,7 +259,11 @@ async function build(page, steps) {
     const res = resourcesFromPage(html);
     const items = parseBuildPage(html);
     const byCode = Object.fromEntries(items.map((it) => [it.code, it]));
-    const next = BUILD_PLAN.find((p) => (byCode[p.code]?.level ?? 0) < p.target);
+    const nameToCode = Object.fromEntries(items.map((it) => [it.name, it.code]));
+    const queued = {};
+    for (const q of parseQueue(html)) { const c = nameToCode[q.name]; if (c) queued[c] = (queued[c] || 0) + 1; }
+    const effectiveLevel = (code) => (byCode[code]?.level ?? 0) + (queued[code] ?? 0);
+    const next = BUILD_PLAN.find((p) => effectiveLevel(p.code) < p.target);
     if (!next) { console.log('[*] Build plan complete.'); break; }
 
     const it = byCode[next.code];

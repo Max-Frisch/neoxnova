@@ -90,6 +90,15 @@ export function parseInfo(html) {
   return { name, stats, description: text.slice(0, 1200) };
 }
 
+// Parse the active construction queue rows: [{ name, level }].
+export function parseQueue(html) {
+  const out = [];
+  const re = /class="band_process"[\s\S]*?<span>\s*\d+\.\s*<\/span>\s*([^<]+?)\s+(\d+)\s*</g;
+  let m;
+  while ((m = re.exec(html)) !== null) out.push({ name: m[1].trim(), level: parseInt(m[2], 10) });
+  return out;
+}
+
 // Best-effort requirement extraction from the techtree page.
 export function parseTechtree(html) {
   const body = html.replace(/<script[\s\S]*?<\/script>/gi, '');

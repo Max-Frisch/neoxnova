@@ -1,0 +1,138 @@
+id="content">
+Arsenal
+Market
+Sell Upgrades
+?
+Laser weapons
+Bonus:
++0%
+(+0.75)
+Avaiable:
+0
+Absent
+Light armor
+Bonus:
++0%
+(+0.6)
+Avaiable:
+0
+Absent
+Ion cannon
+Bonus:
++0%
+(+0.75)
+Avaiable:
+0
+Absent
+Medium armor
+Bonus:
++0%
+(+0.5)
+Avaiable:
+0
+Absent
+Gravitational gun
+Bonus:
++0%
+(+0.75)
+Avaiable:
+0
+Absent
+Heavy armor
+Bonus:
++0%
+(+0.4)
+Avaiable:
+0
+Absent
+Plasma gun
+Bonus:
++0%
+(+0.75)
+Avaiable:
+0
+Absent
+Light shields
+Bonus:
++0%
+(+0.6)
+Avaiable:
+0
+Absent
+Jet engine
+Bonus:
++0%
+(+0.6)
+Avaiable:
+0
+Absent
+Medium shields
+Bonus:
++0%
+(+0.5)
+Avaiable:
+0
+Absent
+Impulse engine
+Bonus:
++0%
+(+0.5)
+Avaiable:
+0
+Absent
+Heavy shields
+Bonus:
++0%
+(+0.4)
+Avaiable:
+0
+Absent
+Hyperspace engine
+Bonus:
++0%
+(+0.4)
+Avaiable:
+0
+Absent
+Light conveyor
+Bonus:
++0%
+(+0.6)
+Avaiable:
+0
+Absent
+Average conveyor
+Bonus:
++0%
+(+0.5)
+Avaiable:
+0
+Absent
+Heavy conveyor
+Bonus:
++0%
+(+0.4)
+Avaiable:
+0
+Absent
+Metal production
+Bonus:
++0%
+(+0.5)
+Avaiable:
+0
+Absent
+Crystal production
+Bonus:
++0%
+(+0.45)
+Avaiable:
+0
+Absent
+Deuterium production
+Bonus:
++0%
+(+0.4)
+Avaiable:
+0
+Absent

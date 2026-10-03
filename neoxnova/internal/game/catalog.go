@@ -58,8 +58,12 @@ type UnitDef struct {
 // time-calibration constants fitted from the niburuspace.com HAR capture.
 // See docs/BALANCE_DATA_NEEDED.md — these are empirical and should be refined
 // with captures at varying Robotics/Nanite/University levels.
+// buildingTimeCalibration fitted from the fresh Bratwurst account (Robotics 15,
+// Nanite 0) across 6 samples: T = (M+C)/(2500*(1+robotics)) * 0.5^nanite
+// * 3600/game_speed * calibration. The buffed Fogigy capture runs ~1.88x faster
+// (officer / peaceful-level bonuses), which is not modelled here.
 const (
-	buildingTimeCalibration = 2.25
+	buildingTimeCalibration = 1.20
 	researchTimeCalibration = 0.0156
 	unitTimeCalibration     = 1.0
 )
