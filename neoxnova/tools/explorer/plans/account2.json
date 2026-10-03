@@ -1,0 +1,14 @@
+[
+  { "code": 14, "target": 11 },
+  { "code": 21, "target": 8 },
+  { "code": 15, "target": 1 },
+  { "code": 22, "target": 8 },
+  { "code": 23, "target": 8 },
+  { "code": 24, "target": 8 },
+  { "code": 1, "target": 22 },
+  { "code": 2, "target": 20 },
+  { "code": 3, "target": 17 },
+  { "code": 4, "target": 22 },
+  { "code": 21, "target": 12 },
+  { "code": 31, "target": 12 }
+]

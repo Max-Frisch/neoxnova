@@ -173,7 +173,7 @@ function resourcesFromPage(html) {
 // Economy-first target plan: raise production + storage, then prerequisites.
 // Strategy: metal ~2-3 above crystal, deuterium ~3-4 below crystal, solar just
 // high enough for energy. robot factory stays put once shipyard is unlocked.
-const BUILD_PLAN = [
+let BUILD_PLAN = [
   { code: 31, target: 5 },  // Research Lab (unlocks research + officers)
   { code: 21, target: 8 },  // Shipyard (needed for Nanite + ships)
   { code: 14, target: 16 }, // Robot Factory
@@ -187,6 +187,13 @@ const BUILD_PLAN = [
   { code: 24, target: 12 }, // Deuterium Storage
   { code: 33, target: 1 },  // Terraformer
 ];
+
+// Optional plan override: EXPLORER_PLAN=plans/account2.json
+const planFile = process.env.EXPLORER_PLAN;
+if (planFile && fs.existsSync(planFile)) {
+  BUILD_PLAN = JSON.parse(fs.readFileSync(planFile, 'utf8'));
+  console.log(`[plan] loaded ${planFile} (${BUILD_PLAN.length} targets)`);
+}
 
 async function queueRowCount(page) {
   return page.evaluate(() => document.querySelectorAll('#buildlist .element_row').length).catch(() => -1);
