@@ -257,6 +257,11 @@ async function cmdResolve(goalsPath, steps, cpArg) {
     const D = await scope('page=shipyard&mode=defense' + cpq);
     prune(pendB, B.levels); prune(pendR, R.levels);
     const eff = (c) => (B.levels[c] ?? R.levels[c] ?? 0) + (B.queued[c] ?? 0) + (R.queued[c] ?? 0);
+    // Adopt current levels for auto-grown codes so a restart resumes where the
+    // colony actually is instead of re-climbing from the plan's low baseline.
+    for (const c of [...gradual, ...bumpBuilders]) {
+      if ((goalTargets.get(c) || 0) < eff(c)) goalTargets.set(c, eff(c));
+    }
 
     // Map (not object) so insertion order survives for integer-like keys.
     const need = new Map();
@@ -376,7 +381,7 @@ async function cmdResolve(goalsPath, steps, cpArg) {
 
     if (!bld && !tech && !sats && !unitTasks.length) {
       stalls++;
-      if (stalls === 1) {
+      if (stalls === 1 && !pendB.size && !Object.keys(B.queued).length) {
         console.log(`[debug] unmet=[${unmet.map(([c, l]) => `${c}:${eff(c)}/${l}`).join(' ')}] `
           + `pendB=${pendB.size} pendR=${pendR.size} pendU=${pendU.size} `
           + `queuedB=${JSON.stringify(B.queued)} queuedR=${JSON.stringify(R.queued)} `
