@@ -285,7 +285,13 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       const it = R.byCode[Number(c)];
       return it ? it.durationSec > maxResearchSec : false;
     };
-    const unmet = [...need.entries()].filter(([c, l]) => eff(c) < l && !isSlowResearch(c));
+    // "unmet" = targets that are actionable now. Prerequisite-blocked targets are
+    // excluded so they cannot stall the gradual growth; they stay in `need` and
+    // get built once their prerequisites are satisfied (e.g. conveyors waiting
+    // on Nanite).
+    const unmet = [...need.entries()].filter(([c, l]) =>
+      eff(c) < l && !isSlowResearch(c) &&
+      (graph[c] || []).every((r) => eff(r.id) >= r.required));
     // Unit build tasks (ships/defenses), independent of the building/research queues.
     const unitHtml = (scope) => (scope === 'fleet' ? S.html : D.html);
     const unitTasks = [];
@@ -302,15 +308,33 @@ async function cmdResolve(goalsPath, steps, cpArg) {
     if (unmet.length === 0 && !unitsPending && !(energy !== null && energy < 0)) {
       if (gradual.length || bumpBuilders.length) {
         const bumped = [];
+        const capOf = (c) => Number(caps[c] != null ? caps[c] : gradualCap);
         const bump = (c, tag) => {
           const isB = B.byCode[Number(c)] !== undefined;
           const it = isB ? null : R.byCode[Number(c)];
           if (!isB && it && it.durationSec > maxResearchSec) return; // long research: don't grow it
           const cur = goalTargets.get(c) || 0;
-          const cap = Number(caps[c] != null ? caps[c] : gradualCap);
+          const cap = capOf(c);
           if (cur < cap) { goalTargets.set(c, cur + 1); bumped.push(`${c}${tag}->${cur + 1}`); }
         };
-        for (const c of gradual) bump(c, '');
+        const [robotC, naniteC] = bumpBuilders;
+        for (const c of gradual) {
+          if (c === robotC || c === naniteC) continue; // Robot/Nanite handled below
+          bump(c, '');
+        }
+        // Robot/Nanite are the builders: Robot drives, Nanite trails by 11
+        // (floor 1, capped). Growing them here (not only on slow builds) means the
+        // plan keeps progressing until their caps are reached instead of stopping
+        // once the economy caps are hit.
+        const robotIt = robotC ? B.byCode[Number(robotC)] : null;
+        if (robotIt) {
+          const robotTarget = Math.min((goalTargets.get(robotC) || robotIt.level) + 1, capOf(robotC));
+          if ((goalTargets.get(robotC) || 0) < robotTarget) { goalTargets.set(robotC, robotTarget); bumped.push(`${robotC}->${robotTarget}`); }
+          if (naniteC) {
+            const naniteTarget = Math.max(1, Math.min(robotTarget - 11, capOf(naniteC)));
+            if ((goalTargets.get(naniteC) || 0) < naniteTarget) { goalTargets.set(naniteC, naniteTarget); bumped.push(`${naniteC}->${naniteTarget}`); }
+          }
+        }
         if (bumped.length) { console.log(`[+] gradual bump: ${bumped.join(', ')}`); await sleep(gradualWaitMs); continue; }
       }
       console.log('[*] All goals satisfied.'); break;
