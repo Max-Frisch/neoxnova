@@ -1,0 +1,8 @@
+[
+  { "id": "rfshots-207",   "notes": "1 Battleship vs 5000 sats (rf 25)", "attacker": {"109": 0, "110": 0, "111": 0, "207": 1}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} },
+  { "id": "rfshots-216",   "notes": "1 Black Moon vs 5000 sats (rf 350)", "attacker": {"109": 0, "110": 0, "111": 0, "216": 1}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} },
+  { "id": "rfshots-225",   "notes": "1 Galleon vs 5000 sats (rf 125)", "attacker": {"109": 0, "110": 0, "111": 0, "225": 1}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} },
+  { "id": "rfshots-215",   "notes": "1 Battle Cruiser vs 5000 sats (rf 50)", "attacker": {"109": 0, "110": 0, "111": 0, "215": 1}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} },
+  { "id": "rfshots-204",   "notes": "1 Light Fighter vs 5000 sats (no rf)", "attacker": {"109": 0, "110": 0, "111": 0, "204": 1}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} },
+  { "id": "rfshots-207x10", "notes": "10 Battleship vs 5000 sats (rf 25)", "attacker": {"109": 0, "110": 0, "111": 0, "207": 10}, "defender": {"1": 1, "2": 1, "3": 1, "212": 5000} }
+]

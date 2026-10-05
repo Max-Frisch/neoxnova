@@ -16,7 +16,18 @@ var (
 	ErrNoFields              = errors.New("not enough fields")
 	ErrUnknownCode           = errors.New("unknown build code")
 	ErrInvalidQuantity       = errors.New("invalid quantity")
+	ErrNoobProtection        = errors.New("target is protected by the noob-protection points ratio")
+	ErrNoTarget              = errors.New("mission requires an existing target celestial")
+	ErrUserExists            = errors.New("username or email already registered")
+	ErrInvalidCredentials    = errors.New("invalid username or password")
+	ErrCannotAbandonHome     = errors.New("the homeworld cannot be abandoned")
+	ErrLastPlanet            = errors.New("cannot abandon your last planet")
+	ErrFleetInbound          = errors.New("cannot abandon a planet with active fleets")
 )
+
+// NoobProtectionRatio is the maximum allowed points ratio (in either direction)
+// between attacker and defender, learned from the reference server (~4:1).
+const NoobProtectionRatio = 4
 
 type InsufficientShipsError struct {
 	ShipCode  string

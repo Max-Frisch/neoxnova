@@ -17,6 +17,81 @@ func NewPlanetStore(db *sql.DB) *PlanetStore {
 	return &PlanetStore{db: db}
 }
 
+// SlotLockDuration is how long a position stays locked after a planet is
+// abandoned before it can be colonised again (global per slot).
+var SlotLockDuration = 24 * time.Hour
+
+// AbandonPlanet deletes a planet the user owns and locks its slot. The
+// homeworld (the user's oldest planet) and the last remaining planet cannot be
+// abandoned, and no fleets may be in flight to or from it.
+func (s *PlanetStore) AbandonPlanet(ctx context.Context, planetID, userID int64) error {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var (
+		owner       sql.NullInt64
+		universe    string
+		g, sys, pos int
+		objectType  string
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id, universe_id::text, galaxy, system, position, object_type
+		FROM celestial_objects WHERE id = $1 FOR UPDATE
+	`, planetID).Scan(&owner, &universe, &g, &sys, &pos, &objectType)
+	if err == sql.ErrNoRows {
+		return ErrNotFound
+	} else if err != nil {
+		return err
+	}
+	if !owner.Valid || owner.Int64 != userID || objectType != "PLANET" {
+		return ErrNotFound
+	}
+
+	var planetCount int
+	var homeID sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*), MIN(id) FROM celestial_objects WHERE user_id = $1 AND object_type = 'PLANET'
+	`, userID).Scan(&planetCount, &homeID); err != nil {
+		return err
+	}
+	if planetCount <= 1 {
+		return ErrLastPlanet
+	}
+	if homeID.Valid && planetID == homeID.Int64 {
+		return ErrCannotAbandonHome
+	}
+
+	var fleetBusy bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM fleets
+			WHERE phase IN ('OUTBOUND', 'HOLDING', 'RETURNING')
+			  AND (origin_id = $1 OR target_id = $1)
+		)
+	`, planetID).Scan(&fleetBusy); err != nil {
+		return err
+	}
+	if fleetBusy {
+		return ErrFleetInbound
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id = $1`, planetID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO coordinate_locks (universe_id, galaxy, system, position, locked_until, reason)
+		VALUES ($1, $2, $3, $4, $5, 'abandoned')
+		ON CONFLICT (universe_id, galaxy, system, position)
+		DO UPDATE SET locked_until = EXCLUDED.locked_until, reason = EXCLUDED.reason
+	`, universe, g, sys, pos, time.Now().Add(SlotLockDuration)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // UpdateResources runs the continuous resource accumulator and returns the fresh state.
 func (s *PlanetStore) UpdateResources(ctx context.Context, planetID string) (float64, float64, float64, time.Time, error) {
 	var metal, crystal, deut float64

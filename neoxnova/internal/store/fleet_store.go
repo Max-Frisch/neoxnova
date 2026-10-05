@@ -59,6 +59,39 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 		return DispatchResult{}, err
 	}
 
+	// Missions that act on a celestial must have one at the destination; only
+	// COLONIZE (and deliberate HOLD/EXPEDITION) may target empty space. Without
+	// this, the fleet would never resolve (see AGENTS "empty-space targets").
+	switch req.Mission {
+	case models.MissionAttack, models.MissionTransport, models.MissionDeploy,
+		models.MissionRecycle, models.MissionEspionage:
+		if !targetID.Valid {
+			return DispatchResult{}, ErrNoTarget
+		}
+	}
+
+	// Noob protection: attacks are only allowed within a ~4:1 points ratio in
+	// either direction (learned from the reference server).
+	if req.Mission == models.MissionAttack && targetID.Valid {
+		var defenderOwner sql.NullInt64
+		if err := tx.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, targetID.Int64).Scan(&defenderOwner); err != nil {
+			return DispatchResult{}, err
+		}
+		if defenderOwner.Valid && defenderOwner.Int64 != userID {
+			atkPoints, err := PlayerPoints(ctx, tx, userID)
+			if err != nil {
+				return DispatchResult{}, err
+			}
+			defPoints, err := PlayerPoints(ctx, tx, defenderOwner.Int64)
+			if err != nil {
+				return DispatchResult{}, err
+			}
+			if atkPoints > defPoints*NoobProtectionRatio || defPoints > atkPoints*NoobProtectionRatio {
+				return DispatchResult{}, ErrNoobProtection
+			}
+		}
+	}
+
 	for shipCode, count := range req.Ships {
 		var available int64
 		err := tx.QueryRowContext(ctx, `
@@ -81,15 +114,22 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 		}
 	}
 
+	// Engine technologies speed up their class of ships (+10%/level).
+	var combustion, impulse, hyperspace int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(level) FILTER (WHERE tech_code = 'combustion_drive'), 0),
+		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'impulse_drive'), 0),
+		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'hyperspace_drive'), 0)
+		FROM user_technologies WHERE user_id = $1
+	`, userID).Scan(&combustion, &impulse, &hyperspace); err != nil {
+		return DispatchResult{}, err
+	}
+
 	dist := game.CalculateCoordinateDistance(oG, oS, oP, req.Target.Galaxy, req.Target.System, req.Target.Position)
-	baseSpeed := 10000 // default battleship baseline
+	baseSpeed := game.FleetMaxSpeed(req.Ships, combustion, impulse, hyperspace)
 	durationSecs := game.CalculateFlightDuration(dist, baseSpeed, req.SpeedPercent, fleetSpeed)
 
-	var totalShipCount int64
-	for _, c := range req.Ships {
-		totalShipCount += c
-	}
-	fuelBurn := game.CalculateDeuteriumConsumption(totalShipCount, 500, dist)
+	fuelBurn := game.CalculateDeuteriumConsumption(game.FleetFuelBase(req.Ships), dist, req.SpeedPercent)
 
 	if originDeut < float64(fuelBurn) {
 		return DispatchResult{}, &InsufficientFuelError{Needed: fuelBurn}
@@ -105,7 +145,7 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	now := time.Now()
 	arrivalTime := now.Add(time.Duration(durationSecs) * time.Second)
 	var holdingEnd sql.NullTime
-	if req.Mission == models.MissionExpedition && req.HoldingHours > 0 {
+	if (req.Mission == models.MissionExpedition || req.Mission == models.MissionHold) && req.HoldingHours > 0 {
 		holdingEnd = sql.NullTime{Time: arrivalTime.Add(time.Duration(req.HoldingHours) * time.Hour), Valid: true}
 	}
 	returnTime := arrivalTime.Add(time.Duration(durationSecs) * time.Second)

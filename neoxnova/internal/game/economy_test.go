@@ -55,7 +55,7 @@ func TestRecomputeProduction(t *testing.T) {
 		"metal_mine": 10, "crystal_mine": 8,
 		"deuterium_synthesizer": 6, "solar_plant": 12,
 	}
-	eco := RecomputeProduction(levels, 40, 1.0)
+	eco := RecomputeProduction(levels, 40, 1.0, 0)
 	approx(t, "metal", eco.MetalPerHour, 778.122738030)
 	approx(t, "crystal", eco.CrystalPerHour, 342.9742096)
 	approx(t, "deut", eco.DeutPerHour, 136.0558848)
@@ -64,7 +64,7 @@ func TestRecomputeProduction(t *testing.T) {
 }
 
 func TestRecomputeProductionEnergyDeficit(t *testing.T) {
-	eco := RecomputeProduction(map[string]int{"metal_mine": 30}, 40, 1.0)
+	eco := RecomputeProduction(map[string]int{"metal_mine": 30}, 40, 1.0, 0)
 	if eco.EnergyMax != 0 {
 		t.Fatalf("energyMax = %v, want 0", eco.EnergyMax)
 	}
@@ -78,8 +78,8 @@ func TestRecomputeProductionResourceSpeed(t *testing.T) {
 		"metal_mine": 10, "crystal_mine": 8,
 		"deuterium_synthesizer": 6, "solar_plant": 12,
 	}
-	base := RecomputeProduction(levels, 40, 1.0)
-	scaled := RecomputeProduction(levels, 40, 10000.0)
+	base := RecomputeProduction(levels, 40, 1.0, 0)
+	scaled := RecomputeProduction(levels, 40, 10000.0, 0)
 	approx(t, "metal x10000", scaled.MetalPerHour, base.MetalPerHour*10000)
 	approx(t, "crystal x10000", scaled.CrystalPerHour, base.CrystalPerHour*10000)
 	approx(t, "deut x10000", scaled.DeutPerHour, base.DeutPerHour*10000)

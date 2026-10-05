@@ -37,11 +37,14 @@ SELECT setval(
     GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), 1)
 );
 
+-- Dev password for the seeded commander is "commander-dev-pass"
+-- (regenerate via: go run ./cmd/hashpw 'your-password').
 INSERT INTO users (universe_id, username, email, password_hash, dark_matter)
-SELECT id, 'commander', 'commander@neoxnova.local', 'seed-not-a-real-hash', 25000
+SELECT id, 'commander', 'commander@neoxnova.local',
+       'pbkdf2_sha256$600000$L5s8bx0R/Xpb+Cl/DRhVqg$IKf0HjYPPk/HN4p7JsX5uJB8iKFb+oR2CVy79bY94jo', 25000
 FROM universes
 WHERE code_name = 'universe_6_niburu'
-ON CONFLICT (universe_id, username) DO NOTHING;
+ON CONFLICT (universe_id, username) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- 3. Homeworld with starting resources (id = 1 for deterministic URLs) -------
 INSERT INTO celestial_objects (

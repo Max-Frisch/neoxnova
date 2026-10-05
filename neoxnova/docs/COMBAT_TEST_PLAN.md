@@ -26,27 +26,40 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
 Gating
 
-- [ ] **C0** Gate check: points ratio inside ~4:1 both ways, bash limit per
-      destination determined, targets chosen, moonless confirmation.
+- [x] **C0** Gate check: points ratio 2.23:1 (passes), targets chosen + moonless
+      confirmed, bash limit not exhausted (≤1 strike per destination so far).
 
 Ungated (can run in parallel with the colony build-out; do NOT need the gate)
 
-- [ ] **S1** Rapid-fire exact extra-shot rule + chain (simulator sweeps).
-- [ ] **S2** Exact bounce-threshold operator (simulator).
-- [ ] **S3** Rapid-fire shot cap (simulator, extreme RF).
+- [x] **S1** Rapid-fire extra-shot rule + chain — deterministic, steady = nominal
+      RF, round 1 ≈ `floor(0.70 × N × RF)`; Frigate `227` and saturated cases are
+      exceptions. See `docs/COMBAT_SESSION_2026-10-05.md` §4.
+- [x] **S2** Bounce operator — **no per-shot bounce**; shield-first + full regen.
+- [x] **S3** Rapid-fire shot cap — none ≤350/round (equals nominal).
 - [ ] **S4** ACS / multi-slot POST capture (`action=moreslots`, local browser).
-- [ ] **S5** Multi-distance/speed fuel & flight-time samples (record engines).
-- [ ] **S6** Per-unit stat table completeness (any units missing from F8).
+- [~] **S5** Fuel/flight samples collected (8 rows, session doc §6); formula not
+      yet fitted.
+- [x] **S6** Base-stat completeness — complete for modelled roster; `218/221/222`
+      `224/502/503` missing.
 
 Gated on C0 (real attacks)
 
-- [ ] **T1** Full-wipe battery — one strike answers loot + debris + repair(wipe)
-      + LSD permanence + moon spawn (if debris ≥ 20% threshold).
-- [ ] **T2** Defense repair, normal (draw/defender-win) — 2–3 calibrated strikes.
-- [ ] **T3** Mechanics `1304` repair delta (repeat T2 with `1304` on defender).
-- [ ] **T4** Moon chance series — escalating debris on a moonless planet.
-- [ ] **T5** Real mixed-fleet attacker-win debris confirmation (may fold into T1).
-- [ ] **T6** One real RF-pair validation of the S1 rule.
+- [x] **T1** Full-wipe battery — attacker win r6; loot 50 % (M→C→D), debris
+      M5,455,000/C5,515,000, wipe repair 61.6 %, domes 407 lost / 408 restored,
+      no moon (real report `Moon Chance: 0 %`). See session doc §1.
+- [x] **T2** Defense repair normal (draw) — pooled 325/508 = **64.0 %**
+      (acc2 `1304` L4 active). See session doc §2.
+- [~] **T3** `1304` delta — acc2 L4 active for T1+T2 (61.6 %/64.0 %); no
+      no-`1304` baseline, so indicative only.
+- [x] **T4** Moon series — 1.2M/6.2M/13.5M/11M debris, **no moon**; real report
+      prints 0 %. Concluded: server moons off; adopt classic formula in Go.
+- [x] **T5** Real mixed-fleet debris — folded into T1 (matches sim ≈0.6 %).
+- [x] **T6** Real RF validation — T1 real report per-unit == sim (BM/Frigate/Dest
+      behaviour reproduced).
+- [x] **T7** Academy A/B — acc1 attacker procs (`1103:7 1108:5 1109:4 1110:2
+      1111:1`) **confirmed on the real server**: real PB lost 38 / debris
+      M3,330,000 vs sim +procs 39 / M3,365,000 and no-academy 47 / M3,645,000.
+      Defender-side `1303/1311/1308` unchanged in sim. See session doc §5.
 
 Already DONE — do not redo (see COMBAT_FINDINGS/MODEL/REAL_TESTS)
 
@@ -414,6 +427,21 @@ acc1 and acc2 work can be prepared independently.
 Template per entry:
 `YYYY-MM-DD | task | target cp/coords | fleet sent | result summary | files`
 
+- 2026-10-05 | T1 | acc2 1689 `2:186:11` | `226:400,211:600,216:6,227:30,217:15,202:300` |
+  attacker win r6, wipe; loot M1.869B/C954M/D492M (=50 %, no cargo cap); debris
+  M5.455M/C5.515M; repair 802/1302=**61.6 %**; 407 lost, 408 restored; no moon
+  (report `Moon Chance: 0 %`) | `data/t1-real-report.html` |
+- 2026-10-05 | T2 | acc2 1674 `2:187:9` | `226:80` | draw r9; defLost
+  ML200/LL114/HL80/Ion38/Gauss38/Plasma38+sats101; repair 325/508=**64.0 %** |
+  `raport=5827af03a96d2aef9a406d144d09d828` |
+- 2026-10-05 | T4 | acc2 1687/1688/1696 | 300 BS / 100 Galleon / 200 Galleon |
+  debris 1.2M / 6.2M / 13.5M, **no moons**; real report shows 0 % → moons off |
+  session doc §3 |
+- 2026-10-05 | S2 | simulator | LF/Galleon vs 407/408 | **no per-shot bounce**;
+  shield-first + full regen; 0.0025 % and 0.2 % shots still killed the domes |
+  `plans/combat/s2-bounce2.json` |
+- 2026-10-05 | S7-acad | simulator | T1 comp ± `1103:5 1108:1` | no measurable
+  difference → need more academy points for T7 | `plans/combat/t1-acad.json` |
 - 2026-10-05 | S(moon) | simulator | 200 BS/300 BS vs 1000/2000 LF and LC | LC:
   attacker 0 losses; LF: 11 BS lost, same ~4.0M defender debris → use LC for
   moon-shots | `plans/combat/80-moonshot-lc-vs-lf.json`, `data/combat/moonshot-*.report.json`

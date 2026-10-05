@@ -21,12 +21,14 @@ readable replay set is `testdata/niburus_combat.json`.
 | Overkill | damage past the target's death is **discarded** | high |
 | Shield | absorbs first, **fully regenerates every round** | high |
 | Hull | damage **persists** across rounds | high |
-| Bounce | shot below ~1% of target shield does nothing | high |
+| Bounce | **none** — shield-first + full regen only; a side whose round damage < shield does 0 | high (2026-10-05, S2) |
 | Rapid fire | extra shots vs specific targets; drives screen-clearing | high |
 | Debris | **50%** of base M+C of destroyed **ships only** (defenses = 0) | high |
-| Loot | **50%** of each resource, capped by attacker cargo | high |
-| Moon | always **0%** on this server (even 60M debris) | high |
+| Loot | **50%** of each resource, M→C→D, capped by cargo (real: 3.3B looted) | high (2026-10-05) |
+| Moon | **off**: real report prints `Moon Chance: 0 %`; no spawn ≤13.5M debris | high (2026-10-05) |
 | Defender bonus | **none** (perfect side-swap symmetry) | high |
+| Repair | **~61%** of destroyed defenses, **same for draw and total wipe**; domes prob. | high (2026-10-05) |
+| Cargo (server) | scaled: Battle Transporter `217`=**400M**, Battle Recycler `219`=**200M**; LC/HC are meatshields | high (owner) |
 
 ### Stat formula (important — server-custom)
 
@@ -42,7 +44,11 @@ additive.
 **Extra modifiers (real, but NOT shown on the card header):**
 - Weapon-type techs `120 Laser / 121 Ion / 122 Plasma / 199 Graviton` add damage.
 - Academy skills `1103/1108/1109/1110/1111/1303/1308/1311` add damage
-  (all-at-5 measurably increased defender losses in a big battle).
+  (all-at-5 measurably increased defender losses in a big battle). **Real
+  confirmation 2026-10-05:** with acc1 at `1103:7 1108:5 1109:4 1110:2 1111:1`,
+  a real strike matched the *with-procs* sim (PB lost 38 vs 39; debris M3.330M vs
+  M3.365M) and diverged from the no-academy sim (PB 47; M3.645M). Defender-side
+  `1303/1311/1308` showed no sim effect at L5 — keep parametric.
 
 ---
 
@@ -179,3 +185,34 @@ compared statistically.
 - Moon generation (appears disabled).
 - Flight-time & fuel formulae (samples collected; neoxnova's current formulas are
   off by ~3×). Record engine levels with each sample.
+- **Target selection = random, weighted by unit count (confirmed 2026-10-05).**
+  Each shot picks one random enemy **unit**, so loss *fractions* are equal across
+  equally-durable types (evidence: `pb-ships` LF/HF/Cruiser = 15/15/12 %;
+  `big-pb-ships` = 86/86/85 %). There is **no type preference / weakest-first** —
+  this is why the meatshield doctrine works. The earlier "sequential damage"
+  note was wrong.
+- **Rapid-fire shots (confirmed 2026-10-05, `plans/combat/rf-shots.json`).**
+  Round 1 total shots = `floor(0.70 × N_units × RF)`; rounds 2+ = exactly
+  `N_units × RF`. Measured with Solar-Sat targets (attack 0, 1-shottable, kills
+  == shots): BS(RF25)→17,25,25…; BM(RF350)→244,350…; Galleon(RF125)→87,125…;
+  BC(RF50)→35,50….
+- **Residual (open).** Targeting + RF now match exactly, yet swarm-vs-capital
+  **loss magnitudes** diverge: `1000 LF vs 100 BS` (tech 0) kills **~15 BS** on
+  the reference but **0** in our engine (it kills ~0 because per-round per-BS
+  hull damage averages ~150–250 vs 5800 hull, while ~114k of the 156k damage is
+  re-absorbed by shields each round). The reference concentrates ~5× more hull
+  damage than uniform per-shot distributing allows, so it looks like a hidden
+  RF-or-damage factor in many-target fights. Winner prediction stays ~91 % on the
+  committed dataset. Kill curve (tech 0, `plans/combat/damage-curve.json`):
+  `500 LF→0 BS`, `1000→15`, `2000→100`, `4000→100` (vs 100 BS); `1000 LF→1 BS`
+  kills it r1, `1000 LF→10 BS` kills 8 in r1 — a sharp nonlinear threshold that
+  per-unit shield absorption cannot explain (1000 LF vs 10 BS would need ~960
+  hull hits but only fires ~700 shots). Looks like pooled/per-side shield
+  handling with concentrated hull damage; the exact rule is still unmodelled.
+
+**Trust note (implemented).** For players to trust the simulator, the battle
+seed is derived deterministically from the stable inputs via
+`game.CombatSeed(attacker, defender)` (unit counts + techs + academy), and the
+scheduler uses it too. So simulating the same fleets reproduces the real
+resolution exactly — independent of how faithfully we clone the reference's
+opaque damage distribution.

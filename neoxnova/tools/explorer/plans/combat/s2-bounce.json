@@ -1,0 +1,7 @@
+[
+  { "id": "s2-lf5k-407", "notes": "5000 LF total 250k dmg << 2M shield: no damage either way", "attacker": {"204": 5000}, "defender": {"407": 1} },
+  { "id": "s2-lf50k-407", "notes": "50000 LF total 2.5M > 2M shield; per-shot 50=0.0025% of shield", "attacker": {"204": 50000}, "defender": {"407": 1} },
+  { "id": "s2-gal500-408", "notes": "500 Galleon = exactly 10M vs 10M LSD shield", "attacker": {"225": 500}, "defender": {"408": 1} },
+  { "id": "s2-gal600-408", "notes": "600 Galleon = 12M > 10M LSD; per-shot 20000=0.2% of shield", "attacker": {"225": 600}, "defender": {"408": 1} },
+  { "id": "s2-lf5k-401", "notes": "5000 LF vs 1 Missile Launcher (shield 200): total 250k", "attacker": {"204": 5000}, "defender": {"401": 1} }
+]

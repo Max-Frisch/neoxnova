@@ -26,6 +26,10 @@ func (h *Handler) FleetDispatch(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "Origin planet not found")
 		case errors.Is(err, store.ErrInsufficientShips), errors.Is(err, store.ErrInsufficientFuel):
 			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, store.ErrNoobProtection):
+			writeError(w, http.StatusForbidden, "Target is protected by the noob-protection points ratio")
+		case errors.Is(err, store.ErrNoTarget):
+			writeError(w, http.StatusBadRequest, "This mission requires an existing target at those coordinates")
 		default:
 			log.Printf("[ERROR] Failed to dispatch fleet: %v", err)
 			writeError(w, http.StatusInternalServerError, "Failed to dispatch fleet")

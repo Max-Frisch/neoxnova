@@ -120,3 +120,40 @@ Data: `tools/explorer/data/defense-recovery.json`.
 - `rapidfire-scan.mjs` → `testdata/niburus_rapidfire.json`.
 - `node httpbot.mjs get "game.php?page=bonus"` — Online Bonus (grants Dark
   Matter + peaceful XP; the button only appears on cooldown-ready).
+
+## 7. Final live campaign — 2026-10-05 (updates §4)
+
+Full write-up: `docs/COMBAT_SESSION_2026-10-05.md`.
+
+### T1 — total wipe on acc2 `2:186:11` (real, one strike)
+Attacker (acc1 cp1648) `226:400,211:600,216:6,227:30,217:15,202:300`; defender
+wall `500/300/200/100/100/100 + 407/408` + `202:2000` + `212:600`.
+- **Attacker wins, 6 rounds**; both domes killed r5, field empty r6.
+- Debris **M5,455,000 / C5,515,000** (matches sim within ~0.6 %).
+- Loot **M1,869,021,360 / C954,035,646 / D492,122,212** = exactly **50 %**,
+  M→C→D, **no cargo cap** (freight = 15 Battle Transporters × 400M).
+- **Wipe repair = 802/1302 = 61.6 %** — i.e. the same ~61 % as a normal battle.
+  This **contradicts §4's "~37 % wipe"** and the "LSD permanently lost" claim:
+  here `407` (Small Dome) was lost and `408` (Large Dome) was restored.
+- Real report prints **`Moon Chance: 0 %`**; no moon.
+
+### T2 — normal repair on acc2 `2:187:9`
+`226:80` → draw 9 rounds; defLost ML200/LL114/HL80/Ion38/Gauss38/Plasma38 +
+101 sats; debris C202,000. Post `362/203/134/62/68/70` → **repair 325/508 =
+64.0 %** (acc2 had academy `1304` L4 active).
+
+### T4 — moons
+1.2M / 6.2M / 13.5M / 11M ship debris on moonless planets → **no moons**, and the
+real report shows 0 %. Concluded: real moons disabled; adopt classic OGame
+`min(20 %, floor(debris/100000)%)` for the Go model.
+
+### S2 — no per-shot bounce
+50,000 LF (0.0025 %/shot of a 2M shield) and 600 Galleon (0.2 %/shot of 10M)
+both destroyed the shield domes. Resolution is shield-first + full regen; a side
+whose total round damage cannot beat the shield simply does nothing.
+
+### Repair model (updated)
+Treat repair as **~61 % of destroyed defenses**, applied the same whether the
+battle was a draw or a total wipe. Shield domes are single units → their restore
+is effectively a 61 % coin flip. `1304 Mechanics` adds ~1 %/level (acc2 L4;
+indicative only, no baseline).

@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 
+	"neoxnova/internal/auth"
 	"neoxnova/internal/cache"
 	"neoxnova/internal/store"
 )
@@ -19,6 +21,9 @@ type Handler struct {
 	Planets    *store.PlanetStore
 	Fleets     *store.FleetStore
 	Builds     *store.BuildStore
+	Combat     *store.CombatReportStore
+	Auth       *store.AuthStore
+	loginGuard *lockout
 }
 
 func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
@@ -29,6 +34,9 @@ func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
 		Planets:    store.NewPlanetStore(db),
 		Fleets:     store.NewFleetStore(db),
 		Builds:     store.NewBuildStore(db),
+		Combat:     store.NewCombatReportStore(db),
+		Auth:       store.NewAuthStore(db),
+		loginGuard: newLockout(),
 	}
 }
 
@@ -41,6 +49,31 @@ func (h *Handler) notifyScheduler(ctx context.Context) {
 	key := cache.WakeKey(h.UniverseID)
 	if err := h.Redis.LPush(ctx, key, "1").Err(); err == nil {
 		h.Redis.LTrim(ctx, key, 0, 0)
+	}
+}
+
+// secureCookies enables the Secure cookie flag outside local development
+// (which is served over plain HTTP).
+func (h *Handler) secureCookies() bool {
+	return os.Getenv("APP_ENV") != "development"
+}
+
+// RequireAuth rejects unauthenticated requests and injects the user id into the
+// request context for downstream handlers.
+func (h *Handler) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, ok := auth.TokenFromRequest(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication required")
+			return
+		}
+		userID, err := h.Auth.SessionUser(r.Context(), auth.HashToken(token))
+		if err != nil {
+			auth.ClearSessionCookie(w, h.secureCookies())
+			writeError(w, http.StatusUnauthorized, "invalid or expired session")
+			return
+		}
+		next(w, r.WithContext(auth.WithUserID(r.Context(), userID)))
 	}
 }
 

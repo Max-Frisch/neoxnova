@@ -324,31 +324,40 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celestialID int64) error {
 	var tempMax int
 	var resourceSpeed float64
+	var baseFields int64
 	if err := tx.QueryRowContext(ctx, `
-		SELECT c.temp_max, u.resource_speed
+		SELECT c.temp_max, u.resource_speed, c.base_fields_max
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&tempMax, &resourceSpeed); err != nil {
+	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields); err != nil {
+		return err
+	}
+	var satCount int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(quantity, 0) FROM planet_ships WHERE celestial_id = $1 AND ship_code = '212'
+	`, celestialID).Scan(&satCount); err != nil {
 		return err
 	}
 	levels, err := s.structureLevels(ctx, tx, celestialID)
 	if err != nil {
 		return err
 	}
-	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed)
+	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount)
 
 	fieldsUsed := 0
 	for _, lvl := range levels {
 		fieldsUsed += lvl
 	}
+	// Terraformer adds 7 fields per level on top of the colonisation roll.
+	fieldsMax := baseFields + 7*int64(levels["terraformer"])
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE celestial_objects
 		SET metal_prod_hourly = $1, crystal_prod_hourly = $2, deuterium_prod_hourly = $3,
-		    energy_used = $4, energy_max = $5, fields_used = $6
-		WHERE id = $7
-	`, eco.MetalPerHour, eco.CrystalPerHour, eco.DeutPerHour, int(eco.EnergyUsed), int(eco.EnergyMax), fieldsUsed, celestialID)
+		    energy_used = $4, energy_max = $5, fields_used = $6, fields_max = $7
+		WHERE id = $8
+	`, eco.MetalPerHour, eco.CrystalPerHour, eco.DeutPerHour, int(eco.EnergyUsed), int(eco.EnergyMax), fieldsUsed, fieldsMax, celestialID)
 	return err
 }
 

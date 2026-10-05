@@ -1,0 +1,4 @@
+[
+  { "id": "moonchance-5000lc", "notes": "~10M debris from 5000 LC", "attacker": {"225": 200}, "defender": {"1": 1, "2": 1, "3": 1, "202": 5000} },
+  { "id": "moonchance-50000lc", "notes": "~100M debris from 50000 LC", "attacker": {"225": 2000}, "defender": {"1": 1, "2": 1, "3": 1, "202": 50000} }
+]

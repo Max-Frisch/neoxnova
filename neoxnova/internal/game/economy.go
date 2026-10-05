@@ -23,7 +23,7 @@ func incomeForLevel(base, level float64) float64 {
 // from a celestial's structure levels. resourceSpeed is the universe's resource
 // production multiplier (e.g. 10000 on niburuspace.com). When energy demand
 // exceeds supply, all production is scaled down proportionally.
-func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64) Economy {
+func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64, satCount int) Economy {
 	lvl := func(code string) float64 { return float64(levels[code]) }
 
 	if resourceSpeed <= 0 {
@@ -43,6 +43,10 @@ func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float
 		incomeForLevel(10, lvl("crystal_mine")) +
 		incomeForLevel(20, lvl("deuterium_synthesizer"))
 	energyMax := incomeForLevel(20, lvl("solar_plant"))
+	// Solar satellites produce energy scaled by the planet's temperature.
+	if satCount > 0 {
+		energyMax += float64(satCount) * float64(SatelliteEnergy(tempMax))
+	}
 
 	if energyUsed > energyMax && energyUsed > 0 {
 		efficiency := energyMax / energyUsed

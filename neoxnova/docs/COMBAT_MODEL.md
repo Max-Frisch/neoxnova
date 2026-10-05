@@ -1,5 +1,14 @@
 # Combat Model — Scout/Test Notes for neoxnova
 
+> **2026-10-05 update (live campaign):** superseded/confirmed items live in
+> `docs/COMBAT_SESSION_2026-10-05.md` and `docs/COMBAT_FINDINGS.md`. Key
+> corrections: **(1)** there is **no per-shot bounce** — resolution is
+> shield-first + full regen; **(2)** defense repair is **~61 % for both normal
+> battles and total wipes** (the old "~37 % wipe" figure is dropped); **(3)** the
+> real server's report prints `Moon Chance: 0 %` and no moon spawns (moons off);
+> **(4)** real loot = 50 % M→C→D, confirmed, with server-scaled cargo
+> (Battle Transporter `217`=400M, Battle Recycler `219`=200M).
+
 Status: **data collection in progress**. Goal: capture enough of niburuspace.com's
 (server `universe_6_niburu`, XNova "GOW" theme) combat mechanics to design a fast,
 correct, bug-free Go combat engine for neoxnova. neoxnova currently has **no combat
