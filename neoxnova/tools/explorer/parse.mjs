@@ -119,6 +119,89 @@ export function parseTechtreeGraph(html) {
   return graph;
 }
 
+// Parse a CombatReport.php battle report (XNova GOW theme).
+// Returns per-round attacker/defender unit snapshots, per-round damage summary,
+// the final result/losses and the debris/moon/recycle block.
+export function parseCombatReport(html) {
+  const n = (s) => { if (s == null) return 0; const v = parseInt(String(s).replace(/[^\d-]/g, ''), 10); return Number.isNaN(v) ? 0 : v; };
+  const derived = (b) => ({
+    firepower: (/Firepower:<\/td>[\s\S]*?<span\s*>([\d.]+)<\/span>/.exec(b) || [])[1],
+    shield: (/Shield:<\/td>[\s\S]*?<span\s*>([\d.]+)<\/span>/.exec(b) || [])[1],
+    armour: (/Armour:<\/td>[\s\S]*?>([\d.]+)</.exec(b) || [])[1],
+  });
+  const parseUnits = (str) => {
+    const out = [];
+    for (const b of str.split('<div class="batle_unit">').slice(1)) {
+      const name = (/class="name_unit">([^<]*)</.exec(b) || [])[1];
+      const code = Number((/gebaeude\/(\d+)\.gif/.exec(b) || [])[1] || 0);
+      const cnt = /<\/span><br\/>\s*([\d.]+)\s*<br\/>/.exec(b);
+      const lost = /class="destruct_unit">-?([\d.]+)</.exec(b);
+      const d = derived(b);
+      out.push({
+        code, name: name ? name.trim() : '',
+        count: cnt ? n(cnt[1]) : 0,
+        lost: lost ? n(lost[1]) : 0,
+        firepower: d.firepower != null ? n(d.firepower) : null,
+        shield: d.shield != null ? n(d.shield) : null,
+        armour: d.armour != null ? n(d.armour) : null,
+      });
+    }
+    return out;
+  };
+
+  const rounds = [];
+  for (const m of html.matchAll(/<div class="batle_round" id="round_(\d+)">([\s\S]*?)<!--\/round-->/g)) {
+    const body = m[2];
+    const di = body.indexOf('batle_part_def');
+    rounds.push({
+      n: Number(m[1]),
+      attacker: parseUnits(di >= 0 ? body.slice(0, di) : body),
+      defender: parseUnits(di >= 0 ? body.slice(di) : ''),
+    });
+  }
+
+  const bands = [...html.matchAll(/class="band_att tooltip"[^>]*data-tooltip-content="([\s\S]*?)">/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  rounds.forEach((r, i) => {
+    const raw = bands[i];
+    if (!raw) return;
+    const nums = [...raw.matchAll(/(\d[\d.]*)/g)].map((x) => n(x[1]));
+    r.damage = {
+      raw,
+      attackerFirepower: nums[0] ?? null,
+      defenderShieldAbsorb: nums[1] ?? null,
+      defenderFirepower: nums[2] ?? null,
+      attackerShieldAbsorb: nums[3] ?? null,
+    };
+  });
+
+  const rinfos = [...html.matchAll(/<div class="batle_round_info"[^>]*>\s*<h2[^>]*>([\s\S]*?)<\/h2>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  const itog = /class="band_itog tooltip"[^>]*data-tooltip-content="([\s\S]*?)">/.exec(html);
+  const text = ((/<div class="batle_text">([\s\S]*?)<\/div>/.exec(html) || [])[1] || '')
+    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const resultText = rinfos[rinfos.length - 1] || '';
+  const result = /draw/i.test(resultText) ? 'draw'
+    : /attacker.*(won|winner|wins)/i.test(resultText) ? 'attacker'
+    : /defender.*(won|winner|wins)/i.test(resultText) ? 'defender'
+    : resultText || null;
+
+  return {
+    rounds,
+    roundCount: rounds.length,
+    result,
+    resultText,
+    lossesRaw: itog ? itog[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null,
+    debris: {
+      metal: n((/now:\s*([\d.]+)\s*Metal/i.exec(text) || [])[1]),
+      crystal: n((/and\s*([\d.]+)\s*Crystal/i.exec(text) || [])[1]),
+    },
+    moonChance: n((/Moon Chance:\s*([\d.]+)\s*%/i.exec(text) || [])[1]),
+    text,
+  };
+}
+
 // Best-effort requirement extraction from the techtree page.
 export function parseTechtree(html) {
   const body = html.replace(/<script[\s\S]*?<\/script>/gi, '');

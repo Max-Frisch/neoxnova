@@ -389,8 +389,20 @@ async function resolve(page, goalsPath, steps) {
     for (const [code, lvl] of Object.entries(goals[kind] || {})) goalMap[code] = Math.max(goalMap[code] || 0, lvl);
   }
 
+  // Energy balance shown on the buildings page: negative = lack of energy.
+  const energyFromHtml = (html) => {
+    const lack = /Lack of energy:\s*(\d+)%/.exec(html);
+    if (lack) return -parseInt(lack[1], 10);
+    const free = /Free energy:\s*(\d+)%/.exec(html);
+    if (free) return parseInt(free[1], 10);
+    return null;
+  };
+
+  // 0 = wait forever (Recommended for long-lived daemon runs on this fast server).
+  const maxStalls = Number(process.env.EXPLORER_MAX_STALLS || 0);
+  const waitMs = Number(process.env.EXPLORER_QUEUE_WAIT_MS || 20000);
   let stalls = 0;
-  for (let step = 0; step < steps && stalls < 100; step++) {
+  for (let step = 0; step < steps; step++) {
     const B = await loadScope(page, 'buildings');
     const R = await loadScope(page, 'research');
     const eff = (code) => (B.levels[code] ?? R.levels[code] ?? 0) + (B.queued[code] ?? 0) + (R.queued[code] ?? 0);
@@ -401,52 +413,58 @@ async function resolve(page, goalsPath, steps) {
       for (const r of graph[code] || []) visit(r.id, r.required);
     };
     for (const [code, lvl] of Object.entries(goalMap)) visit(code, lvl);
-    if (step === 0) {
-      console.log(`[dbg] goalMap=${Object.keys(goalMap).join(',')}`);
-      console.log(`[dbg] need=${Object.keys(need).join(',')}`);
-      console.log(`[dbg] B levels>0: ${Object.entries(B.levels).filter(([, v]) => v > 0).map(([k, v]) => `${k}:${v}`).join(',') || 'none'}`);
-      console.log(`[dbg] B byCode has 1=${B.byCode[1] !== undefined},15=${B.byCode[15] !== undefined},31=${B.byCode[31] !== undefined}`);
-      console.log(`[dbg] eff(1)=${eff(1)} eff(4)=${eff(4)} eff(31)=${eff(31)} eff(15)=${eff(15)}`);
-    }
+
+    // Keep the energy balance positive: if lacking, put Solar Power Plant (4)
+    // at the front of the building queue regardless of its goal level.
+    const energy = energyFromHtml(B.html);
+    if (energy !== null && energy < 0 && B.byCode[4]) need[4] = Math.max(need[4] || 0, eff(4) + 1);
 
     const unmet = Object.entries(need).filter(([c, l]) => eff(c) < l);
     if (unmet.length === 0) { console.log('[*] All goals satisfied.'); break; }
-    const actionable = unmet.find(([c]) => {
-      // Research implicitly requires a Research Lab (even if the techtree omits it).
-      if (!B.byCode[c] && eff(31) < 1) return false;
-      return (graph[c] || []).every((r) => eff(r.id) >= r.required);
-    });
-    if (step < 6) console.log(`[debug] unmet: ${unmet.slice(0, 8).map(([c, l]) => `${c}(need ${l}, eff ${eff(c)})`).join(', ')}`);
-    if (!actionable) { console.log('[~] no actionable target (queue/resources); waiting'); stalls++; await sleep(20000); continue; }
 
-    const code = Number(actionable[0]);
-    const isBuilding = B.byCode[code] !== undefined;
-    const scope = isBuilding ? B : R;
-    const query = isBuilding ? 'buildings' : 'research';
-    const it = scope.byCode[code];
-    if (!it) { console.log(`[-] ${code} not on ${query} page; skipping`); stalls++; continue; }
-    if ((it.cost.metal + it.cost.crystal + it.cost.deuterium) === 0) { console.log(`[-] ${it.name} locked (no cost); skipping`); stalls++; continue; }
-    if (!it.hasBuild) { console.log(`[~] ${it.name} queue busy; waiting`); stalls++; await sleep(15000); continue; }
+    const affordable = (it) => B.res.metal >= it.cost.metal && B.res.crystal >= it.cost.crystal && B.res.deuterium >= it.cost.deuterium;
+    const buildable = (it) => it && (it.cost.metal + it.cost.crystal + it.cost.deuterium) > 0 && it.hasBuild;
 
-    const res = B.res;
-    if (res.metal < it.cost.metal || res.crystal < it.cost.crystal || res.deuterium < it.cost.deuterium) {
-      console.log(`[~] waiting resources for ${it.name} (need M${it.cost.metal} C${it.cost.crystal} D${it.cost.deuterium})`);
-      stalls++; await sleep(20000); continue;
+    // Pick the first unmet, buildable, affordable item on a given queue. The
+    // building and research queues run in parallel in-game, so feed each one
+    // independently instead of stalling on whichever queue is busy.
+    const pick = (isBuilding) => {
+      const scopeObj = isBuilding ? B : R;
+      for (const [c, l] of Object.entries(need)) {
+        if (eff(c) >= l) continue;
+        const it = scopeObj.byCode[Number(c)];
+        if (!it) continue;                        // not on this queue
+        if (!isBuilding && eff(31) < 1) continue; // research needs a lab
+        if (!(graph[c] || []).every((r) => eff(r.id) >= r.required)) continue;
+        if (!buildable(it)) continue;
+        if (!affordable(it)) continue;
+        return { code: Number(c), it, query: isBuilding ? 'buildings' : 'research', isBuilding };
+      }
+      return null;
+    };
+
+    const picks = [pick(true), pick(false)].filter(Boolean);
+    if (picks.length === 0) {
+      stalls++;
+      if (maxStalls && stalls >= maxStalls) { console.log(`[~] stalled ${stalls} times; exiting`); break; }
+      console.log(`[~] both queues busy${energy !== null ? ` (energy ${energy}%)` : ''}; waiting`);
+      await sleep(waitMs); continue;
     }
 
-    // (re)navigate to the correct scope page and submit.
-    await goto(page, `${GAME_URL}?page=${query}`);
-    const boxId = isBuilding ? `build_${code}` : `research_${code}`;
-    const form = await page.$(`#${boxId} form.build_form`);
-    if (!form) { console.log(`[~] no form for ${it.name}; waiting`); stalls++; await sleep(15000); continue; }
-    const lvlInput = await form.$('input[name="lvlup"]');
-    if (lvlInput) await lvlInput.fill(String(it.level + 1));
-    await sleep(200 + Math.random() * 300);
-    const btn = await form.$('button[type="submit"]');
-    if (btn) await btn.click();
-    await sleep(500 + Math.random() * 500);
+    for (const p of picks) {
+      await goto(page, `${GAME_URL}?page=${p.query}`);
+      const boxId = p.isBuilding ? `build_${p.code}` : `research_${p.code}`;
+      const form = await page.$(`#${boxId} form.build_form`);
+      if (!form) { console.log(`[~] no form for ${p.it.name}; skipping`); continue; }
+      const lvlInput = await form.$('input[name="lvlup"]');
+      if (lvlInput) await lvlInput.fill(String(p.it.level + 1));
+      await sleep(200 + Math.random() * 300);
+      const btn = await form.$('button[type="submit"]');
+      if (btn) await btn.click();
+      await sleep(500 + Math.random() * 500);
+      console.log(`[+] ${p.query}: ${p.it.name} L${p.it.level} -> L${p.it.level + 1}${p.isBuilding && energy !== null ? ` [energy ${energy}%]` : ''}`);
+    }
     stalls = 0;
-    console.log(`[+] ${query}: ${it.name} L${it.level} -> L${it.level + 1}`);
   }
 
   const B = await loadScope(page, 'buildings');
