@@ -469,6 +469,37 @@ async function cmdResolve(goalsPath, steps, cpArg) {
   console.log('[+] resolve done');
 }
 
+// Read back the plan's final targets and confirm they are met. Exit 0 when every
+// fixed target, research target, ship/defense target and every gradual/builder
+// cap is reached; exit 2 otherwise. Daemon wrappers use this to stop a colony
+// daemon automatically once the build-out is genuinely done.
+async function cmdVerify(goalsPath, cpArg) {
+  const goals = JSON.parse(fs.readFileSync(goalsPath, 'utf8'));
+  const cpq = cpArg ? `&cp=${cpArg}` : '';
+  await login();
+  const B = await scope('page=buildings' + cpq);
+  const R = await scope('page=research' + cpq);
+  const S = await scope('page=shipyard&mode=fleet' + cpq);
+  const D = await scope('page=shipyard&mode=defense' + cpq);
+  const lvl = (c) => (B.levels[c] ?? R.levels[c] ?? 0);
+  const caps = goals.caps || {};
+  const missing = [];
+  const check = (label, have, want) => { if (Number(have) < Number(want)) missing.push(`${label} ${have}/${want}`); };
+  for (const [c, t] of Object.entries(goals.buildings || {})) check(`b${c}`, lvl(c), t);
+  for (const [c, t] of Object.entries(goals.research || {})) check(`r${c}`, R.levels[c] ?? 0, t);
+  for (const c of [...(goals.gradual || []), ...(goals.bumpBuilders || [])]) {
+    if (caps[c] != null) check(`cap${c}`, lvl(String(c)), caps[c]);
+  }
+  const ships = unitsFromHtml(S.html), defs = unitsFromHtml(D.html);
+  for (const [c, t] of Object.entries(goals.ships || {})) check(`ship${c}`, ships[c] ?? 0, t);
+  for (const [c, t] of Object.entries(goals.defenses || {})) check(`def${c}`, defs[c] ?? 0, t);
+  if (missing.length) {
+    console.log(`[verify] NOT MET (${missing.length} missing): ${missing.join(', ')}`);
+    process.exit(2);
+  }
+  console.log('[verify] MET: all plan targets reached');
+}
+
 // Cancel/clear the building queue: the active row posts cmd=cancel, queued
 // rows post cmd=remove with their listid.
 async function cmdCancel() {
@@ -814,5 +845,9 @@ try {
       catch (e) { console.error(`[!] resolve crashed (${e.message}); restart in 10s`); await sleep(10000); }
     }
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|sim|simsuite|resolve'); process.exit(1); }
+  else if (cmd === 'verify') {
+    const g = flag('--goals'); if (!g) throw new Error('need --goals');
+    await cmdVerify(g, flag('--cp'));
+  }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }

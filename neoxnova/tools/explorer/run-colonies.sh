@@ -89,7 +89,7 @@ start() {
     fi
     mkdir -p data
     tmux new-session -d -s "$sess" \
-      "cd '$PWD' && while true; do env $ENV node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000; echo \"[\$(date +%T)] resolver exited; restart in 30s\"; sleep 30; done >> '$log' 2>&1"
+      "cd '$PWD' && while true; do env $ENV node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000; env $ENV node $NODE_FLAGS httpbot.mjs verify --goals '$PLAN' --cp $cp; if [ \$? -eq 0 ]; then echo \"[\$(date +%T)] verify MET; daemon stopping\"; break; fi; echo \"[\$(date +%T)] verify NOT MET; restart in 30s\"; sleep 30; done >> '$log' 2>&1"
     echo "[+] started $sess ($coords $name) -> $log"
     sleep "$STAGGER"
   done < <(detect_cps)

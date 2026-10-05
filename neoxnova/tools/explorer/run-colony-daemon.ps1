@@ -35,7 +35,13 @@ if ($Bonus) {
   $log = "data/colo-$Cp.log"
   while ($true) {
     & node --max-old-space-size=96 httpbot.mjs resolve --goals $Plan --cp $Cp --steps 1000000 *>> $log
-    Add-Content -Path $log -Value "[$(Stamp)] resolver exited; restart in 30s"
+    # Double-check the plan's targets; stop this daemon once they are all met.
+    & node --max-old-space-size=96 httpbot.mjs verify --goals $Plan --cp $Cp *>> $log
+    if ($LASTEXITCODE -eq 0) {
+      Add-Content -Path $log -Value "[$(Stamp)] verify MET; daemon stopping"
+      break
+    }
+    Add-Content -Path $log -Value "[$(Stamp)] verify NOT MET; restart in 30s"
     Start-Sleep -Seconds 30
   }
 }
