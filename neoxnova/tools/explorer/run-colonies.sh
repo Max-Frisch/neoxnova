@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # run-colonies.sh - start/stop detached incremental build daemons for acc2 colonies.
 #
-# Each colony runs its own `httpbot.mjs resolve` process in a tmux session, using
-# the shared plan below. Safe to re-run (existing sessions are skipped).
+# Each colony runs its own `httpbot.mjs resolve` process inside a tmux session and
+# is wrapped in a restart loop, so a crash/exit self-heals. A separate `bonus`
+# session periodically loads the Online Bonus page. Safe to re-run (existing
+# sessions are skipped).
 #
 # Usage (on the Azure VM, from neoxnova/tools/explorer):
-#   bash run-colonies.sh start     # launch one daemon per colony
+#   bash run-colonies.sh start     # launch one build daemon per colony + bonus
 #   bash run-colonies.sh status    # list running daemons
-#   bash run-colonies.sh logs      # tail all colony logs
-#   bash run-colonies.sh stop      # kill all colony daemons
+#   bash run-colonies.sh logs      # tail all logs
+#   bash run-colonies.sh stop      # kill all daemons
 #
 # Tunables (env vars, or edit the defaults here):
 #   EXPLORER_COLO_COORDS  comma list of colony coords   (default 2:186:9,2:186:10,2:186:11)
 #   EXPLORER_COLO_PLAN    goals json                    (default plans/colo-grow.json)
-#   EXPLORER_BUILDER_BUMP_SEC  Robot/Nanite bump when mine build >= this  (default 360 = 6 min)
-#   EXPLORER_ENERGY_SATS  satellites queued on energy deficit / target    (default 200)
-#   EXPLORER_QUEUE_WAIT_MS  idle poll interval          (default 8000)
-#   EXPLORER_COLO_STAGGER   seconds between daemon starts (default 10)
+#   EXPLORER_BUILDER_BUMP_SEC   Robot/Nanite bump when mine build >= this (default 360 = 6 min)
+#   EXPLORER_ENERGY_SATS        satellites queued on energy deficit / target (default 200)
+#   EXPLORER_QUEUE_WAIT_MS      idle poll interval      (default 12000)
+#   EXPLORER_FETCH_TIMEOUT_MS   per-HTTP-request timeout (default 60000; slow server!)
+#   EXPLORER_MIN/MAX_DELAY_MS   inter-request delay      (default 1200 / 2500)
+#   EXPLORER_BONUS_EVERY_S      Online Bonus poll period (default 900)
+#   EXPLORER_COLO_STAGGER       seconds between daemon starts (default 10)
 #
 # To change the "done" state / max levels, edit plans/colo-grow.json:
 #   buildings     fixed targets (the bootstrap the bot must reach)
@@ -34,12 +39,19 @@ COORDS="${EXPLORER_COLO_COORDS:-2:186:9,2:186:10,2:186:11}"
 PLAN="${EXPLORER_COLO_PLAN:-plans/colo-grow.json}"
 BUMP="${EXPLORER_BUILDER_BUMP_SEC:-360}"
 SATS="${EXPLORER_ENERGY_SATS:-200}"
-WAIT="${EXPLORER_QUEUE_WAIT_MS:-8000}"
+WAIT="${EXPLORER_QUEUE_WAIT_MS:-12000}"
+TIMEOUT="${EXPLORER_FETCH_TIMEOUT_MS:-60000}"
+MIN_DELAY="${EXPLORER_MIN_DELAY_MS:-1200}"
+MAX_DELAY="${EXPLORER_MAX_DELAY_MS:-2500}"
+BONUS_EVERY="${EXPLORER_BONUS_EVERY_S:-900}"
 STAGGER="${EXPLORER_COLO_STAGGER:-10}"
 SESS_PREFIX="colo-"
+BONUS_SESS="bonus"
+# Slow game server: allow long requests and space them out.
+ENV="EXPLORER_FETCH_TIMEOUT_MS=$TIMEOUT EXPLORER_MIN_DELAY_MS=$MIN_DELAY EXPLORER_MAX_DELAY_MS=$MAX_DELAY EXPLORER_BUILDER_BUMP_SEC=$BUMP EXPLORER_ENERGY_SATS=$SATS EXPLORER_QUEUE_WAIT_MS=$WAIT"
 
 detect_cps() {
-  node $NODE_FLAGS httpbot.mjs planets \
+  $ENV node $NODE_FLAGS httpbot.mjs planets \
     | node -e '
       let d = "";
       process.stdin.on("data", (c) => (d += c)).on("end", () => {
@@ -53,8 +65,19 @@ detect_cps() {
       });' "$COORDS"
 }
 
+start_bonus() {
+  if tmux has-session -t "$BONUS_SESS" 2>/dev/null; then
+    echo "[=] $BONUS_SESS already running"
+    return
+  fi
+  mkdir -p data
+  tmux new-session -d -s "$BONUS_SESS" \
+    "cd '$PWD' && while true; do $ENV node $NODE_FLAGS httpbot.mjs get 'game.php?page=bonus' >/dev/null 2>&1; echo \"[\$(date +%T)] online bonus checked\"; sleep $BONUS_EVERY; done >> 'data/bonus.log' 2>&1"
+  echo "[+] started $BONUS_SESS (Online Bonus every ${BONUS_EVERY}s) -> data/bonus.log"
+}
+
 start() {
-  echo "[*] plan=$PLAN coords=$COORDS bump=${BUMP}s sats=$SATS"
+  echo "[*] plan=$PLAN coords=$COORDS bump=${BUMP}s sats=$SATS timeout=${TIMEOUT}ms"
   local found=0
   while read -r cp coords name; do
     [ -z "${cp:-}" ] && continue
@@ -66,7 +89,7 @@ start() {
     fi
     mkdir -p data
     tmux new-session -d -s "$sess" \
-      "cd '$PWD' && EXPLORER_BUILDER_BUMP_SEC=$BUMP EXPLORER_ENERGY_SATS=$SATS EXPLORER_QUEUE_WAIT_MS=$WAIT node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000 >> '$log' 2>&1"
+      "cd '$PWD' && while true; do $ENV node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000; echo \"[\$(date +%T)] resolver exited; restart in 30s\"; sleep 30; done >> '$log' 2>&1"
     echo "[+] started $sess ($coords $name) -> $log"
     sleep "$STAGGER"
   done < <(detect_cps)
@@ -74,16 +97,18 @@ start() {
     echo "[!] no matching planets; check EXPLORER_COLO_COORDS" >&2
     return 1
   fi
+  start_bonus
   echo "[*] done. 'bash run-colonies.sh status' / 'logs' to watch, 'stop' to halt."
 }
 
 status() {
-  tmux ls 2>/dev/null | grep "^${SESS_PREFIX}" || echo "[*] no colony daemons running"
+  tmux ls 2>/dev/null | grep -E "^(${SESS_PREFIX}[0-9]+|${BONUS_SESS}):" \
+    || echo "[*] no colony daemons running"
 }
 
 stop() {
   local any=0
-  for s in $(tmux ls 2>/dev/null | grep -o "^${SESS_PREFIX}[0-9]*"); do
+  for s in $(tmux ls 2>/dev/null | grep -oE "^(${SESS_PREFIX}[0-9]+|${BONUS_SESS}):" | tr -d ':'); do
     tmux kill-session -t "$s" && echo "[-] stopped $s"
     any=1
   done
@@ -91,9 +116,9 @@ stop() {
 }
 
 logs() {
-  local files=(data/colo-*.log)
+  local files=(data/colo-*.log data/bonus.log)
   [ -e "${files[0]}" ] || { echo "[*] no logs yet"; return; }
-  tail -n 25 -f "${files[@]}"
+  tail -n 20 -f "${files[@]}"
 }
 
 case "${1:-start}" in

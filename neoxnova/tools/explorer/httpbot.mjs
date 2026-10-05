@@ -263,6 +263,10 @@ async function cmdResolve(goalsPath, steps, cpArg) {
     const visit = (c, l) => {
       const k = String(c);
       if (!need.has(k) || need.get(k) < l) need.set(k, l);
+      // If this goal is already satisfied, do not force its prerequisites: an
+      // account-wide tech (e.g. Computer Tech) may be done without this planet
+      // having the building that normally gates it (e.g. Research Lab).
+      if (eff(k) >= l) return;
       for (const r of graph[k] || []) visit(r.id, r.required);
     };
     for (const c of ordered) visit(c, goalTargets.get(c));
