@@ -306,9 +306,6 @@ async function cmdResolve(goalsPath, steps, cpArg) {
           if (cur < cap) { goalTargets.set(c, cur + 1); bumped.push(`${c}${tag}->${cur + 1}`); }
         };
         for (const c of gradual) bump(c, '');
-        // Only raise Robot/Nanite once building durations get long (>= threshold).
-        const builder = B.byCode[1];
-        if (builder && builder.durationSec >= builderBumpSec) for (const c of bumpBuilders) bump(c, `(slow ${builder.durationSec}s)`);
         if (bumped.length) { console.log(`[+] gradual bump: ${bumped.join(', ')}`); await sleep(gradualWaitMs); continue; }
       }
       console.log('[*] All goals satisfied.'); break;
@@ -341,7 +338,38 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       return null;
     };
 
-    const bld = pick(true);
+    // Keep every structure build <= builderBumpSec. Find the next structure the
+    // plan wants to build; if IT would take too long, raise Robot/Nanite and
+    // build a builder this cycle instead (lowest level first, so they alternate).
+    let bumpFirst = null;
+    if (pendB.size < maxBuild) {
+      let nextIt = null;
+      for (const [c, l] of need.entries()) {
+        if (eff(c) >= l || pendB.has(c)) continue;
+        const it = B.byCode[Number(c)];
+        if (it && !bumpBuilders.includes(String(c))) { nextIt = it; break; }
+      }
+      if (nextIt && nextIt.durationSec >= builderBumpSec) {
+        const capOf = (c) => Number(caps[c] != null ? caps[c] : gradualCap);
+        // Make every not-yet-capped builder eligible for one more level.
+        for (const c of bumpBuilders) {
+          const it = B.byCode[Number(c)];
+          if (!it || pendB.has(c) || it.level >= capOf(c)) continue;
+          if ((goalTargets.get(c) || 0) < it.level + 1) goalTargets.set(c, it.level + 1);
+        }
+        const candidates = bumpBuilders
+          .map((c) => ({ code: Number(c), it: B.byCode[Number(c)] }))
+          .filter((x) => x.it && !pendB.has(String(x.code)) && x.it.level < capOf(String(x.code))
+            && (goalTargets.get(String(x.code)) || 0) > x.it.level && buildable(x.it) && affordable(x.it))
+          .sort((a, b) => a.it.level - b.it.level);
+        if (candidates.length) {
+          bumpFirst = candidates[0];
+          console.log(`[~] next ${nextIt.name} would take ${nextIt.durationSec}s (>= ${builderBumpSec}s); prioritising ${bumpFirst.it.name} L${bumpFirst.it.level} -> L${bumpFirst.it.level + 1}`);
+        }
+      }
+    }
+
+    const bld = bumpFirst || pick(true);
     const tech = pick(false);
     // Energy top-up: Solar Satellites are far cheaper than Solar Plant levels.
     const sats = (energy !== null && energy < 0 && S.byCode[SAT] && (Date.now() - lastSatAt) > satCooldownMs) ? satBatch : 0;
