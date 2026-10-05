@@ -106,9 +106,77 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
   `#research_<id>` (buildings `#build_<id>`).
 - Requirements come from `page=techtree`, parsed into a graph; `resolve`
   recursively builds/researches prerequisites and skips locked targets.
+- **This is a fast server.** Once Nanite Factory is balanced against Robot
+  Factory, *every* building finishes in ~1-3 minutes; if a build shows hours,
+  Nanite/Robot are too low. Keep Nanite roughly at the level where its cost
+  matches Robot Factory (rule of thumb: Robot ~15 <=> Nanite ~5), then keep
+  raising them alongside the mines.
+- The resolver is a **per-queue scheduler**: buildings and research use separate
+  in-game queues, so `resolve` submits up to one building *and* one research per
+  loop, and only waits when *both* queues are busy (no single-queue starvation).
+  In-flight caps default to 2 buildings / 1 research (`EXPLORER_MAX_BUILD_QUEUE`,
+  `EXPLORER_MAX_RESEARCH_QUEUE`) so the queue keeps moving without being maxed.
+- **Energy comes from Solar Satellites, not Solar Plant levels.** Freeze Solar
+  Power Plant; when the buildings page shows `Lack of energy`, the resolver
+  queues a batch of `EXPLORER_ENERGY_SATS` (default 200) code `212` via
+  `page=shipyard&mode=fleet` (`fmenge[212]=N`). Satellites are far cheaper.
+- **Only auto-research instant techs.** Research cards with no `Duration` finish
+  immediately and are safe to queue; if the card shows a `Duration` (e.g.
+  Astrophysics `00h 35m 32s`), skip it (`EXPLORER_MAX_RESEARCH_SEC`, default 1).
+  Astrophysics is capped at level 1 for now: it unlocks colonies + an expedition
+  slot per 2 levels, but gets slow without University/colonies.
+- Economy first: keep raising mines + energy, and build/research toward the
+  **University (6)** — it needs Robot 20, Research Lab 22, Nanite 4,
+  Computer 12, IRN (123) 3.
+- `resolve` accepts an `order` array of codes to set priority; plain JSON maps
+  sort integer-like keys ascending, which would put mines/solar before Nanite.
+- `httpbot.mjs cancel` clears the whole building queue; `trim page=research`
+  removes only queued rows (keeps the active one).
 - Account #2 runs on an Azure VM (Ubuntu, 2 vCPU/1 GB; tmux) — never run a
   browser there, only `httpbot.mjs`. Refresh `data/account2-levels.json`
   (gitignored) with `refresh-levels.ps1`.
+- Extra commands: `academy` (level Weaponry 1101 to 5, then all remaining
+  academy points into Engine limitation 1105 = +3% fleet speed/level, via GET
+  `page=academy&mode=up&skil=<id>`); `redeem <code>` (voucher on `page=reward2`);
+  `fleet`, `sim` (combat, below).
+
+## Combat testing (acc1 attacker / acc2 defender)
+- Coordinates: **acc1 Bratwurst `3:125:12`**, **acc2 TheBob `2:188:16`**.
+- Fleet-speed recovery (server fleet speed dropped x15 -> x5): engine techs
+  115/117/118 are researched only while instant (no `Duration`, i.e. they stop at
+  the first slow level), plus Academy branch I: Weaponry 5 -> Engine limitation.
+- Fleets built via `resolve` with a `ships`/`defense` goal map (counts read from
+  `id="val_<code>"`, POSTed as `fmenge[<code>]=N` to `page=shipyard&mode=fleet`
+  or `&mode=defense`, batch-capped). Plans: `plans/acc1-fleet.json`,
+  `plans/acc2-fleet.json`.
+- **Battle simulator (WORKS):** POST `page=battleSimulator&mode=send` with
+  `slots=2` and `battleinput[0][0][code]` (attacker) / `battleinput[0][1][code]`
+  (defender), where 1xx = techs/skills, 2xx/4xx = ships/defenses; the response is
+  a report hash, fetched from `${BASE}/game/CombatReport.php?raport=<hash>`.
+  Wrapped by `httpbot.mjs sim <file.json>` (see `plans/sim-acc1-vs-acc2.json`).
+- **Fleet send (WORKS — see `fleet_movement.har`):** 3-step wizard:
+  1. POST `page=fleetStep1` with the **source** coords + `ship<code>` counts and
+     `mission=0` (no `speed`/`fleet_group`); seed the hidden fields from the
+     `form[name=glav]` on `page=fleetTable` (it carries the source `galaxy/system/planet`).
+  2. GET `page=fleetStep1&mode=checkTarget&galaxy=..&system=..&planet=..&planet_type=1&lang=en&kolo=0`
+     (must return `OK`).
+  3. POST `page=fleetStep2` with target coords, `type=1`, `speed`, `mission=0`,
+     `token`, `fleet_group=0`, `shortcut[][type]=1`.
+  4. POST `page=fleetStep3` with `token`, `univers_<planetid>`, `mission=<n>`,
+     `metal=<n>`, `crystal=`, `deuterium=` (**empty strings** — sending `0` is
+     rejected), `staytime=1`.
+  Success returns a `Fleet sent` page (Mission / Distance / Fleet speed /
+  Consumption); failure redirects to fleetTable — but success *also* navigates to
+  fleetTable afterwards, so detect success by the `Fleet sent` text, not the URL.
+  Wrapped by `httpbot.mjs fleet <g:s:p> <mission> <code:count,...> [speed]`.
+  Recall with `httpbot.mjs fleetback [fleetID]` (`page=fleetTable&action=sendfleetback`,
+  `fleetID=<n>`); recalled fleets show `Transport (R)`.
+- Missions: 1 attack, 3 transport, 4 deploy, 5 hold; combat reports and the
+  simulator share the `CombatReport.php?raport=<id>` format.
+- The galaxy-spanning distance (acc1 3:125:12 -> acc2 2:188:16) is **not** a fuel
+  blocker (a Battle Recycler burns ~1 deuterium; fuel comes from the planet, not
+  cargo). Up to 5 extra colonies can be founded without Astrophysics if a nearer
+  staging base is wanted.
 
 ## Session hygiene (token savings)
 - Prefer a fresh OpenCode session per task; long transcripts are re-sent every
