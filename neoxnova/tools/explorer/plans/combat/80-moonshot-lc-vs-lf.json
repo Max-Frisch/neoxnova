@@ -1,0 +1,26 @@
+[
+ {
+  "id": "moonshot-1000lf",
+  "notes": "attacker 200 BS vs 1000 Light Fighter (defender losses only)",
+  "attacker": { "207": 200 },
+  "defender": { "1": 1, "2": 1, "3": 1, "204": 1000 }
+ },
+ {
+  "id": "moonshot-1000lc",
+  "notes": "attacker 200 BS vs 1000 Light Cargo (same resource value, 0 attack)",
+  "attacker": { "207": 200 },
+  "defender": { "1": 1, "2": 1, "3": 1, "202": 1000 }
+ },
+ {
+  "id": "moonshot-2000lf",
+  "notes": "attacker 300 BS vs 2000 Light Fighter",
+  "attacker": { "207": 300 },
+  "defender": { "1": 1, "2": 1, "3": 1, "204": 2000 }
+ },
+ {
+  "id": "moonshot-2000lc",
+  "notes": "attacker 300 BS vs 2000 Light Cargo",
+  "attacker": { "207": 300 },
+  "defender": { "1": 1, "2": 1, "3": 1, "202": 2000 }
+ }
+]
