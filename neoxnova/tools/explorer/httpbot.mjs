@@ -345,7 +345,7 @@ async function cmdResolve(goalsPath, steps, cpArg) {
 
     // Keep every structure build <= builderBumpSec. Find the next structure the
     // plan wants to build; if IT would take too long, raise Robot/Nanite and
-    // build a builder this cycle instead (lowest level first, so they alternate).
+    // build a builder this cycle instead (Nanite kept at Robot-11, floor 1).
     let bumpFirst = null;
     if (pendB.size < maxBuild) {
       let nextIt = null;
@@ -356,17 +356,25 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       }
       if (nextIt && nextIt.durationSec >= builderBumpSec) {
         const capOf = (c) => Number(caps[c] != null ? caps[c] : gradualCap);
-        // Make every not-yet-capped builder eligible for one more level.
-        for (const c of bumpBuilders) {
-          const it = B.byCode[Number(c)];
-          if (!it || pendB.has(c) || it.level >= capOf(c)) continue;
-          if ((goalTargets.get(c) || 0) < it.level + 1) goalTargets.set(c, it.level + 1);
+        // Strategy: raise Robot one level (the driver), then keep Nanite at
+        // Robot-11 (floor 1, capped). e.g. Robot 15/Nanite 4, Robot 16/Nanite 5.
+        const [robotC, naniteC] = bumpBuilders;
+        const robotIt = B.byCode[Number(robotC)];
+        const naniteIt = naniteC != null ? B.byCode[Number(naniteC)] : null;
+        if (robotIt) {
+          const robotTarget = Math.min(robotIt.level + 1, capOf(robotC));
+          if ((goalTargets.get(robotC) || 0) < robotTarget) goalTargets.set(robotC, robotTarget);
+          if (naniteIt) {
+            const naniteTarget = Math.max(1, Math.min(robotTarget - 11, capOf(naniteC)));
+            if ((goalTargets.get(naniteC) || 0) < naniteTarget) goalTargets.set(naniteC, naniteTarget);
+          }
         }
-        const candidates = bumpBuilders
+        // Build whichever of Nanite/Robot is still behind its target (Nanite first).
+        const candidates = [naniteC, robotC]
+          .filter(Boolean)
           .map((c) => ({ code: Number(c), it: B.byCode[Number(c)] }))
-          .filter((x) => x.it && !pendB.has(String(x.code)) && x.it.level < capOf(String(x.code))
-            && (goalTargets.get(String(x.code)) || 0) > x.it.level && buildable(x.it) && affordable(x.it))
-          .sort((a, b) => a.it.level - b.it.level);
+          .filter((x) => x.it && !pendB.has(String(x.code)) && (goalTargets.get(String(x.code)) || 0) > x.it.level
+            && buildable(x.it) && affordable(x.it));
         if (candidates.length) {
           bumpFirst = candidates[0];
           console.log(`[~] next ${nextIt.name} would take ${nextIt.durationSec}s (>= ${builderBumpSec}s); prioritising ${bumpFirst.it.name} L${bumpFirst.it.level} -> L${bumpFirst.it.level + 1}`);
