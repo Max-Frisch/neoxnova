@@ -1,0 +1,5 @@
+[
+  { "id": "acs-3-ally", "slots": 3, "notes": "3 slots: attacker slot0 + ally slot2 vs defender slot1", "attacker": { "204": 200 }, "acs": [{ "204": 200 }], "defender": { "1": 1, "2": 1, "3": 1, "204": 600 } },
+  { "id": "acs-3-ally-r2", "slots": 3, "notes": "determinism repeat of acs-3-ally", "attacker": { "204": 200 }, "acs": [{ "204": 200 }], "defender": { "1": 1, "2": 1, "3": 1, "204": 600 } },
+  { "id": "acs-4-2ally", "slots": 4, "notes": "4 slots: two attacker allies vs defender", "attacker": { "204": 200 }, "acs": [{ "204": 200 }, { "206": 20 }], "defender": { "1": 1, "2": 1, "3": 1, "204": 600 } }
+]

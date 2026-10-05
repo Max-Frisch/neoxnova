@@ -1,0 +1,22 @@
+[
+  {"id":"cal1-bs-atmo","notes":"1 BS 700 atk vs Atmospheric Shield (huge shield, atk0)","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-bs10-atmo","notes":"10 BS vs Atmo","attacker":{"207":10},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-lf-atmo","notes":"1 LF 50 atk vs Atmo","attacker":{"204":1},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-lf10-atmo","notes":"10 LF vs Atmo","attacker":{"204":10},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-cru-atmo","notes":"1 Cru 400 vs Atmo","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-dest-atmo","notes":"1 Dest 65000 vs Atmo","attacker":{"226":1},"defender":{"1":1,"2":1,"3":1,"409":1}},
+  {"id":"cal1-bs-ml","notes":"1 BS vs 1 ML (repeat of pen-bs-ml)","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"401":1}},
+  {"id":"cal1-bs-ml1000","notes":"1 BS vs 1000 ML; round-1 kills -> shots/round","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"401":1000}},
+  {"id":"cal1-bs10-ml1000","notes":"10 BS vs 1000 ML","attacker":{"207":10},"defender":{"1":1,"2":1,"3":1,"401":1000}},
+  {"id":"cal1-cru-lf2000","notes":"1 Cruiser vs 2000 LF; RF vs LF probe","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-cru10-lf2000","notes":"10 Cruiser vs 2000 LF","attacker":{"206":10},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-bc-lf2000","notes":"1 BC vs 2000 LF; RF probe","attacker":{"215":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-dest-lf2000","notes":"1 Destroyer vs 2000 LF; RF probe","attacker":{"226":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-bm-lf2000","notes":"1 Black Moon vs 2000 LF; RF probe","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-bs-sat2000","notes":"1 BS vs 2000 sats; RF probe","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"cal1-cru-sat2000","notes":"1 Cruiser vs 2000 sats; RF probe","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"cal1-hf-lf2000","notes":"1 HF vs 2000 LF","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-lf-lf2000","notes":"1 LF vs 2000 LF (control: no RF)","attacker":{"204":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"cal1-pb-ml1000","notes":"1 Planet Bomber vs 1000 ML; RF vs defenses","attacker":{"211":1},"defender":{"1":1,"2":1,"3":1,"401":1000}},
+  {"id":"cal1-dest-plasma","notes":"1 Destroyer vs 1 Plasma; RF vs high defense","attacker":{"226":1},"defender":{"1":1,"2":1,"3":1,"406":1}}
+]

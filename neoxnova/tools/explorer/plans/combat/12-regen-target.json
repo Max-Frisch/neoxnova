@@ -1,0 +1,122 @@
+[
+ {
+  "id": "regen-gauss-hl",
+  "notes": "Gauss 1100 vs HL shield1000 hull800: rounds reveal shield regen",
+  "attacker": {
+   "404": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "403": 1
+  }
+ },
+ {
+  "id": "regen-gauss-ion",
+  "notes": "Gauss 1100 vs Ion shield5000 hull800",
+  "attacker": {
+   "404": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "405": 1
+  }
+ },
+ {
+  "id": "regen-lf-ion",
+  "notes": "100 LF 5000/round vs Ion shield5000",
+  "attacker": {
+   "204": 100
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "405": 1
+  }
+ },
+ {
+  "id": "regen-lf-plasma",
+  "notes": "100 LF vs Plasma shield3000 hull10000",
+  "attacker": {
+   "204": 100
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "406": 1
+  }
+ },
+ {
+  "id": "regen-lf-dome",
+  "notes": "100 LF vs Small Dome shield2M",
+  "attacker": {
+   "204": 100
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "407": 1
+  }
+ },
+ {
+  "id": "overkill-carry-lc",
+  "notes": "SF 2000 dmg vs LC: 1/shot or carry?",
+  "attacker": {
+   "213": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "202": 1000
+  }
+ },
+ {
+  "id": "overkill-carry-lf",
+  "notes": "SF 2000 vs LF",
+  "attacker": {
+   "213": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1000
+  }
+ },
+ {
+  "id": "target-sel-mixed",
+  "notes": "which defender type gets hit",
+  "attacker": {
+   "204": 100
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 100,
+   "206": 100
+  }
+ },
+ {
+  "id": "target-sel-3type",
+  "notes": "BS vs 3 defender types",
+  "attacker": {
+   "207": 100
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 500,
+   "205": 200,
+   "206": 100
+  }
+ }
+]

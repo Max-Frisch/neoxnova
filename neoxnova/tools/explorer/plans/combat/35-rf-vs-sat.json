@@ -1,0 +1,14 @@
+[
+  {"id":"rfsat-206","notes":"1 Cru vs 5000 sats; info RF=10","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-207","notes":"1 BS vs 5000 sats; info RF=25","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-211","notes":"1 PlanetBomber vs 5000 sats; info RF=0","attacker":{"211":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-213","notes":"1 StarFighter vs 5000 sats; info RF=50","attacker":{"213":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-215","notes":"1 BattleCruiser vs 5000 sats; info RF=50","attacker":{"215":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-216","notes":"1 BlackMoon vs 5000 sats; info RF=350","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-225","notes":"1 Galleon vs 5000 sats; info RF=125","attacker":{"225":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-226","notes":"1 Destroyer vs 5000 sats; info RF=0","attacker":{"226":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-227","notes":"1 Frigate vs 5000 sats; info makes has no sats -> RF0","attacker":{"227":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rfsat-228","notes":"1 BlackWanderer vs 5000 sats; info RF=500","attacker":{"228":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"rflf-216","notes":"1 BlackMoon vs 5000 LF; info RF=180","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":5000}},
+  {"id":"rflf-228","notes":"1 BlackWanderer vs 5000 LF; info RF=300","attacker":{"228":1},"defender":{"1":1,"2":1,"3":1,"204":5000}}
+]

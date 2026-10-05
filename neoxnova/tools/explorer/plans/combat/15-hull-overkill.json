@@ -1,0 +1,80 @@
+[
+ {
+  "id": "hull-cru-spy1",
+  "notes": "Cruiser 400 vs Spy hull750: 2 rounds if hull persists",
+  "attacker": {
+   "206": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 1
+  }
+ },
+ {
+  "id": "hull-cru-spy3",
+  "notes": "Cruiser vs 3 Spy",
+  "attacker": {
+   "206": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 3
+  }
+ },
+ {
+  "id": "overkill-214-hf10",
+  "notes": "BF 150k vs 10 HF: 1/shot or split?",
+  "attacker": {
+   "214": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "205": 10
+  }
+ },
+ {
+  "id": "overkill-226-hf10",
+  "notes": "Destroyer 65k vs 10 HF",
+  "attacker": {
+   "226": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "205": 10
+  }
+ },
+ {
+  "id": "overkill-214-lf20",
+  "notes": "BF vs 20 LF (RF? none)",
+  "attacker": {
+   "214": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 20
+  }
+ },
+ {
+  "id": "cap-draw-500",
+  "notes": "confirm draw round cap",
+  "attacker": {
+   "204": 500
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 500
+  }
+ }
+]

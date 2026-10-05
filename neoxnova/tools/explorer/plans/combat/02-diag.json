@@ -1,0 +1,14 @@
+[
+  { "id": "diag-win-204-600v100", "notes": "attacker overwhelming win, no def, no res", "attacker": { "204": 600 }, "defender": { "204": 100 } },
+  { "id": "diag-win-204-1000v1", "notes": "attacker win vs tiny", "attacker": { "204": 1000 }, "defender": { "204": 1 } },
+  { "id": "diag-def-204-1v1000", "notes": "defender win", "attacker": { "204": 1 }, "defender": { "204": 1000 } },
+  { "id": "diag-win-vs-defense", "notes": "attacker win vs defenses only", "attacker": { "204": 1000 }, "defender": { "401": 100 } },
+  { "id": "diag-win-vs-sat", "notes": "attacker win vs sats", "attacker": { "207": 50 }, "defender": { "212": 100 } },
+  { "id": "diag-win-with-res", "notes": "attacker win with lootable resources", "attacker": { "204": 600 }, "defender": { "1": 1000000, "2": 1000000, "3": 1000000, "204": 100 } },
+  { "id": "diag-draw-equal", "notes": "equal -> draw", "attacker": { "204": 500 }, "defender": { "204": 500 } },
+  { "id": "diag-win-lf-bs", "notes": "LF win vs single BS", "attacker": { "204": 100 }, "defender": { "207": 1 } },
+  { "id": "diag-win-cru-lf", "notes": "Cruiser win", "attacker": { "206": 10 }, "defender": { "204": 100 } },
+  { "id": "diag-def-401v204", "notes": "defender turret beats 1 LF", "attacker": { "204": 1 }, "defender": { "401": 1 } },
+  { "id": "diag-win-207-vs-204", "notes": "BS win", "attacker": { "207": 10 }, "defender": { "204": 100 } },
+  { "id": "diag-draw-mixed", "notes": "mixed near-even", "attacker": { "204": 300, "206": 50 }, "defender": { "204": 300, "401": 200 } }
+]

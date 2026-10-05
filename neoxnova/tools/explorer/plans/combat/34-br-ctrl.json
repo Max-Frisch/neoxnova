@@ -1,0 +1,7 @@
+[
+  {"id":"ctrl-219-sat","notes":"does Battle Recycler (219) deal damage? 2000 vs 3000 sats","attacker":{"219":2000},"defender":{"1":1,"2":1,"3":1,"212":3000}},
+  {"id":"ctrl-219-lf","notes":"219 vs LF","attacker":{"219":2000},"defender":{"1":1,"2":1,"3":1,"204":3000}},
+  {"id":"ctrl-202-sat","notes":"Light Cargo attack 0 control","attacker":{"202":1000},"defender":{"1":1,"2":1,"3":1,"212":3000}},
+  {"id":"ctrl-209-sat","notes":"Recycler attack 0 control","attacker":{"209":1000},"defender":{"1":1,"2":1,"3":1,"212":3000}},
+  {"id":"ctrl-206-sat3000","notes":"1 Cru vs 3000 sats no screen","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":3000}}
+]

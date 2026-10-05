@@ -1,0 +1,145 @@
+[
+ {
+  "id": "pen-bs-ml",
+  "notes": "BS 700 vs ML 200sh+200hull",
+  "attacker": {
+   "207": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "401": 1
+  }
+ },
+ {
+  "id": "pen-bs-ll",
+  "notes": "BS 700 vs LL 250+200",
+  "attacker": {
+   "207": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "402": 1
+  }
+ },
+ {
+  "id": "pen-bs-hl",
+  "notes": "BS 700 vs HL 1000+800",
+  "attacker": {
+   "207": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "403": 1
+  }
+ },
+ {
+  "id": "pen-ga-hl",
+  "notes": "Gauss 1100 vs HL",
+  "attacker": {
+   "404": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "403": 1
+  }
+ },
+ {
+  "id": "hull-p1",
+  "notes": "LL 100/rd vs Spy hull750 -> 8 rounds?",
+  "attacker": {
+   "402": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 1
+  }
+ },
+ {
+  "id": "hull-p2",
+  "notes": "2 ML 160/rd vs Spy 750",
+  "attacker": {
+   "401": 2
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 1
+  }
+ },
+ {
+  "id": "overkill-split-bf",
+  "notes": "BF 150k vs 10 Spy (no RF): 1/shot or split?",
+  "attacker": {
+   "214": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 10
+  }
+ },
+ {
+  "id": "overkill-split-bw",
+  "notes": "BW 1.5M vs 20 Spy",
+  "attacker": {
+   "228": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 20
+  }
+ },
+ {
+  "id": "overkill-split-bs",
+  "notes": "BS 700 vs Spy 750 (cannot kill)",
+  "attacker": {
+   "207": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "210": 10
+  }
+ },
+ {
+  "id": "dist-sf-lf10",
+  "notes": "SF RF2 vs 10 LF",
+  "attacker": {
+   "213": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 10
+  }
+ },
+ {
+  "id": "regen-ion-shield",
+  "notes": "200 LF 10000 vs Ion shield5000",
+  "attacker": {
+   "204": 200
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "405": 1
+  }
+ }
+]

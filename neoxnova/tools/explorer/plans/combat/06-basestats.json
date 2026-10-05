@@ -1,0 +1,561 @@
+[
+ {
+  "id": "base-ship-202",
+  "notes": "base stats ship 202",
+  "attacker": {
+   "202": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-203",
+  "notes": "base stats ship 203",
+  "attacker": {
+   "203": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-204",
+  "notes": "base stats ship 204",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-205",
+  "notes": "base stats ship 205",
+  "attacker": {
+   "205": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-206",
+  "notes": "base stats ship 206",
+  "attacker": {
+   "206": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-207",
+  "notes": "base stats ship 207",
+  "attacker": {
+   "207": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-208",
+  "notes": "base stats ship 208",
+  "attacker": {
+   "208": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-209",
+  "notes": "base stats ship 209",
+  "attacker": {
+   "209": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-210",
+  "notes": "base stats ship 210",
+  "attacker": {
+   "210": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-211",
+  "notes": "base stats ship 211",
+  "attacker": {
+   "211": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-212",
+  "notes": "base stats ship 212",
+  "attacker": {
+   "212": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-213",
+  "notes": "base stats ship 213",
+  "attacker": {
+   "213": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-214",
+  "notes": "base stats ship 214",
+  "attacker": {
+   "214": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-215",
+  "notes": "base stats ship 215",
+  "attacker": {
+   "215": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-216",
+  "notes": "base stats ship 216",
+  "attacker": {
+   "216": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-217",
+  "notes": "base stats ship 217",
+  "attacker": {
+   "217": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-219",
+  "notes": "base stats ship 219",
+  "attacker": {
+   "219": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-220",
+  "notes": "base stats ship 220",
+  "attacker": {
+   "220": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-225",
+  "notes": "base stats ship 225",
+  "attacker": {
+   "225": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-226",
+  "notes": "base stats ship 226",
+  "attacker": {
+   "226": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-227",
+  "notes": "base stats ship 227",
+  "attacker": {
+   "227": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-ship-228",
+  "notes": "base stats ship 228",
+  "attacker": {
+   "228": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 1
+  }
+ },
+ {
+  "id": "base-def-401",
+  "notes": "base stats defense 401",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "401": 1
+  }
+ },
+ {
+  "id": "base-def-402",
+  "notes": "base stats defense 402",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "402": 1
+  }
+ },
+ {
+  "id": "base-def-403",
+  "notes": "base stats defense 403",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "403": 1
+  }
+ },
+ {
+  "id": "base-def-404",
+  "notes": "base stats defense 404",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "404": 1
+  }
+ },
+ {
+  "id": "base-def-405",
+  "notes": "base stats defense 405",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "405": 1
+  }
+ },
+ {
+  "id": "base-def-406",
+  "notes": "base stats defense 406",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "406": 1
+  }
+ },
+ {
+  "id": "base-def-407",
+  "notes": "base stats defense 407",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "407": 1
+  }
+ },
+ {
+  "id": "base-def-408",
+  "notes": "base stats defense 408",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "408": 1
+  }
+ },
+ {
+  "id": "base-def-409",
+  "notes": "base stats defense 409",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "409": 1
+  }
+ },
+ {
+  "id": "base-def-410",
+  "notes": "base stats defense 410",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "410": 1
+  }
+ },
+ {
+  "id": "base-def-411",
+  "notes": "base stats defense 411",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "411": 1
+  }
+ },
+ {
+  "id": "base-def-412",
+  "notes": "base stats defense 412",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "412": 1
+  }
+ },
+ {
+  "id": "base-def-413",
+  "notes": "base stats defense 413",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "413": 1
+  }
+ },
+ {
+  "id": "base-def-414",
+  "notes": "base stats defense 414",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "414": 1
+  }
+ },
+ {
+  "id": "base-def-415",
+  "notes": "base stats defense 415",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "415": 1
+  }
+ },
+ {
+  "id": "base-def-416",
+  "notes": "base stats defense 416",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "416": 1
+  }
+ },
+ {
+  "id": "base-def-417",
+  "notes": "base stats defense 417",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "417": 1
+  }
+ },
+ {
+  "id": "base-def-418",
+  "notes": "base stats defense 418",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "418": 1
+  }
+ },
+ {
+  "id": "base-def-419",
+  "notes": "base stats defense 419",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "419": 1
+  }
+ },
+ {
+  "id": "base-def-502",
+  "notes": "base stats defense 502",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "502": 1
+  }
+ },
+ {
+  "id": "base-def-503",
+  "notes": "base stats defense 503",
+  "attacker": {
+   "204": 1
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "503": 1
+  }
+ }
+]

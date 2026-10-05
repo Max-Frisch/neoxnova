@@ -1,0 +1,8 @@
+[
+  {"id":"det-bs-sat2000-a","notes":"determinism repeat A","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-bs-sat2000-b","notes":"determinism repeat B","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-cru-sat2000-a","notes":"determinism repeat A","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-cru-sat2000-b","notes":"determinism repeat B","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-bm-lf2000-a","notes":"determinism repeat A BM","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"det-bm-lf2000-b","notes":"determinism repeat B BM","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":2000}}
+]

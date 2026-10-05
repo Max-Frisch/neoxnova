@@ -1,0 +1,14 @@
+[
+  {"id":"probe-lf-sat-base","notes":"1 LF (50) vs 1 sat (400 hull): 8 hits -> rounds to kill","attacker":{"204":1},"defender":{"1":1,"2":1,"3":1,"212":1}},
+  {"id":"probe-lf-sat-1101-50","notes":"Weaponry 50 (+50% atk)","attacker":{"204":1,"1101":50},"defender":{"1":1,"2":1,"3":1,"212":1}},
+  {"id":"probe-lf-sat-1102-25","notes":"WeaponsClassA 25 (+50% atk)","attacker":{"204":1,"1102":25},"defender":{"1":1,"2":1,"3":1,"212":1}},
+  {"id":"probe-lf-sat-1211-50","notes":"Empire 50 (+50% atk/sh/arm)","attacker":{"204":1,"1211":50},"defender":{"1":1,"2":1,"3":1,"212":1}},
+  {"id":"probe-lf-sat-109-50","notes":"control: weapons tech 50 (should reflect in header)","attacker":{"204":1,"109":50},"defender":{"1":1,"2":1,"3":1,"212":1}},
+  {"id":"def-hf-hf-base","notes":"1 HF vs 1 HF: defender shield/armor probe","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1}},
+  {"id":"def-hf-hf-1301-50","notes":"defender Defensive strategy 50 (+50% sh/arm)","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1301":50}},
+  {"id":"def-hf-hf-1302-50","notes":"defender Defence class A 50 (+50% sh/arm -100% atk)","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1302":50}},
+  {"id":"def-hf-hf-1305-50","notes":"defender Shield complex 50","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1305":50}},
+  {"id":"def-hf-hf-1306-50","notes":"defender Defense complex 50","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1306":50}},
+  {"id":"def-hf-hf-1308-50","notes":"defender Heavy Armour 50 (RF resist)","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1308":50}},
+  {"id":"def-hf-hf-1303-50","notes":"defender Double shields 50","attacker":{"205":1},"defender":{"1":1,"2":1,"3":1,"205":1,"1303":50}}
+]

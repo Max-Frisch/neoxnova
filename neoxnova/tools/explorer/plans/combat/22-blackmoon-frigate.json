@@ -1,0 +1,102 @@
+[
+ {
+  "id": "bm-lf",
+  "notes": "Black Moon RF180 vs LF",
+  "attacker": {
+   "216": 3
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 5000
+  }
+ },
+ {
+  "id": "bm-sat",
+  "notes": "Black Moon RF350 vs sats",
+  "attacker": {
+   "216": 2
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "212": 5000
+  }
+ },
+ {
+  "id": "bm-bs",
+  "notes": "Black Moon vs BS",
+  "attacker": {
+   "216": 2
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "207": 200
+  }
+ },
+ {
+  "id": "fr-bs",
+  "notes": "Frigate vs BS",
+  "attacker": {
+   "227": 10
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "207": 200
+  }
+ },
+ {
+  "id": "fr-wall",
+  "notes": "Frigate vs wall",
+  "attacker": {
+   "227": 10
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "401": 990,
+   "402": 600,
+   "403": 400,
+   "404": 200,
+   "405": 200,
+   "406": 100,
+   "407": 1,
+   "408": 1
+  }
+ },
+ {
+  "id": "fr-lf",
+  "notes": "Frigate vs LF",
+  "attacker": {
+   "227": 10
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "204": 5000
+  }
+ },
+ {
+  "id": "bm-fr",
+  "notes": "Black Moon + Frigate vs fleet",
+  "attacker": {
+   "216": 5,
+   "227": 20
+  },
+  "defender": {
+   "1": 1,
+   "2": 1,
+   "3": 1,
+   "206": 500,
+   "207": 500
+  }
+ }
+]

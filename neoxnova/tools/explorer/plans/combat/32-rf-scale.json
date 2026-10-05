@@ -1,0 +1,22 @@
+[
+  {"id":"det-bs-sat-a","notes":"determinism A","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-bs-sat-b","notes":"determinism B","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-cru-sat-a","notes":"determinism A","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-cru-sat-b","notes":"determinism B","attacker":{"206":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"det-bm-lf-a","notes":"determinism A BM","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"det-bm-lf-b","notes":"determinism B BM","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"scale-bs2-sat2000","notes":"2 BS vs sats","attacker":{"207":2},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-bs5-sat2000","notes":"5 BS vs sats","attacker":{"207":5},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-bs10-sat2000","notes":"10 BS vs sats","attacker":{"207":10},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-bs20-sat2000","notes":"20 BS vs sats","attacker":{"207":20},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-cru2-sat2000","notes":"2 Cru vs sats","attacker":{"206":2},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-cru5-sat2000","notes":"5 Cru vs sats","attacker":{"206":5},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-cru10-sat2000","notes":"10 Cru vs sats","attacker":{"206":10},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"scale-cru20-sat2000","notes":"20 Cru vs sats","attacker":{"206":20},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"tgt-bs1-sat100","notes":"1 BS vs 100 sats","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":100}},
+  {"id":"tgt-bs1-sat500","notes":"1 BS vs 500 sats","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":500}},
+  {"id":"tgt-bs1-sat5000","notes":"1 BS vs 5000 sats","attacker":{"207":1},"defender":{"1":1,"2":1,"3":1,"212":5000}},
+  {"id":"bm-1-sat2000","notes":"1 BM vs 2000 sats","attacker":{"216":1},"defender":{"1":1,"2":1,"3":1,"212":2000}},
+  {"id":"bm-2-lf2000","notes":"2 BM vs 2000 LF","attacker":{"216":2},"defender":{"1":1,"2":1,"3":1,"204":2000}},
+  {"id":"bm-2-sat2000","notes":"2 BM vs 2000 sats","attacker":{"216":2},"defender":{"1":1,"2":1,"3":1,"212":2000}}
+]
