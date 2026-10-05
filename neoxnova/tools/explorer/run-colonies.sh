@@ -51,7 +51,7 @@ BONUS_SESS="bonus"
 ENV="EXPLORER_FETCH_TIMEOUT_MS=$TIMEOUT EXPLORER_MIN_DELAY_MS=$MIN_DELAY EXPLORER_MAX_DELAY_MS=$MAX_DELAY EXPLORER_BUILDER_BUMP_SEC=$BUMP EXPLORER_ENERGY_SATS=$SATS EXPLORER_QUEUE_WAIT_MS=$WAIT"
 
 detect_cps() {
-  $ENV node $NODE_FLAGS httpbot.mjs planets \
+  env $ENV node $NODE_FLAGS httpbot.mjs planets \
     | node -e '
       let d = "";
       process.stdin.on("data", (c) => (d += c)).on("end", () => {
@@ -72,7 +72,7 @@ start_bonus() {
   fi
   mkdir -p data
   tmux new-session -d -s "$BONUS_SESS" \
-    "cd '$PWD' && while true; do $ENV node $NODE_FLAGS httpbot.mjs get 'game.php?page=bonus' >/dev/null 2>&1; echo \"[\$(date +%T)] online bonus checked\"; sleep $BONUS_EVERY; done >> 'data/bonus.log' 2>&1"
+    "cd '$PWD' && while true; do env $ENV node $NODE_FLAGS httpbot.mjs get 'game.php?page=bonus' >/dev/null 2>&1; echo \"[\$(date +%T)] online bonus checked\"; sleep $BONUS_EVERY; done >> 'data/bonus.log' 2>&1"
   echo "[+] started $BONUS_SESS (Online Bonus every ${BONUS_EVERY}s) -> data/bonus.log"
 }
 
@@ -89,7 +89,7 @@ start() {
     fi
     mkdir -p data
     tmux new-session -d -s "$sess" \
-      "cd '$PWD' && while true; do $ENV node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000; echo \"[\$(date +%T)] resolver exited; restart in 30s\"; sleep 30; done >> '$log' 2>&1"
+      "cd '$PWD' && while true; do env $ENV node $NODE_FLAGS httpbot.mjs resolve --goals '$PLAN' --cp $cp --steps 1000000; echo \"[\$(date +%T)] resolver exited; restart in 30s\"; sleep 30; done >> '$log' 2>&1"
     echo "[+] started $sess ($coords $name) -> $log"
     sleep "$STAGGER"
   done < <(detect_cps)
