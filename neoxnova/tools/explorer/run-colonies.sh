@@ -13,7 +13,7 @@
 #   bash run-colonies.sh stop      # kill all daemons
 #
 # Tunables (env vars, or edit the defaults here):
-#   EXPLORER_COLO_COORDS  comma list of colony coords   (default 2:186:9,2:186:10,2:186:11)
+#   EXPLORER_COLO_COORDS  comma list of colony coords   (default 2:186:9/10/11,2:185:9/10/11)
 #   EXPLORER_COLO_PLAN    goals json                    (default plans/colo-grow.json)
 #   EXPLORER_BUILDER_BUMP_SEC   Robot/Nanite bump when mine build >= this (default 360 = 6 min)
 #   EXPLORER_ENERGY_SATS        satellites queued on energy deficit / target (default 200)
@@ -35,7 +35,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 NODE_FLAGS="--max-old-space-size=96"
-COORDS="${EXPLORER_COLO_COORDS:-2:186:9,2:186:10,2:186:11}"
+COORDS="${EXPLORER_COLO_COORDS:-2:186:9,2:186:10,2:186:11,2:185:9,2:185:10,2:185:11}"
 PLAN="${EXPLORER_COLO_PLAN:-plans/colo-grow.json}"
 BUMP="${EXPLORER_BUILDER_BUMP_SEC:-360}"
 SATS="${EXPLORER_ENERGY_SATS:-200}"
