@@ -344,6 +344,21 @@ async function cmdResolve(goalsPath, steps, cpArg) {
 
     if (!bld && !tech && !sats && !unitTasks.length) {
       stalls++;
+      if (stalls === 1) {
+        console.log(`[debug] unmet=[${unmet.map(([c, l]) => `${c}:${eff(c)}/${l}`).join(' ')}] `
+          + `pendB=${pendB.size} pendR=${pendR.size} pendU=${pendU.size} `
+          + `queuedB=${JSON.stringify(B.queued)} queuedR=${JSON.stringify(R.queued)} `
+          + `energy=${energy} unitsPending=${unitsPending} `
+          + `targets=${JSON.stringify([...goalTargets])}`);
+      }
+      // Self-heal: an in-game queue that is empty while we still hold process-side
+      // pending entries means a build POST was silently rejected; drop the stale
+      // entries so the next loop can re-evaluate instead of stalling forever.
+      if (stalls >= 3 && !Object.keys(B.queued).length && !Object.keys(R.queued).length
+          && (pendB.size || pendR.size || pendU.size)) {
+        console.log(`[!] clearing stale pending (bld=${pendB.size} res=${pendR.size} unit=${pendU.size})`);
+        pendB.clear(); pendR.clear(); pendU.clear();
+      }
       if (maxStalls && stalls >= maxStalls) { console.log(`[~] stalled ${stalls} times; exiting`); break; }
       console.log(`[~] queues busy${energy !== null ? ` (energy ${energy}%)` : ''}; waiting`);
       await delay(); await sleep(waitMs);
