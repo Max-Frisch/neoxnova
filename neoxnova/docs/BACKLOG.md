@@ -2,7 +2,8 @@
 
 ## Live state
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
-- acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders **stopped** (all 6 hit caps).
+- acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders **stopped** (all 6 hit caps);
+  **moon present** (diameter <10 000). Next session: parallel acc1+acc2 expedition testing.
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
 - VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
 
@@ -16,7 +17,9 @@
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet so online
    defenders see/react before arrival (currently only espionage is visible via its reports endpoint).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; design in `docs/AUTO_BUILD_DESIGN.md`.
-4. **Moons** (deferred; owner testing spawn chance) — moonbase, creation/destruction.
+4. **Moons** — acc1 `3:125:12` now HAS a moon (live, spawn confirmed; diameter <10 000).
+   Rules to model: **≥10 000 km = indestructible**; below that destroyable by Deathstar.
+   Scope: moonbase, moon buildings (sensor phalanx/jump gate), creation (debris) + destruction.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→login→colonize→build→research→shipyard→dispatch→
    battle→report→recycle→abandon.
