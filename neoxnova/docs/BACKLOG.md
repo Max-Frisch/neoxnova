@@ -6,13 +6,17 @@
   **moon present** (diameter <10 000). Next session: parallel acc1+acc2 expedition testing.
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
 - VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
-- **Expo matrix running (2026-10-06):** both accounts, `cmd=1`, from main planets, same 7 arms
-  (time=1, speed=10): cargo `217:20` · fodder `204:200` · combat `207:20` · `217:20+204:200` ·
-  `217:20+207:20` · `217:50+204:500` · `217:20+226:100`. acc1 cap is *unenforced*: counter `13/7`
-  (6 legacy "shadow slots" from the prior `cmd=2` hanging-fleet bug + our 7). Harvest daemons
-  (`run-expharvest.sh`: tmux `expharv-acc2` on VM, nohup loop locally) write
-  `data/expeditions.json`, `data/expedition-reports.json`, sends in `data/expedition-runs.json`.
-  **Next: analyze when fleets return; then run a second round to raise sample counts.**
+- **Expo matrix (2026-10-06):** both accounts, `cmd=1`, main planets, 7 arms (time=1, speed=10):
+  cargo `217:20` · fodder `204:200` · combat `207:20` · `217:20+204:200` · `217:20+207:20` ·
+  `217:50+204:500` · `217:20+226:100`. **Round 1** (08:49Z) = **0 combat / 14 fleets** (acc1:
+  unk,dm,ships,nothing,delay,unk,res; acc2: res,ships,ships,dm,dm,ships,unk) ⇒ **no new fight
+  reports**. **Round 2** re-fired same 7 arms both accounts (09:30–09:37Z). Real cap is **7 on
+  both**; acc1's `13/7` counter is the false legacy `cmd=2` shadow-slot display bug (ignore).
+  Harvest daemons (`run-expharvest.sh`: tmux `expharv-acc2` on VM, local loop) write
+  `data/expeditions.json`, `data/expedition-reports.json`; sends in `data/expedition-runs.json`.
+  **Next session — round 3 (bigger + stronger), 7 arms (time=1, speed=10):** `217:100` ·
+  `217:50+204:500` · `217:50+226:100` · `217:50+216:20` · `226:100` · `207:100` ·
+  `217:100+204:1000`. Fire on both accounts once round-2 fleets land (~09:47–10:04Z).
 
 ## Open backlog (ordered; one item per session)
 1. **Expedition resolver (Go)** — capture done (see below); model `MissionExpedition` in
@@ -20,9 +24,10 @@
    `cmd=2` leaks ghost fleets (avoid). Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
 1b. **Expedition enemy formula** — collect composition-controlled samples (pure vs escort vs
     **meatshield/"Schussfang"**); stop poking `--pve`. Matrix live on BOTH accounts (see Live state).
-    Key metric is now **fight reports** (`exp-report`, messcat=3): per-unit start counts + total
-    losses, so cargo `217` survival can be diffed across arms. Early hint: enemy size is *not*
-    proportional to sent fleet points (pure `217:10` drew a bigger template than `217:100`).
+    Key metric is **fight reports** (`exp-report`, messcat=3): per-unit start counts + total losses,
+    so cargo `217` survival can be diffed across arms. Round 1/2 (14+14 fleets) yet to yield a
+    fight report (round 1 = 0 combat). Early hint: enemy size is *not* proportional to sent fleet
+    points (pure `217:10` drew a bigger template than `217:100`). Round 3: scale up + strong escorts.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet so online
    defenders see/react before arrival (currently only espionage is visible via its reports endpoint).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; design in `docs/AUTO_BUILD_DESIGN.md`.
