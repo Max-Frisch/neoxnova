@@ -37,15 +37,23 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	var universeID string
 	var userID int64
 	var originDeut, fleetSpeed float64
-	originQuery := `SELECT c.universe_id, c.user_id, c.galaxy, c.system, c.position, c.deuterium, u.fleet_speed
+	var attackLockedUntil sql.NullTime
+	originQuery := `SELECT c.universe_id, c.user_id, c.galaxy, c.system, c.position, c.deuterium, u.fleet_speed,
+	                       c.attack_locked_until
 	                FROM celestial_objects c
 	                JOIN universes u ON u.id = c.universe_id
 	                WHERE c.id = $1 FOR UPDATE OF c`
 	err = tx.QueryRowContext(ctx, originQuery, req.OriginPlanetID).Scan(
-		&universeID, &userID, &oG, &oS, &oP, &originDeut, &fleetSpeed,
+		&universeID, &userID, &oG, &oS, &oP, &originDeut, &fleetSpeed, &attackLockedUntil,
 	)
 	if err != nil {
 		return DispatchResult{}, ErrNotFound
+	}
+
+	// A planet recently teleported cannot launch attacks for a short window
+	// (Planetarium rule: 15 minutes).
+	if req.Mission == models.MissionAttack && attackLockedUntil.Valid && time.Now().Before(attackLockedUntil.Time) {
+		return DispatchResult{}, ErrAttackLocked
 	}
 
 	// Resolve the destination celestial (if one exists) so the event engine can

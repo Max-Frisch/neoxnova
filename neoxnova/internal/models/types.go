@@ -155,6 +155,33 @@ type ResearchRequest struct {
 	TechCode string `json:"tech_code"`
 }
 
+// PlanetRelocateRequest is the body of POST /api/v1/planets/{id}/relocate.
+type PlanetRelocateRequest struct {
+	Galaxy   int `json:"galaxy" validate:"min=1,max=9"`
+	System   int `json:"system" validate:"min=1,max=499"`
+	Position int `json:"position" validate:"min=1,max=21"`
+}
+
+// PlanetRelocateResponse echoes the destination and the Dark Matter spent.
+type PlanetRelocateResponse struct {
+	Status      string      `json:"status"`
+	Cost        int64       `json:"cost"`
+	Coordinates Coordinates `json:"coordinates"`
+}
+
+// PlanetExpandFieldsRequest is the body of POST /api/v1/planets/{id}/fields.
+type PlanetExpandFieldsRequest struct {
+	Fields int `json:"fields" validate:"min=1,max=100"`
+}
+
+// PlanetExpandFieldsResponse reports the Dark Matter spent and the new totals.
+type PlanetExpandFieldsResponse struct {
+	Status       string `json:"status"`
+	Cost         int64  `json:"cost"`
+	FieldsMax    int64  `json:"fields_max"`
+	FieldsBought int64  `json:"fields_bought"`
+}
+
 type QueueEntrySummary struct {
 	ID            int64     `json:"id"`
 	Code          string    `json:"code"`

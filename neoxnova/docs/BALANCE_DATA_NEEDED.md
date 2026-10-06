@@ -181,6 +181,54 @@ Raw page text saved under `testdata/niburus_map/`.
   deficit, which zeroes effective production (and masked the officer delta) until
   Solar Plants were raised — solar must cover energy before measuring bonuses.
 
+## Planet relocation / "teleport" (captured — exact linear price)
+
+- **Implemented** 2026-10-06 (`POST /api/v1/planets/{id}/relocate`,
+  `internal/game/relocation.go`, migration `0008_relocation.sql`). Moves a planet
+  (with its structures/ships/defenses/stored resources) to new coordinates for a
+  Dark Matter fee; it does **not** lock the origin slot.
+- **Source**: the niburuspace.com **Planetarium** (Black market → "Planetarium":
+  *"increase field count and teleport your planet"*), captured on 2026-10-06 into
+  `docs/screenshots_niburu/` (14 PNGs; planet `3:125:12`). The galaxy view's
+  `mode=savecord`/`delcord` are unrelated bookmarks.
+- **Price is exactly linear and per-axis** (no distance formula):
+  ```
+  cost = 15000·|Δgalaxy| + 1000·|Δsystem| + 2500·|Δposition|
+  ```
+  Captured samples: `3:125:12→3:125:13` = 2500, `→3:126:12` = 1000,
+  `→3:127:14` = 7000, `→2:125:12` = 15000, `→2:127:14` = 22000. The constants are
+  `RelocationDMperGalaxy/System/Position` in `internal/game/relocation.go`;
+  `relocation_test.go` locks every sample.
+- **Rules** (from the Planetarium page):
+  - Teleport a planet **once per hour**, but **unlimited teleports within the same
+    system** (cooldown only applies on a system/galaxy change) — enforced in
+    `store.RelocatePlanet` via `game.RelocationLeavesSystem`.
+  - After teleport: **no attacking for 15 min** (modelled: `attack_locked_until`
+    set on the planet for `store.AttackLockoutAfterRelocation`; `FleetStore.Dispatch`
+    rejects ATTACK missions with `ErrAttackLocked`), **phalanx sensor offline
+    10 min** (*not modelled* — no phalanx subsystem yet).
+
+### Dark-Matter field expansion (Planetarium, captured)
+
+- Implemented 2026-10-06: `POST /api/v1/planets/{id}/fields` (body `{"fields":N}`),
+  `internal/game/fields.go`, migration `0009_planet_fields.sql`. Works on planets
+  and moons (the reference allows both); moons are not implemented in the engine yet.
+- The Planetarium's *"Increase the amount of fields on the current planet"* box
+  charges a **geometric** price, independent of the planet's base size. Captured
+  cumulative costs: +1 **200**, +2 **420**, +3 **662**, +4 **928**, +5 **1221**,
+  +6 **1543** DM → marginal 200·1.1^(n-1). Closed form:
+  ```
+  cost(purchased, additional) = round(2000 · 1.1^purchased · (1.1^additional − 1))
+  ```
+  `fields_bought` tracks prior DM purchases so buying many fields in one go equals
+  buying them one at a time (no arbitrage). A purchase folds into `base_fields_max`
+  (and `fields_max`) so `RecomputeCelestial` preserves it across builds.
+- The same page also has **"Increase the diameter"** — a *different* system that
+  grants +diameter/+fields using **Debris field (planets or moons) + Stardust**
+  (capture: `Diameter +276..+414`, `Fields +12..+18` for 100.0B M + 50.0B C debris
+  + 1 Stardust). Stardust sources (trade/buy, rare expedition finds) unknown.
+  **Not implemented** — needs a debris-spend path and a Stardust currency.
+
 ## Explorer tool
 
 `neoxnova/tools/explorer/` (Node + playwright-core, drives installed Edge):

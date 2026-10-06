@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"neoxnova/internal/game"
 	"neoxnova/internal/models"
 )
 
@@ -20,6 +21,16 @@ func NewPlanetStore(db *sql.DB) *PlanetStore {
 // SlotLockDuration is how long a position stays locked after a planet is
 // abandoned before it can be colonised again (global per slot).
 var SlotLockDuration = 24 * time.Hour
+
+// RelocationCooldown is how long a planet must wait between relocations.
+var RelocationCooldown = time.Hour
+
+// AttackLockoutAfterRelocation is how long a teleported planet is barred from
+// launching ATTACK missions (Planetarium rule).
+var AttackLockoutAfterRelocation = 15 * time.Minute
+
+// maxFieldPurchase caps a single Dark-Matter field purchase.
+const maxFieldPurchase = 100
 
 // AbandonPlanet deletes a planet the user owns and locks its slot. The
 // homeworld (the user's oldest planet) and the last remaining planet cannot be
@@ -90,6 +101,200 @@ func (s *PlanetStore) AbandonPlanet(ctx context.Context, planetID, userID int64)
 		return err
 	}
 	return tx.Commit()
+}
+
+// RelocatePlanet moves an owned planet to new coordinates for a distance-priced
+// Dark Matter fee and returns the fee charged. Unlike abandonment it does not
+// lock the origin slot; the planet is instead put on a per-planet cooldown for
+// inter-system/galaxy teleports (the reference server allows unlimited
+// same-system teleports, so those bypass and do not set the cooldown). The
+// destination must be inside the planet domain, unoccupied and unlocked, the
+// planet must have no active fleets (fleet targets snapshot coordinates), and
+// the owner must hold enough Dark Matter.
+func (s *PlanetStore) RelocatePlanet(ctx context.Context, planetID, userID int64, toGalaxy, toSystem, toPosition int) (int64, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	var (
+		owner            sql.NullInt64
+		universe         string
+		g, sys, pos      int
+		objectType       string
+		nextAt           sql.NullTime
+		planetsPerSystem int
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT c.user_id, c.universe_id::text, c.galaxy, c.system, c.position, c.object_type,
+		       c.relocation_next_at, u.planets_per_system
+		FROM celestial_objects c
+		JOIN universes u ON u.id = c.universe_id
+		WHERE c.id = $1
+		FOR UPDATE OF c
+	`, planetID).Scan(&owner, &universe, &g, &sys, &pos, &objectType, &nextAt, &planetsPerSystem)
+	if err == sql.ErrNoRows {
+		return 0, ErrNotFound
+	} else if err != nil {
+		return 0, err
+	}
+	if !owner.Valid || owner.Int64 != userID || objectType != "PLANET" {
+		return 0, ErrNotFound
+	}
+
+	if !game.ValidRelocationTarget(toGalaxy, toSystem, toPosition, planetsPerSystem) {
+		return 0, ErrInvalidCoordinates
+	}
+	if toGalaxy == g && toSystem == sys && toPosition == pos {
+		return 0, ErrSameCoordinates
+	}
+	leavesSystem := game.RelocationLeavesSystem(g, sys, toGalaxy, toSystem)
+	if leavesSystem && nextAt.Valid && time.Now().Before(nextAt.Time) {
+		return 0, ErrRelocationCooldown
+	}
+
+	// The destination must be free (no planet/moon) and not slot-locked.
+	var blocked bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM celestial_objects
+			WHERE universe_id = $1 AND galaxy = $2 AND system = $3 AND position = $4
+			  AND object_type IN ('PLANET', 'MOON') AND id <> $5
+		) OR EXISTS (
+			SELECT 1 FROM coordinate_locks
+			WHERE universe_id = $1 AND galaxy = $2 AND system = $3 AND position = $4
+			  AND locked_until > NOW()
+		)
+	`, universe, toGalaxy, toSystem, toPosition, planetID).Scan(&blocked); err != nil {
+		return 0, err
+	}
+	if blocked {
+		return 0, ErrTargetOccupied
+	}
+
+	var fleetBusy bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM fleets
+			WHERE phase IN ('OUTBOUND', 'HOLDING', 'RETURNING')
+			  AND (origin_id = $1 OR target_id = $1)
+		)
+	`, planetID).Scan(&fleetBusy); err != nil {
+		return 0, err
+	}
+	if fleetBusy {
+		return 0, ErrFleetInbound
+	}
+
+	cost := game.RelocationCost(g, sys, pos, toGalaxy, toSystem, toPosition)
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users SET dark_matter = dark_matter - $1 WHERE id = $2 AND dark_matter >= $1
+	`, cost, userID)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if affected == 0 {
+		return 0, ErrInsufficientDarkMatter
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET galaxy = $1, system = $2, position = $3,
+		    relocation_next_at = CASE
+		        WHEN $4 THEN NOW() + make_interval(secs => $5::double precision)
+		        ELSE relocation_next_at END,
+		    attack_locked_until = NOW() + make_interval(secs => $6::double precision)
+		WHERE id = $7
+	`, toGalaxy, toSystem, toPosition, leavesSystem, int64(RelocationCooldown.Seconds()),
+		int64(AttackLockoutAfterRelocation.Seconds()), planetID); err != nil {
+		if isUniqueViolation(err) {
+			return 0, ErrTargetOccupied
+		}
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return cost, nil
+}
+
+// FieldsResult reports a successful Dark-Matter field purchase.
+type FieldsResult struct {
+	Cost         int64
+	FieldsMax    int64
+	FieldsBought int64
+}
+
+// ExpandFields buys `additional` extra fields for a planet or moon with Dark
+// Matter. The price escalates per field already bought with Dark Matter (see
+// game.FieldExpansionCost) and is independent of the planet's base size.
+// Purchased fields are folded into base_fields_max so that RecomputeCelestial
+// (fields_max = base_fields_max + 7*terraformer) preserves them across builds.
+func (s *PlanetStore) ExpandFields(ctx context.Context, planetID, userID int64, additional int) (FieldsResult, error) {
+	if additional < 1 || additional > maxFieldPurchase {
+		return FieldsResult{}, ErrInvalidQuantity
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return FieldsResult{}, err
+	}
+	defer tx.Rollback()
+
+	var (
+		owner      sql.NullInt64
+		objectType string
+		bought     int64
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id, object_type, fields_bought
+		FROM celestial_objects WHERE id = $1 FOR UPDATE
+	`, planetID).Scan(&owner, &objectType, &bought)
+	if err == sql.ErrNoRows {
+		return FieldsResult{}, ErrNotFound
+	} else if err != nil {
+		return FieldsResult{}, err
+	}
+	if !owner.Valid || owner.Int64 != userID || (objectType != "PLANET" && objectType != "MOON") {
+		return FieldsResult{}, ErrNotFound
+	}
+
+	cost := game.FieldExpansionCost(int(bought), additional)
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users SET dark_matter = dark_matter - $1 WHERE id = $2 AND dark_matter >= $1
+	`, cost, userID)
+	if err != nil {
+		return FieldsResult{}, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return FieldsResult{}, err
+	}
+	if affected == 0 {
+		return FieldsResult{}, ErrInsufficientDarkMatter
+	}
+
+	var newMax, newBought int64
+	if err := tx.QueryRowContext(ctx, `
+		UPDATE celestial_objects
+		SET base_fields_max = base_fields_max + $1,
+		    fields_max = fields_max + $1,
+		    fields_bought = fields_bought + $1
+		WHERE id = $2
+		RETURNING fields_max, fields_bought
+	`, int64(additional), planetID).Scan(&newMax, &newBought); err != nil {
+		return FieldsResult{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return FieldsResult{}, err
+	}
+	return FieldsResult{Cost: cost, FieldsMax: newMax, FieldsBought: newBought}, nil
 }
 
 // UpdateResources runs the continuous resource accumulator and returns the fresh state.

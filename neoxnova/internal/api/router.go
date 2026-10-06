@@ -33,6 +33,8 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("POST /api/v1/planets/{id}/shipyard", h.RequireAuth(h.ShipyardBuild))
 	mux.HandleFunc("POST /api/v1/planets/{id}/research", h.RequireAuth(h.ResearchStart))
 	mux.HandleFunc("POST /api/v1/planets/{id}/abandon", h.RequireAuth(h.PlanetAbandon))
+	mux.HandleFunc("POST /api/v1/planets/{id}/relocate", h.RequireAuth(h.PlanetRelocate))
+	mux.HandleFunc("POST /api/v1/planets/{id}/fields", h.RequireAuth(h.PlanetExpandFields))
 	mux.HandleFunc("POST /api/v1/fleets/dispatch", h.RequireAuth(h.FleetDispatch))
 	mux.HandleFunc("POST /api/v1/fleets/{id}/recall", h.RequireAuth(h.FleetRecall))
 	mux.HandleFunc("GET /api/v1/combat/reports/{id}", h.RequireAuth(h.CombatReport))

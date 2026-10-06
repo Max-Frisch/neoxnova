@@ -61,8 +61,17 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
   `httpbot.mjs academy` command — use `academy-up`/`academy-map` only.
 
 ## Remaining implementation (ranked small→large)
-1. **Relocate** planet (Dark Matter, distance-priced; doesn't lock the origin,
-   ~1 h per-planet cooldown) — needs the DM cost fitted (capture niburu relocate page).
+1. ~~**Relocate** planet~~ **DONE 2026-10-06**: `POST /api/v1/planets/{id}/relocate`
+   (body `{galaxy,system,position}`), `internal/game/relocation.go`, migration
+   `0008_relocation.sql`; origin NOT locked. Price captured from the Planetarium
+   (`docs/screenshots_niburu/`), exactly linear per axis:
+   `15000·Δgalaxy + 1000·Δsystem + 2500·Δposition` DM. Cooldown 1 h, but unlimited
+   same-system teleports. Also done 2026-10-06: **15 min no-attack** after a
+   teleport (`attack_locked_until`, enforced in `FleetStore.Dispatch`) and
+   **Dark-Matter field expansion** (`POST /planets/{id}/fields`, geometric
+   `round(2000·1.1^n−1)`, migration `0009_planet_fields.sql`). Phalanx-offline and
+   the debris+Stardust "increase diameter" option are **not** modelled. See
+   `BALANCE_DATA_NEEDED.md` §"Planet relocation / teleport".
 2. **Moons** (moonbase +3 fields, creation/destruction) — needs data (moons off on niburu).
 3. **Espionage** mission (report + counter-espionage).
 4. **API keys** for sanctioned (paid) auto-builder automation.
