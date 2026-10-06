@@ -36,6 +36,10 @@ the 1-of-each is a probe for the "unlock all ship-find types" theory).
 
 > **Do not send Spy Probe (`210`)** — spies sent to slot 21 / an expedition
 > target throw an error on this server. It is excluded from the set entirely.
+>
+> Any other ship can be sent; the server rejects the whole set with "Not all
+> ships are available." only if one of them is *short on the planet* (e.g. Light
+> Cargo before it has been built). The build step produces the 1-of-each.
 
 Set string for the `expedition` command:
 `207:S,203:5S,219:BR,202:1,204:1,205:1,206:1`
@@ -71,8 +75,12 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 - `fleet <g:s:p> <mission> <code:count,…> [speed] [--dry] [--cp id]`
   (`httpbot.mjs:671`). Mission **4 = deploy**. Target must be a real celestial.
 - `exp-state` (`httpbot.mjs:771`) prints JSON `{expeditionSlots, used, fleets}`.
-  The cap is **7 on both accounts**; acc1's `6/7`/`13/7` counter is the false
-  `cmd=2` shadow-slot display bug — **ignore it, 7 sends are allowed**.
+  The cap is **7 on both accounts**, but the counter is **not enforced** (live
+  2026-10-06: fired at `7/7` → `8/7` → `9/7`). acc1 carries **6 permanent
+  `cmd=2` ghosts** — rows `"Expedition at Hostail sector (R)"` with `fleetID:
+  null` that never land. **Real cmd=1 sends are `"Expedition (A)"` and have a
+  fleetID.** The send daemon counts only `(A)` rows, so the ghosts can't stall
+  it. (The `used` counter includes ghosts — ignore it; don't gate on `used`.)
 - `levels --cp <id> --out <file>` writes `{buildings, research, ships, defenses,
   resources}`; `ships["207"]` = BB count, `buildings["21"]` = shipyard level.
 - `resolve --goals <file> --cp <id> --steps N`; `EXPLORER_UNIT_BATCH=<n>` caps
@@ -96,10 +104,12 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 5. Write state; sleep 300 s.
 
 ### Send — `run-farm-send.sh <acc>` (loop ~60 s)
-1. `node httpbot.mjs exp-state` → count outgoing **Expedition** fleets.
-2. If `free = 7 - expeditions > 0` **and** state phase is `ready`:
-   `node httpbot.mjs expedition "207:S,203:5S,219:BR,202:1,204:1,205:1,206:1" 7 1 1 10`
-3. Sleep 60 s; fast/delay returns are staggered, re-fire when slots free.
+1. `node httpbot.mjs exp-state` → count **real** outgoing expeditions
+   (`mission` matches `Expedition (A)`); ignore the `cmd=2` `(R)` ghosts.
+2. If no real expedition is active (`(A)` count == 0) **and** state phase is
+   `ready`: `node httpbot.mjs expedition "207:S,203:5S,219:BR,202:1,204:1,205:1,206:1" 7 1 10`.
+   (Don't gate on the `used` counter — it includes ghosts.)
+3. Sleep 60 s; fast/delay returns are staggered, re-fire when the round is home.
 4. Guard total fleet slots: 7 expo + pooling ≤ **25** total movements.
 
 ### State machine (`data/farm-state-<acc>.json`)
@@ -142,6 +152,11 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 - Pick 2–4 build sites per account; fill `plans/farm-sites.json`.
 
 ## Launch
+- **Bootstrap (once, before the daemons):** build the full starter on the
+  resource-rich main so the first round fires quickly:
+  `node farm-plan.mjs --acc <acc> starter` → `resolve --goals
+  plans/farm-<acc>-starter.json --cp <main> --steps 1000000`; then `farm-plan
+  --acc <acc> sent`, fire the 7-set manually, and start the daemons below.
 - **acc1 (Windows):** `powershell -File run-farm.ps1 -Acc acc1` (spawns both
   loops detached; logs `data/farm-build-acc1.log`, `data/farm-send-acc1.log`).
 - **acc2 (VM):** `tmux new -d -s farm-acc2 'bash run-farm-build.sh acc2'` and
@@ -158,8 +173,9 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 
 ## Safety / guardrails
 - Confirm the set string parses with a **1-fleet smoke send** before any mass
-  send: `expedition "207:1,203:5,219:1,202:1,204:1,205:1,206:1" 1 1 1 10`
-  and verify the `slots now x/y` line.
+  send: `expedition "207:1,203:5,219:1,202:1,204:1,205:1,206:1" 1 1 10`
+  and verify the `slots now x/y` line. (Args are `num time speed` — only three
+  numbers; the set needs the 1-of-each small ships, incl. Light Cargo, present.)
 - Watch fleet-slot use (7 expo + pooling ≤ 25); back off pooling near the cap.
 - **Never** send DD (`226`), Black Moon (`216`), or Frigate (`227`) — leave parked.
 - If a black hole eats a fleet, just rebuild.
