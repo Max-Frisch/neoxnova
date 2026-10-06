@@ -83,13 +83,15 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
    (`0.25%·2^(def−atk)·probes·defShips`, clamped; no ships ⇒ 0). **Live findings
    captured** in `docs/ESPIONAGE_LIVE_2026-10-06.md`: fleet-send wizard semantics,
    attacker report format, defender incoming-event text/colours, probe destruction.
-   **OPEN QUESTION before wiring the resolver**: live niburu **revealed the full
-   report even at equal espionage tech with 1 probe** (classic score = 1 → resources
-   only) — so niburu likely does **not** gate sections; tech difference may only
-   drive counter-espionage. Confirm with owner, then implement: report store +
-   engine `resolveEspionage` + a generic **incoming-fleet notification** (shared by
-   transport/attack/espionage, mission-specific text+colour; defender can react).
-   No academy/senate espionage bonus (confirmed).
+   **RESOLVED (live matrix, `docs/ESPIONAGE_LIVE_2026-10-06.md`)**: niburu
+   **always returns the full report** — it does **not** mask sections by tech
+   difference (tested diff 0 / +1 / −1 / +2 with 1 probe all gave
+   Resources·Fleet·Defense·Buildings·Research). The tech difference only shows in
+   **counter-espionage** (probes destroyed whenever the target had ships — even
+   satellite-only colonies; defenses not required). **Implement accordingly**:
+   report store + engine `resolveEspionage` (full report; roll probe loss) + a
+   generic **incoming-fleet notification** (shared by transport/attack/espionage,
+   mission-specific text+colour; defender can react). No academy/senate bonus.
 4. **In-game auto-builder menu** (a game page like Arsenal/Buildings) — NOT an
    external/SDK API (the old "API keys" wording was a mis-communication). Design
    captured in **`docs/AUTO_BUILD_DESIGN.md`**: persisted blueprint per planet +

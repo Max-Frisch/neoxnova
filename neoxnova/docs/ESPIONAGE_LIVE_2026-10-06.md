@@ -41,15 +41,21 @@ Counter-espionage: when the defender shoots probes down, the report footer shows
 **"Your spy probes were destroyed!"** (the report itself is still delivered —
 confirmed live).
 
-### Open question — section gating
-Classic OGame reveals sections by
-`score = probes + (yourEsp − enemyEsp)·|yourEsp − enemyEsp|` (Resources always,
-Fleet ≥2, Defense ≥3, Buildings ≥5, Research ≥7). **Live niburu did NOT do this:**
-with **both accounts at Espionage 19** and a **single probe** (classic score = 1 →
-resources only), the report revealed **every section with exact counts**. So
-niburu appears to always return the full report and to use the tech difference
-only for **counter-espionage**, not for section masking. *Needs an owner ruling
-before we wire the resolver* — see `docs/HANDOFF.md` item 3.
+### Section gating — RESOLVED: niburu does **not** mask sections
+
+Matrix run 2026-10-06, **one probe** per strike, sections observed in the report:
+
+| attacker → defender | esp diff | classic score | sections returned |
+|---|---|---|---|
+| acc1 (20) → acc2 home/colony (19) | +1 | 2 | Resources·Fleet·Defense·Buildings·Research |
+| acc2 (19) → acc1 home/colony (20) | −1 | 0 | Resources·Fleet·Defense·Buildings·Research |
+| acc1 (19) → acc2 (19) | 0 | 1 | Resources·Fleet·Defense·Buildings·Research |
+
+Classic OGame would have shown Fleet-only at +1 and Resources-only at −1. Niburu
+returns the **full report regardless** — the espionage tech difference does **not**
+mask sections here. **Conclusion for the Go target: always return the full report;
+use the tech difference (and probes/fleet) only for counter-espionage.**
+Confirmed again at acc1 Esp21 vs acc2 Esp19 (diff +2) — still full.
 
 ## 3. Defender-side visibility (incoming fleets)
 
@@ -77,7 +83,12 @@ inbound), attack (1 LF, captured inbound, then **recalled** via
 
 ## 4. Counter-espionage
 
-Confirmed live: probes **were destroyed** ("Your spy probes were destroyed!").
+Confirmed live: probes **were destroyed** on **every** strike, including
+satellite-only colonies (e.g. `Fleet 872` / `1.050` and **zero** Planetary
+Defense) and the big homeworlds — i.e. the detection appears driven by **ships**
+(probes/sats/combat), not defense towers. Both directions and both tech signs
+(+1/−1) lost the probe. No planet with **zero** ships was available to confirm the
+"no ships ⇒ 0% chance" rule.
 Published approximation (o-tools): `chance ≈ 2^(defenderEsp − attackerEsp) ·
 probes · defenderShips · 0.25%`, 0 when the defender has no ships. Owner prefers
 probes as a replaceable commodity; more probes should raise success chance. Exact
