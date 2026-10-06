@@ -223,11 +223,11 @@ Raw page text saved under `testdata/niburus_map/`.
   `fields_bought` tracks prior DM purchases so buying many fields in one go equals
   buying them one at a time (no arbitrage). A purchase folds into `base_fields_max`
   (and `fields_max`) so `RecomputeCelestial` preserves it across builds.
-- The same page also has **"Increase the diameter"** — a *different* system that
+- The same page also has **"Increase the diameter"** — a separate system that
   grants +diameter/+fields using **Debris field (planets or moons) + Stardust**
   (capture: `Diameter +276..+414`, `Fields +12..+18` for 100.0B M + 50.0B C debris
-  + 1 Stardust). Stardust sources (trade/buy, rare expedition finds) unknown.
-  **Not implemented** — needs a debris-spend path and a Stardust currency.
+  + 1 Stardust). **Scrapped for now** (owner decision 2026-10-06) — the debris-spend
+  path and the Stardust currency are out of scope; DM field expansion covers growth.
 
 ## Explorer tool
 

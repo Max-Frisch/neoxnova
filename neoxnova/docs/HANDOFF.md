@@ -69,15 +69,28 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
    same-system teleports. Also done 2026-10-06: **15 min no-attack** after a
    teleport (`attack_locked_until`, enforced in `FleetStore.Dispatch`) and
    **Dark-Matter field expansion** (`POST /planets/{id}/fields`, geometric
-   `round(2000·1.1^n−1)`, migration `0009_planet_fields.sql`). Phalanx-offline and
-   the debris+Stardust "increase diameter" option are **not** modelled. See
+   `round(2000·1.1^n−1)`, migration `0009_planet_fields.sql`). Phalanx-offline is
+   **not** modelled; the debris+Stardust "increase diameter" option + Stardust
+   currency are **scrapped for now** (owner decision 2026-10-06). See
    `BALANCE_DATA_NEEDED.md` §"Planet relocation / teleport".
-2. **Moons** (moonbase +3 fields, creation/destruction) — needs data (moons off on niburu).
-3. **Espionage** mission (report + counter-espionage).
-4. **API keys** for sanctioned (paid) auto-builder automation.
-5. **TOTP 2FA**.
-6. **Expedition + Arsenal scaling** — L; depends on a niburu capture of Arsenal
-   upgrade effects and expedition outcome rates.
+2. **Moons** (moonbase +3 fields, creation/destruction) — *not* believed to be off;
+   chance is likely just lower than classic. **Deferred**: owner will test the
+   spawn chance manually first.
+3. **Espionage** mission (report + counter-espionage). Quick: report detail/chance
+   is a function of the **espionage research level difference** between source and
+   target. Academy/senate bonus unknown (check before implementing).
+4. **In-game auto-builder menu** (a game page like Arsenal/Buildings) — NOT an
+   external/SDK API. The old "API keys for sanctioned auto-builder automation"
+   wording was a **mis-communication**; do not expose an external builder API.
+5. **TOTP 2FA** (auth — second factor on `internal/auth`).
+6. **Expedition + Arsenal scaling** — L. **Next live-test topic, on acc1** (highest
+   flight-speed + offensive academy bonus). Mechanics (owner): black-hole chance is
+   low in classic OGame (1-2%) but likely higher here to curb 24/7 expos — still
+   expected profitable. Profit rises with academy offensive/defensive bonuses and
+   laser/ion/plasma/graviton research. Pirates/stronger aliens scale **only** on the
+   player's Weapons/Shield/Armour research, so keep W/S/A **low** (just enough to
+   unlock ships/defense) and raise the profitable bonuses instead. Needs a niburu
+   capture of Arsenal effects + expedition outcome rates.
 
 ## Bigger testings (do next; in priority order)
 - **(A) Full game-loop integration test** (local, no balance): register→login→
@@ -86,7 +99,8 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
 - **(B) Niburu combat-fidelity sweeps** (simulator, no balance): pin the
   damage-distribution rule, RF edge cases, academy isolation.
 - **(C) Niburu live campaign for Expeditions/Arsenal** (needs balance top-up):
-  capture Arsenal effects + expedition tables, then implement.
+  run on **acc1**; capture Arsenal effects + expedition outcome tables (black-hole
+  rate, pirate/alien scaling vs W/S/A, resource/DM/ship finds), then implement.
 
 ## Known open items
 - **Damage distribution**: reference concentrates hull damage more than uniform
