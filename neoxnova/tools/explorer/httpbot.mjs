@@ -755,6 +755,16 @@ async function cmdExpedition(shipsCsv, numArg, timeArg, speedArg, pve, cpArg) {
   const slots = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
   console.log(`[expedition] cmd=${form.cmd} num=${form.exp_num} time=${form.exp_time} speed=${form.exp_speed} ships=${shipsCsv}${pve ? ' pve=' + pve : ''}`);
   console.log(`[expedition] slots now ${slots ? slots[0].trim() : '? (page saved to data/expedition-send.html)'}`);
+  // Record what we sent so outcome reports can be attributed to a composition.
+  const runPath = path.join(DATA_DIR, 'expedition-runs.json');
+  const runs = fs.existsSync(runPath) ? JSON.parse(fs.readFileSync(runPath, 'utf8')) : [];
+  runs.push({
+    at: new Date().toISOString(), account: USER, cp: cpArg || null, pve: pve || null,
+    ships: shipsCsv, num: Number(form.exp_num), time: Number(form.exp_time), speed: Number(form.exp_speed),
+    slotsAfter: slots ? `${slots[1]}/${slots[2]}` : null,
+  });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(runPath, JSON.stringify(runs, null, 2));
 }
 
 // List outgoing fleets from fleetTable (ID / mission / destination / objective / eta).
@@ -788,7 +798,12 @@ function parseMessageRows(html) {
     const sender = head[2] || null;
     const subject = head[3] || null;
     const body = stripTags(m[2]).replace(/\s+/g, ' ').trim();
-    rows.push({ id, date, sender, subject, body });
+    const report = (m[2].match(/CombatReport\.php\?raport=([a-f0-9]+)/i) || [])[1] || null;
+    const lossOf = (re) => { const x = re.exec(m[2]); return x ? Number(x[1].replace(/\./g, '')) : 0; };
+    rows.push({
+      id, date, sender, subject, body,
+      ...(report ? { report, attackerLosses: lossOf(/Losses attacker:\s*([\d.]+)/i), defenderLosses: lossOf(/Lost defender:\s*([\d.]+)/i) } : {}),
+    });
   }
   return rows;
 }
@@ -834,7 +849,14 @@ async function cmdExpLog() {
     const html = await (await getPage(`page=messages&mode=view&messcat=15&site=${site}&ajax=1`)).text();
     const rows = parseMessageRows(html);
     if (!rows.length) break;
-    for (const r of rows) { if (!seen.has(r.id)) { seen.add(r.id); log.messages.push(r); added++; } }
+    for (const r of rows) {
+      if (!seen.has(r.id)) { seen.add(r.id); log.messages.push(r); added++; continue; }
+      // Backfill fields added after a message was first logged (e.g. report hash).
+      const ex = log.messages.find((m) => m.id === r.id);
+      if (ex) for (const k of ['report', 'attackerLosses', 'defenderLosses', 'date', 'sender', 'subject']) {
+        if (r[k] != null && ex[k] == null) ex[k] = r[k];
+      }
+    }
     await delay();
   }
   for (const m of log.messages) {
@@ -860,6 +882,65 @@ async function cmdExpLog() {
   console.log(`[exp-log] +${added} new, total ${log.messages.length} (${n} outcomes / ${summary.returns} returns) -> ${outPath}`);
   console.log(`[exp-log] outcomes=${JSON.stringify(counts)} blackhole=${bh}/${n} (${summary.blackholeRate})`);
   return log;
+}
+
+// Fetch and parse the combat reports attached to expedition messages. Each
+// combat outcome links CombatReport.php?raport=<hash>; the report reveals the
+// points-scaled enemy template (fractional counts). Cached by hash in
+// data/expedition-reports.json.
+async function cmdExpReports() {
+  await login();
+  const outPath = path.join(DATA_DIR, 'expedition-reports.json');
+  const store = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : {};
+  // Fight reports are not in the expedition category: harvest "Combat messages"
+  // (messcat=3), whose rows carry the CombatReport.php?raport=<hash> link.
+  const rows = [];
+  const seen = new Set();
+  for (let site = 1; site <= 20; site++) {
+    const html = await (await getPage(`page=messages&mode=view&messcat=3&site=${site}&ajax=1`)).text();
+    const page = parseMessageRows(html);
+    if (!page.length) break;
+    for (const r of page) if (!seen.has(r.id)) { seen.add(r.id); rows.push(r); }
+    await delay();
+  }
+  const targets = rows.filter((m) => m.report);
+  let fetched = 0;
+  for (const m of targets) {
+    if (store[m.report]) continue;
+    const html = await (await getUrl(`${BASE}/game/CombatReport.php?raport=${m.report}`)).text();
+    const parsed = parseCombatReport(html);
+    // Per-unit view: `count` = round-1 starting count (what was sent / the enemy
+    // template), `lost` = summed across all rounds (total casualties of the fight).
+    const agg = (side) => {
+      const map = new Map();
+      parsed.rounds.forEach((r, i) => {
+        for (const u of r[side] || []) {
+          const e = map.get(u.code) || { code: u.code, name: u.name, count: 0, lost: 0 };
+          if (i === 0) e.count = u.count;
+          e.lost += u.lost || 0;
+          map.set(u.code, e);
+        }
+      });
+      return [...map.values()];
+    };
+    store[m.report] = {
+      hash: m.report, msgId: m.id, at: m.date || null, result: parsed.result,
+      attacker: agg('attacker'), defender: agg('defender'),
+      roundCount: parsed.roundCount, lossesRaw: parsed.lossesRaw, debris: parsed.debris,
+    };
+    fetched++;
+    await delay();
+  }
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(store, null, 2));
+  const all = Object.values(store);
+  console.log(`[exp-report] ${fetched} new, ${all.length} total -> ${outPath}`);
+  for (const r of all) {
+    const d = r.defender.map((u) => `${u.code}:${u.count}`).join(',') || '-';
+    const a = r.attacker.map((u) => `${u.code}:${u.count}`).join(',') || '-';
+    console.log(`  ${r.hash.slice(0, 8)} ${String(r.result || '?').padEnd(9)} atk=[${a}] def=[${d}] lostA=${r.attacker.reduce((s, u) => s + u.lost, 0)} lostD=${r.defender.reduce((s, u) => s + u.lost, 0)}`);
+  }
+  return store;
 }
 
 // Battle simulator (page=battleSimulator). Input JSON file:
@@ -972,6 +1053,7 @@ try {
   else if (cmd === 'expedition') await cmdExpedition(process.argv[3], process.argv[4], process.argv[5], process.argv[6], flag('--pve'), flag('--cp'));
   else if (cmd === 'exp-state') await cmdExpState();
   else if (cmd === 'exp-log') await cmdExpLog();
+  else if (cmd === 'exp-report') await cmdExpReports();
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
   else if (cmd === 'simsuite') await cmdSimSuite(process.argv[3], flag('--out'));
   else if (cmd === 'resolve') {
@@ -986,5 +1068,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }
