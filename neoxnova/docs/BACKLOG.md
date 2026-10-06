@@ -19,8 +19,11 @@
   built up both fleets via `resolve plans/exp-big.json` (builds are near-instant here) →
   **acc1 ~22.3k / acc2 ~20.5k fleet points**; fired 7 big arms each: `226:1000` (5k pts) ·
   `226:2000` (10k) · `217:1000` · `217:1000+204:3000` · `207:4000` · `225:2000` · `219:1000`.
-  Sends recorded; outcomes/fight reports land ~11:25–11:50Z (harvest daemons auto-collect).
-  **Next: harvest rounds 4+5, analyse tier effect, build toward ~50k for the next tier probe.**
+  **Results (both idle, all home): rounds 4+5 rolled 0 combats** (13.3 % pirate roll missed on 28
+  expeditions) ⇒ **ratio above 503 pts still unmeasured**. Fleet deltas before-r5→end net-positive
+  for every class on both accounts, except acc2 `219:1000` **lost to a black hole** (msg 219935).
+  Black-hole rate: acc1 **0/70**, acc2 **1/35**. Ratio table + §: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6.
+  **Next: keep firing big arms until a high-point combat triggers; then build toward ~50k.**
 - **Arsenal (2026-10-06):** in-game page `game.php?page=arsenal`; help = `game.php?page=manualinfo&id=10`
   (Russian). Upgrades drop from (a) regular `cmd=1` expedition "Infinite distances" **only if the
   sent fleet ≥ 75,000 fleet points** (1 pt = 1,000,000 metal+crystal excl. deuterium; pirates
@@ -42,8 +45,9 @@
     enemy points ≈ **~0.7× sent fleet points at large sizes** (DD100 → 500 pts vs enemy 342) but a
     **fixed minimum template + high variance** at small sizes (BT10 → 2–23 pts). Enemy is a fixed mix
     (Heavy Cargo/LF/Cruiser/BB/Star Fighter/BT/Destroyer) incl. types never sent; escorts do **not**
-    protect cargo (`217` survival not better with DD escort). Rounds 3 (10:06Z) & 4 fired; round 5 =
-    **big fleets (~5–15k pts/arm, account ~20k pts)** to probe the Arsenal tiers + ratio at scale.
+    protect cargo (`217` survival not better with DD escort). **Ratio converges to ~0.68 by 500 pts**
+    (full table in `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6); rounds 4+5 (big) rolled **0 combats**,
+    so behaviour >503 pts is still unmeasured. Next: fire more big arms to catch a high-point fight.
 1c. **Arsenal upgrades (Go model)** — catalog + drop rules captured in
     `docs/ARSENAL_LIVE_2026-10-06.md`. Model once expedition resolver exists; needs the fleet-point
     threshold semantics (doc says 75k; user believes 5k/50k/250k tiers) confirmed live — round 5 is

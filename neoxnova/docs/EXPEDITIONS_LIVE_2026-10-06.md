@@ -122,5 +122,37 @@ Takeaways:
 - acc1 fleet diff across round 3: only `226` dropped (−22), matching the report;
   `217`/`204`/`215` came back net-positive (ship-loot outcomes), so no global loss.
 
-Still open: does the ~0.7 ratio hold / shift at ≥75,000 pts (the Arsenal gate),
-and what sets the small-fleet floor.
+### Enemy-points ratio (enemyPts ÷ sentPts)
+
+| sent arm | atkPts | enemyPts | ratio |
+|---|---:|---:|---:|
+| BT×10 | 0.55 | 2.4 / 2.9 / 23 | 4.3 / 5.3 / 41.8 |
+| BB20+BT20 | 2.3 | 13 / 18 | 5.9 / 8.0 |
+| BT×50 | 2.8 | 40 | 14.7 |
+| LF120+Cr20+BB20+BT16 | 3.2 | 7.1 | 2.2 |
+| LF500+BT50 | 4.8 | 8.4 | 1.8 |
+| BT×100 | 5.5 | 7.6 / 10.0 | 1.4 / 1.8 |
+| DD×100 | 500 | 342 | **0.68** |
+| BT50+DD100 | 503 | 344 | **0.68** |
+
+The ratio collapses from ~5–40 (a minimum-template floor with big variance) and
+**converges to ~0.68 by 500 pts**; both Destroyer arms drew the same enemy
+`DD×68`. Note only ~11 of the 33 harvested reports are real expedition enemies —
+the rest are vs planets (Solar Satellites + defense lines) and are irrelevant.
+
+### Rounds 4–5 rolled **0 combats** (both accounts)
+
+Rounds 4 (small) and 5 (big: `226:1000/2000`, `225:2000`, `219:1000`, …) produced
+**no enemy encounters** — the ~13.3 % pirate roll missed on all 28 expeditions.
+Fleets came home with loot, not fights, so **the ratio above 503 pts (the whole
+5k/50k tier question) is still unmeasured**. Fleet deltas before-r5→end were
+net-positive for every class on both accounts, except acc2's `219:1000`
+Battle-Recycler arm which was **lost to a black hole** (msg id 219935).
+
+### Black-hole rate
+- acc1: **0 / 70** outcomes (95 % upper bound ≈ 4 %).
+- acc2: **1 / 35** (2.86 %) — the `219:1000` arm vanished.
+Small sample; still nothing like vanilla 1/9.
+
+Still open: does the ~0.7 ratio hold / shift at ≥5,000 pts (Arsenal gate), and
+what sets the small-fleet floor.
