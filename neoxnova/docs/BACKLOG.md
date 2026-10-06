@@ -4,7 +4,7 @@
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
 - acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders **stopped** (all 6 hit caps).
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
-- VM HEAD `9074c93`. Sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
+- VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
 
 ## Open backlog (ordered; one item per session)
 1. **Expeditions live capture (acc1)** — send expos, log every outcome (nothing/delay/early-return/
