@@ -76,12 +76,20 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
 2. **Moons** (moonbase +3 fields, creation/destruction) — *not* believed to be off;
    chance is likely just lower than classic. **Deferred**: owner will test the
    spawn chance manually first.
-3. **Espionage** mission (report + counter-espionage). Quick: report detail/chance
-   is a function of the **espionage research level difference** between source and
-   target. Academy/senate bonus unknown (check before implementing).
+3. **Espionage** mission. **Math implemented** (`internal/game/espionage.go` +
+   tests): `score = probes + (yourEsp − enemyEsp)·|yourEsp − enemyEsp|`; reveals
+   Fleet ≥2, Defense ≥3, Buildings ≥5, Research ≥7 (Resources always) — reproduces
+   the reference required-probe table. Counter-espionage approximated
+   (`0.25%·2^(def−atk)·probes·defShips`, clamped; no ships ⇒ 0). **TODO**: mission
+   wiring — report store + engine resolver + an **incoming-spy notification for the
+   defender** (so online players can spoof/move fleet, as on niburu). No
+   academy/senate espionage bonus exists (confirmed).
 4. **In-game auto-builder menu** (a game page like Arsenal/Buildings) — NOT an
-   external/SDK API. The old "API keys for sanctioned auto-builder automation"
-   wording was a **mis-communication**; do not expose an external builder API.
+   external/SDK API (the old "API keys" wording was a mis-communication). Design
+   captured in **`docs/AUTO_BUILD_DESIGN.md`**: persisted blueprint per planet +
+   account research, fills the one normal build queue, admin/dev-gated first,
+   optional DM/premium paywall later, blueprint = the proven explorer JSON schema.
+   **Backlog (design only, no code yet).**
 5. **TOTP 2FA** (auth — second factor on `internal/auth`).
 6. **Expedition + Arsenal scaling** — L. **Next live-test topic, on acc1** (highest
    flight-speed + offensive academy bonus). Mechanics (owner): black-hole chance is
@@ -101,6 +109,19 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
 - **(C) Niburu live campaign for Expeditions/Arsenal** (needs balance top-up):
   run on **acc1**; capture Arsenal effects + expedition outcome tables (black-hole
   rate, pirate/alien scaling vs W/S/A, resource/DM/ship finds), then implement.
+  - Expedition fleet notes (owner + web research). A good comp balances three
+    things at once: **fleet value** (drives find size), **cargo** (haul it home)
+    and **combat power** (survive pirates/aliens). Owner's rule of thumb:
+    **~10 Battleships : 1 Battle Transporter** — BS has **no rapid-fire vs BT**, so
+    at least one BT survives to carry loot/debris home. Web/official: finds scale
+    with the **top player's points** (e.g. ~42–200 Large Cargos + 1 probe for
+    resource runs). Official outcome odds: pirates ~5.8%, aliens ~2.6%, delay ~7%,
+    early return ~2%, nothing ~18.6%, **black hole ~0.33%** (niburu likely higher),
+    merchant ~0.7%. Expedition points = `(hull·5)/1000`; max capped by rank-1 points.
+  - Arsenal/Governator "Upgrades" (Laser/Ion/Graviton/Plasma guns, armor, shields,
+    engines, conveyors, production) are **unique to niburu** — not in classic OGame
+    0.84. They are expedition-findable and are the main lever that scales expo
+    profit while W/S/A research is kept low (pirates/aliens scale on W/S/A only).
 
 ## Known open items
 - **Damage distribution**: reference concentrates hull damage more than uniform

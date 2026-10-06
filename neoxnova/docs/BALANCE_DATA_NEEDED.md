@@ -144,6 +144,11 @@ or durations at a known Nanite level with no officers.
   (Laser +0.75, Ion +0.75, Gravitational +0.75, Plasma +0.75), armor (Light +0.6,
   Medium +0.5, Heavy +0.4), shields (Light +0.6, ...), engines (Jet +0.6, ...).
   Upgrades become findable at specific fleet-point thresholds (~5k / 25k / 150k).
+  **Unique to niburu** — classic OGame 0.84 has no Arsenal (its CC0 source has no
+  such page); the modern Lifeforms system is unrelated. The related **Governators**
+  page (DM + Achievement points: Weapons/Shield +10%, Building −10%, Resource
+  +10% extraction, Energy +10%, Research +10% time, Fleet +10% fly time; levels up
+  to 65/65/50/250/100/40/20) is likewise custom. Both are the expo-profit levers.
 - **Academy**: not captured (only appears as a nav link) — needs a `page=academy`
   capture. Academy points likely come from Peaceful levels and/or Achievements and
   give additive (or multiplicative) combat bonuses; vital for beating pirates and
