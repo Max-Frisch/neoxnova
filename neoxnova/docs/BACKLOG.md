@@ -6,28 +6,48 @@
   **moon present** (diameter <10 000). Next session: parallel acc1+acc2 expedition testing.
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
 - VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
-- **Expo matrix (2026-10-06):** both accounts, `cmd=1`, main planets, 7 arms (time=1, speed=10):
-  cargo `217:20` · fodder `204:200` · combat `207:20` · `217:20+204:200` · `217:20+207:20` ·
-  `217:50+204:500` · `217:20+226:100`. **Round 1** (08:49Z) = **0 combat / 14 fleets** (acc1:
-  unk,dm,ships,nothing,delay,unk,res; acc2: res,ships,ships,dm,dm,ships,unk) ⇒ **no new fight
-  reports**. **Round 2** re-fired same 7 arms both accounts (09:30–09:37Z). Real cap is **7 on
-  both**; acc1's `13/7` counter is the false legacy `cmd=2` shadow-slot display bug (ignore).
+- **Expo matrix (2026-10-06):** both accounts, `cmd=1`, main planets, `time=1`, `speed=10`.
+  **Round 1** (08:49Z) = **0 combat / 14 fleets**. **Round 2** re-fired 7 arms (09:30–09:37Z);
+  1 delayed returner per account, both landed ~10:04Z. **Round 3** (10:06Z) fired on **both**
+  accounts, 7 arms: `217:100` · `217:50+204:500` · `217:50+226:100` · `217:50+215:100` ·
+  `226:100` · `207:100` · `217:100+204:1000`. Arm 4 replaces the recorded `217:50+216:20`
+  (Black Moons: acc1 has 6, acc2 has 0) with a Battle Cruiser escort both own. Real cap is **7
+  on both**; acc1's `13/7` counter is the false legacy `cmd=2` shadow-slot display bug (ignore).
   Harvest daemons (`run-expharvest.sh`: tmux `expharv-acc2` on VM, local loop) write
   `data/expeditions.json`, `data/expedition-reports.json`; sends in `data/expedition-runs.json`.
-  **Next session — round 3 (bigger + stronger), 7 arms (time=1, speed=10):** `217:100` ·
-  `217:50+204:500` · `217:50+226:100` · `217:50+216:20` · `226:100` · `207:100` ·
-  `217:100+204:1000`. Fire on both accounts once round-2 fleets land (~09:47–10:04Z).
+  **Round 4** (10:36Z) re-fired the same 7 small arms on both. **Round 5 = BIG (both, ~11:05Z):**
+  built up both fleets via `resolve plans/exp-big.json` (builds are near-instant here) →
+  **acc1 ~22.3k / acc2 ~20.5k fleet points**; fired 7 big arms each: `226:1000` (5k pts) ·
+  `226:2000` (10k) · `217:1000` · `217:1000+204:3000` · `207:4000` · `225:2000` · `219:1000`.
+  Sends recorded; outcomes/fight reports land ~11:25–11:50Z (harvest daemons auto-collect).
+  **Next: harvest rounds 4+5, analyse tier effect, build toward ~50k for the next tier probe.**
+- **Arsenal (2026-10-06):** in-game page `game.php?page=arsenal`; help = `game.php?page=manualinfo&id=10`
+  (Russian). Upgrades drop from (a) regular `cmd=1` expedition "Infinite distances" **only if the
+  sent fleet ≥ 75,000 fleet points** (1 pt = 1,000,000 metal+crystal excl. deuterium; pirates
+  encounter 13.3 %, 10 % find after win); (b) Hostail `cmd=2`: Barbarians 8 % (laser/ion/jet/light
+  armor/light shield), Pirates 11 % (ion/plasma/impulse/medium), Aliens 14 % (plasma/grav/hyperspace/
+  heavy); +1 % find per 10 combat levels. Activation: first 10 levels 100 %; above 10 −2 % per
+  success, floor 75 %; fail = −10 % of last value. Details: `docs/ARSENAL_LIVE_2026-10-06.md`.
+  User's memory says the tiers are **5k/50k/250k** (light/medium/heavy) and doubts the doc's single
+  75k; round 5 (≥5k) is the first probe. "light/medium/heavy" also = Barbarian/Pirate/Alien Hostail
+  tiers.
 
 ## Open backlog (ordered; one item per session)
 1. **Expedition resolver (Go)** — capture done (see below); model `MissionExpedition` in
    `internal/engine`: outcome roll, loot, and points-scaled enemy. BLOCKERS: enemy formula unknown;
    `cmd=2` leaks ghost fleets (avoid). Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
-1b. **Expedition enemy formula** — collect composition-controlled samples (pure vs escort vs
-    **meatshield/"Schussfang"**); stop poking `--pve`. Matrix live on BOTH accounts (see Live state).
-    Key metric is **fight reports** (`exp-report`, messcat=3): per-unit start counts + total losses,
-    so cargo `217` survival can be diffed across arms. Round 1/2 (14+14 fleets) yet to yield a
-    fight report (round 1 = 0 combat). Early hint: enemy size is *not* proportional to sent fleet
-    points (pure `217:10` drew a bigger template than `217:100`). Round 3: scale up + strong escorts.
+1b. **Expedition enemy formula** — composition-controlled samples (pure vs escort vs
+    **meatshield/"Schussfang"**); stop poking `--pve`. Rounds **2 & 3 produced fight reports**
+    (`exp-report`, messcat=3) — full table in `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6. Result:
+    enemy points ≈ **~0.7× sent fleet points at large sizes** (DD100 → 500 pts vs enemy 342) but a
+    **fixed minimum template + high variance** at small sizes (BT10 → 2–23 pts). Enemy is a fixed mix
+    (Heavy Cargo/LF/Cruiser/BB/Star Fighter/BT/Destroyer) incl. types never sent; escorts do **not**
+    protect cargo (`217` survival not better with DD escort). Rounds 3 (10:06Z) & 4 fired; round 5 =
+    **big fleets (~5–15k pts/arm, account ~20k pts)** to probe the Arsenal tiers + ratio at scale.
+1c. **Arsenal upgrades (Go model)** — catalog + drop rules captured in
+    `docs/ARSENAL_LIVE_2026-10-06.md`. Model once expedition resolver exists; needs the fleet-point
+    threshold semantics (doc says 75k; user believes 5k/50k/250k tiers) confirmed live — round 5 is
+    the first live probe. Hostail `cmd=2` is the only tier-targeted route but is the ghost-fleet path.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet so online
    defenders see/react before arrival (currently only espionage is visible via its reports endpoint).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; design in `docs/AUTO_BUILD_DESIGN.md`.
@@ -50,7 +70,7 @@
 ## Deep dives (read on demand)
 `docs/EXPLORER.md` · `docs/BALANCE_DATA_NEEDED.md` · `docs/COMBAT_FINDINGS.md` / `COMBAT_MODEL.md` /
 `COMBAT_TEST_PLAN.md` · `docs/ESPIONAGE_LIVE_2026-10-06.md` · `docs/EXPEDITIONS_LIVE_2026-10-06.md` ·
-`docs/AUTO_BUILD_DESIGN.md` · `docs/BACKUP.md`
+`docs/ARSENAL_LIVE_2026-10-06.md` · `docs/AUTO_BUILD_DESIGN.md` · `docs/BACKUP.md`
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown; using approximation + ships-only detection.

@@ -93,3 +93,34 @@ eventually resolved with ~4 B of attacker losses and 0 defender losses.)
 
 Next session: collect a larger, composition-controlled sample (pure vs escort)
 and diff planet ship counts around each batch to measure survival.
+
+## 6. Fight-report findings — rounds 2–3 (2026-10-06)
+
+`exp-report` finally captured combat reports for the campaign arms (harvest holds
+~48). Server clock is **UTC+3** (a 10:06Z send appears ~13:06 server). Rows
+below are `atkPts/defPts` = (metal+crystal)/1e6 of the start comps.
+
+| when (server) | arm | attacker | enemy | result |
+|---|---|---|---|---|
+| 12:42:56 | r2 `217:20+207:20` | 2.3 pts | 13.3 pts | defender (atk 40 lost) |
+| 12:44:54 (acc2) | r2 `217:20+207:20` | 2.3 pts | 18.0 pts | defender |
+| 12:43:50 | r2 `217:50+204:500` | 4.8 pts | 8.4 pts | defender (atk 550 lost) |
+| 13:22:30 | r3 `226:100` | 500 pts | 342 pts | **attacker** (atk −22, enemy −228) |
+| 13:24:13 (acc2) | r3 `217:50+226:100` | 503 pts | 344 pts | **attacker** (atk −54, enemy −218) |
+
+Takeaways:
+- **The enemy IS points-scaled, roughly ~0.7× the sent fleet points at large
+  sizes** (500 → 342; 503 → 344). The earlier "not proportional" impression came
+  from small fleets, which sit on a **fixed minimum template + high variance**:
+  pure `217:10` (0.6 pts) drew 2.4–23 pts across samples.
+- The enemy is a **fixed composition** the attacker often never sent — Heavy
+  Cargo, Light Fighter, Cruiser, Battleship, Star Fighter, Battle Transporter,
+  Destroyer. Both Destroyer arms drew **Destroyer x68** regardless of escort.
+- Composition matters for **losses**, not enemy size: pure `226:100` lost 22/100;
+  `217:50+226:100` lost 54 (the cargo dragged the escort down). Cargo `217` is
+  *not* protected by escorts.
+- acc1 fleet diff across round 3: only `226` dropped (−22), matching the report;
+  `217`/`204`/`215` came back net-positive (ship-loot outcomes), so no global loss.
+
+Still open: does the ~0.7 ratio hold / shift at ≥75,000 pts (the Arsenal gate),
+and what sets the small-fleet floor.
