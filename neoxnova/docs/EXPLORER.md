@@ -48,6 +48,15 @@ Real flow: **step 1** = select ships **and target** (speed lives here, 1..10, 10
   text (success *also* navigates to fleetTable).
 - The cross-galaxy distance (acc1 3:125:12 -> acc2 2:188:16) is not a fuel blocker.
 
+## Expeditions (custom server "auto" panel)
+Expeditions are **not** in the fleet wizard; use the `#expfleet` panel on
+`page=fleetTable`. Wrapper: `httpbot.mjs expedition <code:count,...> [num] [time] [speed] [--pve N]`
+(`ship2<code>` fields; `time` 1..10 = 0.25..2.5 h; `pve` 1 Barbarians / 2 Pirates / 3 Aliens).
+`exp-state` lists outgoing fleets; `exp-log` appends messcat=15 outcomes to
+`data/expeditions.json` and prints the distribution. **Do not use `--pve`** — it
+leaks ghost fleets (counted in fleetTable, never resolve). Findings + black-hole
+status: `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
+
 ## Battle simulator (WORKS)
 POST `page=battleSimulator&mode=send` with `slots=2` and `battleinput[0][0][code]` (attacker) /
 `battleinput[0][1][code]` (defender); `1xx` = techs/skills, `2xx`/`4xx` = ships/defenses. Response is

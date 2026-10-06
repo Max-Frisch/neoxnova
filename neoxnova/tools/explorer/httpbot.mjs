@@ -729,6 +729,139 @@ async function cmdFleetBack(fleetID) {
   console.log(`[fleetback] recalled fleetID ${id}${/not|error/i.test(txt) ? ' (check response)' : ''}`);
 }
 
+// Auto-expedition — a server feature (see ft form `#expfleet`): POST page=fleetTable
+//   cmd=1                       -> random "Deep area of galaxy"
+//   cmd=2 + pve=1|2|3           -> chosen target Barbarians|Pirates|Aliens
+// Ship counts use the `ship2<code>` prefix (e.g. ship2217). exp_time is 1..10 -> 0.25..2.5 h.
+// Usage: httpbot.mjs expedition <code:count,...> [num] [time] [speed] [--pve N] [--cp id]
+async function cmdExpedition(shipsCsv, numArg, timeArg, speedArg, pve, cpArg) {
+  await login();
+  const cpq = cpArg ? `&cp=${cpArg}` : '';
+  const form = {
+    cmd: pve ? '2' : '1',
+    exp_num: String(numArg || 1),
+    exp_time: String(timeArg || 1),
+    exp_speed: String(speedArg || 10),
+  };
+  if (pve) form.pve = String(pve);
+  for (const pair of String(shipsCsv || '').split(',')) {
+    const [c, n] = pair.split(':');
+    if (c) form['ship2' + c] = String(n);
+  }
+  const html = await postForm('page=fleetTable' + cpq, form);
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DIR, 'expedition-send.html'), html);
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
+  const slots = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
+  console.log(`[expedition] cmd=${form.cmd} num=${form.exp_num} time=${form.exp_time} speed=${form.exp_speed} ships=${shipsCsv}${pve ? ' pve=' + pve : ''}`);
+  console.log(`[expedition] slots now ${slots ? slots[0].trim() : '? (page saved to data/expedition-send.html)'}`);
+}
+
+// List outgoing fleets from fleetTable (ID / mission / destination / objective / eta).
+async function cmdExpState() {
+  await login();
+  const html = await (await getPage('page=fleetTable')).text();
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
+  const cap = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
+  const rows = [];
+  const start = html.indexOf('Arrival(Destination)');
+  const end = start >= 0 ? html.indexOf('Automatically send an expedition', start) : -1;
+  const region = (start >= 0 ? html.slice(start, end > 0 ? end : undefined) : '').replace(/data-tooltip-content="[\s\S]*?"/g, '');
+  for (const tr of region.split(/<tr[^>]*>/).slice(1)) {
+    const cells = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => stripTags(c[1]).replace(/\s+/g, ' ').trim());
+    const id = (tr.match(/name="fleetID" value="(\d+)"/) || [])[1] || null;
+    if (cells.length >= 7 && /^\d+$/.test(cells[0]) && /expedition|transport|deploy|attack|espionage|recycle|hold/i.test(cells[1])) {
+      rows.push({ fleetID: id, mission: cells[1], number: cells[2], start: cells[3], arrival: cells[4], destination: cells[5], back: cells[6] || '', eta: cells[7] || '' });
+    }
+  }
+  console.log(JSON.stringify({ expeditionSlots: cap ? cap[2] : null, used: cap ? cap[1] : null, fleets: rows }, null, 2));
+  return rows;
+}
+
+// Parse message rows (id, date, sender, subject, body text) from a messages AJAX page.
+function parseMessageRows(html) {
+  const rows = [];
+  for (const m of html.matchAll(/<tr id="message_(\d+)"[\s\S]*?<\/tr>\s*<tr class="messages_body[^"]*">([\s\S]*?)<\/tr>/g)) {
+    const id = m[1];
+    const head = [...m[0].matchAll(/<td[^>]*class="head_row_msg"[^>]*>([\s\S]*?)<\/td>/g)].map((c) => stripTags(c[1]).replace(/\s+/g, ' ').trim());
+    const date = head[1] || null;
+    const sender = head[2] || null;
+    const subject = head[3] || null;
+    const body = stripTags(m[2]).replace(/\s+/g, ' ').trim();
+    rows.push({ id, date, sender, subject, body });
+  }
+  return rows;
+}
+
+// Classify an expedition message body into a coarse outcome category. Strings
+// mirror the live 2Moons-derived server (data/expeditions.json and
+// data/_lang_FLEETphp). Vanilla 2Moons MissionCaseExpedition rolls mt_rand(1,9):
+// 1=resources, 2=dark matter, 3=ships, 4=pirates/aliens, 5=black hole,
+// 6=time shift, 7-9=nothing. Return acks ("Your fleet has returned...") are not
+// outcomes; cmdExpLog tags them kind="return".
+function classifyExpedition(body) {
+  const b = (body || '').toLowerCase();
+  if (/returned from the expedition/.test(b)) return 'return';
+  if (/black hole|nuclear breach|has not returned from the hyperspacejump|zzzrrt/.test(b)) return 'blackhole';
+  if (/predecessor expedition|deserted pirate base|ship cemetery|armada|automatic shipyard|starbase|previously intact ships?|repair some of|complete the construction|retrieved|hangar of the fortress/.test(b)) return 'ships';
+  if (/dark matter/.test(b)) return 'darkmatter';
+  if (/moa tikarr|pirate|barbarian|alien|unknown ships|activate their weapons|an unforseen encounter/.test(b)) return 'combat';
+  if (/accelerated the return|returned a bit earlier|shortcut to return/.test(b)) return 'fast-return';
+  if (/last longer than thought|return is delayed|missed it`s target|took substantially more time|went in the completely wrong direction|wrong place|collided with a strange ship|cancel the expedition\)? with a shortage/.test(b)) return 'delay';
+  if (/dark matter/.test(b)) return 'darkmatter';
+  if (/raw material|resources|crystalline|asteroid|storage rooms|converted into crystal deuterium/.test(b)) return 'resources';
+  if (/nothing|no real new knowledge|empty-handed|vast emptiness|not very successful|not brought/.test(b)) return 'nothing';
+  return 'unknown';
+}
+
+// Pull the delivered loot out of a return-ack body.
+function parseExpeditionLoot(body) {
+  const g = (name) => {
+    const m = new RegExp(`${name}\\s+([\\d.]+)`, 'i').exec(body);
+    return m ? Number(m[1].replace(/\./g, '')) : 0;
+  };
+  return { metal: g('Metal'), crystal: g('Crystal'), deuterium: g('Deuterium'), darkmatter: g('Dark Matter') };
+}
+
+// Fetch expedition messages (messcat=15) and append newly seen ones to data/expeditions.json.
+async function cmdExpLog() {
+  await login();
+  const outPath = path.join(DATA_DIR, 'expeditions.json');
+  let log = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : { updatedAt: null, messages: [] };
+  const seen = new Set(log.messages.map((m) => m.id));
+  let added = 0;
+  for (let site = 1; site <= 20; site++) {
+    const html = await (await getPage(`page=messages&mode=view&messcat=15&site=${site}&ajax=1`)).text();
+    const rows = parseMessageRows(html);
+    if (!rows.length) break;
+    for (const r of rows) { if (!seen.has(r.id)) { seen.add(r.id); log.messages.push(r); added++; } }
+    await delay();
+  }
+  for (const m of log.messages) {
+    m.outcome = classifyExpedition(m.body || '');
+    m.kind = m.outcome === 'return' ? 'return' : 'outcome';
+    if (m.kind === 'return') m.loot = parseExpeditionLoot(m.body || '');
+  }
+  log.messages.sort((a, b) => Number(a.id) - Number(b.id));
+  log.updatedAt = new Date().toISOString();
+  const outcomes = log.messages.filter((m) => m.kind === 'outcome');
+  const counts = {};
+  for (const m of outcomes) counts[m.outcome] = (counts[m.outcome] || 0) + 1;
+  const n = outcomes.length;
+  const bh = counts.blackhole || 0;
+  const summary = {
+    outcomes: counts,
+    outcomeSamples: n,
+    returns: log.messages.length - n,
+    blackholeRate: n ? +(bh / n).toFixed(4) : null,
+  };
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(log, null, 2));
+  console.log(`[exp-log] +${added} new, total ${log.messages.length} (${n} outcomes / ${summary.returns} returns) -> ${outPath}`);
+  console.log(`[exp-log] outcomes=${JSON.stringify(counts)} blackhole=${bh}/${n} (${summary.blackholeRate})`);
+  return log;
+}
+
 // Battle simulator (page=battleSimulator). Input JSON file:
 //   { "attacker": { "109":15, "110":15, "111":15, "202":200, "204":500, ... },
 //     "defender": { "111":15, "401":500, ... } }
@@ -836,6 +969,9 @@ try {
   else if (cmd === 'academy-up') await cmdAcademyUp(process.argv[3], process.argv[4]);
   else if (cmd === 'fleet') await cmdFleet(process.argv[3], process.argv[4], process.argv[5], process.argv[6], process.argv.includes('--dry'), flag('--cp'));
   else if (cmd === 'fleetback') await cmdFleetBack(process.argv[3]);
+  else if (cmd === 'expedition') await cmdExpedition(process.argv[3], process.argv[4], process.argv[5], process.argv[6], flag('--pve'), flag('--cp'));
+  else if (cmd === 'exp-state') await cmdExpState();
+  else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
   else if (cmd === 'simsuite') await cmdSimSuite(process.argv[3], flag('--out'));
   else if (cmd === 'resolve') {
@@ -850,5 +986,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }
