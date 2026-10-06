@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -276,6 +277,20 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 		case "COLONIZE":
 			if err := e.resolveColonize(ctx, tx, id, userID); err != nil {
 				log.Printf("[ERROR] Failed to resolve COLONIZE for fleet #%d: %v", id, err)
+				return
+			}
+
+		case "ESPIONAGE":
+			if !targetID.Valid {
+				log.Printf("[ERROR] Fleet #%d has no target celestial for ESPIONAGE; returning", id)
+				if _, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1`, id); err != nil {
+					log.Printf("[ERROR] Failed to return target-less fleet #%d: %v", id, err)
+					return
+				}
+				break
+			}
+			if err := e.resolveEspionage(ctx, tx, id, userID, targetID.Int64); err != nil {
+				log.Printf("[ERROR] Failed to resolve ESPIONAGE for fleet #%d: %v", id, err)
 				return
 			}
 
@@ -687,6 +702,133 @@ func (e *EventEngine) resolveRecycle(ctx context.Context, tx *sql.Tx, fleetID, t
 	return err
 }
 
+// espionageIntel is the JSON payload stored on an espionage report. Niburu
+// returns every section regardless of the espionage-tech difference.
+type espionageIntel struct {
+	Target     string           `json:"target"`
+	Galaxy     int              `json:"galaxy"`
+	System     int              `json:"system"`
+	Position   int              `json:"position"`
+	Metal      int64            `json:"metal"`
+	Crystal    int64            `json:"crystal"`
+	Deuterium  int64            `json:"deuterium"`
+	Fleet      map[string]int64 `json:"fleet"`
+	Defense    map[string]int64 `json:"defense"`
+	Buildings  map[string]int   `json:"buildings"`
+	Research   map[string]int   `json:"research"`
+	ProbesSent int              `json:"probes_sent"`
+	ProbesLost int              `json:"probes_lost"`
+}
+
+// resolveEspionage delivers a spy report and resolves counter-espionage. Per the
+// live niburu capture (docs/ESPIONAGE_LIVE_2026-10-06.md) the report is always
+// full; the espionage-tech difference only affects whether the probes are shot
+// down (ships-only detection). Caught probes are destroyed but the report is
+// still delivered. Survivors fly home.
+func (e *EventEngine) resolveEspionage(ctx context.Context, tx *sql.Tx, fleetID, attackerID, targetID int64) error {
+	if err := e.accrueResources(ctx, tx, targetID); err != nil {
+		return err
+	}
+
+	var (
+		defOwner                 sql.NullInt64
+		universeID               string
+		targetName               string
+		galaxy, system, position int
+		metal, crystal, deut     int64
+	)
+	if err := tx.QueryRowContext(ctx, `
+		SELECT user_id, universe_id::text, name, galaxy, system, position,
+		       metal::bigint, crystal::bigint, deuterium::bigint
+		FROM celestial_objects WHERE id = $1 FOR UPDATE
+	`, targetID).Scan(&defOwner, &universeID, &targetName, &galaxy, &system, &position, &metal, &crystal, &deut); err != nil {
+		return err
+	}
+
+	atkShips, err := loadFleetShips(ctx, tx, fleetID)
+	if err != nil {
+		return err
+	}
+	probes := atkShips["210"]
+	atkEsp, err := loadTechLevel(ctx, tx, attackerID, "espionage_tech")
+	if err != nil {
+		return err
+	}
+	defEsp := 0
+	research := map[string]int{}
+	if defOwner.Valid {
+		if defEsp, err = loadTechLevel(ctx, tx, defOwner.Int64, "espionage_tech"); err != nil {
+			return err
+		}
+		if research, err = loadTechLevels(ctx, tx, defOwner.Int64); err != nil {
+			return err
+		}
+	}
+	defShips, err := loadPlanetUnits(ctx, tx, "planet_ships", "ship_code", targetID)
+	if err != nil {
+		return err
+	}
+	defDefs, err := loadPlanetUnits(ctx, tx, "planet_defenses", "defense_code", targetID)
+	if err != nil {
+		return err
+	}
+	buildings, err := loadStructureLevels(ctx, tx, targetID)
+	if err != nil {
+		return err
+	}
+
+	score := game.EspionageScore(int(probes), atkEsp, defEsp)
+
+	// Counter-espionage: ships-only detection, seeded by fleet id so a retried
+	// resolution is stable.
+	probesLost := 0
+	chance := game.CounterEspionageChance(atkEsp, defEsp, int(probes), int(totalCount(defShips)))
+	if probes > 0 && chance > 0 {
+		if rand.New(rand.NewSource(fleetID)).Float64() < chance {
+			probesLost = int(probes)
+		}
+	}
+
+	intel := espionageIntel{
+		Target: targetName, Galaxy: galaxy, System: system, Position: position,
+		Metal: metal, Crystal: crystal, Deuterium: deut,
+		Fleet: defShips, Defense: defDefs, Buildings: buildings, Research: research,
+		ProbesSent: int(probes), ProbesLost: probesLost,
+	}
+	reportJSON, err := json.Marshal(intel)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO espionage_reports (
+			universe_id, fleet_id, attacker_id, defender_id, target_id,
+			galaxy, system, position, probes_sent, probes_lost, score, report
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+	`, universeID, fleetID, attackerID, defOwner, targetID,
+		galaxy, system, position, int(probes), probesLost, score, reportJSON); err != nil {
+		return err
+	}
+
+	remaining := map[string]int64{}
+	for code, n := range atkShips {
+		if code == "210" {
+			n -= int64(probesLost)
+		}
+		if n > 0 {
+			remaining[code] = n
+		}
+	}
+	if err := overwriteFleetShips(ctx, tx, fleetID, remaining); err != nil {
+		return err
+	}
+	if totalCount(remaining) == 0 {
+		_, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, fleetID)
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1`, fleetID)
+	return err
+}
+
 // resolveColonize founds a new planet at the fleet's target coordinates,
 // consuming one Colony Ship and stationing the rest of the fleet there. If the
 // destination is already occupied or the fleet carries no colony ship, the
@@ -846,6 +988,57 @@ func loadAcademy(ctx context.Context, tx *sql.Tx, userID int64) (map[string]int,
 	rows, err := tx.QueryContext(ctx, `
 		SELECT skill_code, level FROM user_academy_skills WHERE user_id = $1 AND level > 0
 	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var code string
+		var level int
+		if err := rows.Scan(&code, &level); err != nil {
+			return nil, err
+		}
+		out[code] = level
+	}
+	return out, rows.Err()
+}
+
+// loadTechLevel returns one technology level for a user (0 when unresearched).
+func loadTechLevel(ctx context.Context, tx *sql.Tx, userID int64, code string) (int, error) {
+	var level int
+	err := tx.QueryRowContext(ctx,
+		`SELECT level FROM user_technologies WHERE user_id = $1 AND tech_code = $2`, userID, code).Scan(&level)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return level, err
+}
+
+// loadTechLevels returns all researched technology levels for a user.
+func loadTechLevels(ctx context.Context, tx *sql.Tx, userID int64) (map[string]int, error) {
+	rows, err := tx.QueryContext(ctx,
+		`SELECT tech_code, level FROM user_technologies WHERE user_id = $1 AND level > 0`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var code string
+		var level int
+		if err := rows.Scan(&code, &level); err != nil {
+			return nil, err
+		}
+		out[code] = level
+	}
+	return out, rows.Err()
+}
+
+// loadStructureLevels returns the built structure levels on a celestial.
+func loadStructureLevels(ctx context.Context, tx *sql.Tx, celestialID int64) (map[string]int, error) {
+	rows, err := tx.QueryContext(ctx,
+		`SELECT structure_code, level FROM planet_structures WHERE celestial_id = $1 AND level > 0`, celestialID)
 	if err != nil {
 		return nil, err
 	}

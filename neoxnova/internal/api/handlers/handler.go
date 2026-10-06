@@ -22,6 +22,7 @@ type Handler struct {
 	Fleets     *store.FleetStore
 	Builds     *store.BuildStore
 	Combat     *store.CombatReportStore
+	Espionage  *store.EspionageReportStore
 	Auth       *store.AuthStore
 	loginGuard *lockout
 }
@@ -35,6 +36,7 @@ func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
 		Fleets:     store.NewFleetStore(db),
 		Builds:     store.NewBuildStore(db),
 		Combat:     store.NewCombatReportStore(db),
+		Espionage:  store.NewEspionageReportStore(db),
 		Auth:       store.NewAuthStore(db),
 		loginGuard: newLockout(),
 	}
