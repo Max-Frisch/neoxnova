@@ -664,8 +664,9 @@ async function cmdAcademyMap() {
 // Fleet send, mirroring the working browser flow captured in fleet_movement.har:
 //   step1 POST source coords + ships (mission=0)
 //   GET  fleetStep1&mode=checkTarget (target) -> OK
-//   step2 POST target coords + speed + mission=0 + token
+//   step2 POST target coords + speed + mission=<n> + token  (mission=0 is rejected)
 //   step3 POST token + univers_<id> + mission + resources + staytime
+// speed is the 1..10 index (10 = 100%).
 // Usage: httpbot.mjs fleet <g:s:p> <mission> <code:count,...> [speed] [--dry]
 async function cmdFleet(gtarget, mission, shipsCsv, speedArg, dry, cpArg) {
   await login();
@@ -697,7 +698,7 @@ async function cmdFleet(gtarget, mission, shipsCsv, speedArg, dry, cpArg) {
   if (ctTxt !== 'OK') { console.log('[fleet] target rejected'); return; }
 
   const step2 = {
-    token: token2, fleet_group: '0', mission: '0',
+    token: token2, fleet_group: '0', mission: String(mission),
     galaxy: String(g), system: String(sys), planet: String(p), type: ttype, speed,
     'shortcut[][name]': '', 'shortcut[][galaxy]': '', 'shortcut[][system]': '', 'shortcut[][planet]': '', 'shortcut[][type]': ttype,
   };

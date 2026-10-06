@@ -154,24 +154,27 @@ Neo-XNova: a Go backend for a stateful space-MMO. The git root is
   (defender), where 1xx = techs/skills, 2xx/4xx = ships/defenses; the response is
   a report hash, fetched from `${BASE}/game/CombatReport.php?raport=<hash>`.
   Wrapped by `httpbot.mjs sim <file.json>` (see `plans/sim-acc1-vs-acc2.json`).
-- **Fleet send (WORKS — see `fleet_movement.har`):** 3-step wizard:
+- **Fleet send (WORKS — see `fleet_movement.har`; wizard corrected 2026-10-06):**
+  3-step wizard:
   1. POST `page=fleetStep1` with the **source** coords + `ship<code>` counts and
-     `mission=0` (no `speed`/`fleet_group`); seed the hidden fields from the
+     `mission=0` (no `fleet_group`); seed the hidden fields from the
      `form[name=glav]` on `page=fleetTable` (it carries the source `galaxy/system/planet`).
   2. GET `page=fleetStep1&mode=checkTarget&galaxy=..&system=..&planet=..&planet_type=1&lang=en&kolo=0`
      (must return `OK`).
-  3. POST `page=fleetStep2` with target coords, `type=1`, `speed`, `mission=0`,
-     `token`, `fleet_group=0`, `shortcut[][type]=1`.
+  3. POST `page=fleetStep2` with target coords, `type=1`, `speed`, **`mission=<n>`**
+     (`mission=0` is rejected → bounces to fleetTable), `token`, `fleet_group=0`,
+     `shortcut[][type]=1`. **`speed` is the 1..10 index (10 = 100%)**, not a percent.
   4. POST `page=fleetStep3` with `token`, `univers_<planetid>`, `mission=<n>`,
      `metal=<n>`, `crystal=`, `deuterium=` (**empty strings** — sending `0` is
      rejected), `staytime=1`.
   Success returns a `Fleet sent` page (Mission / Distance / Fleet speed /
   Consumption); failure redirects to fleetTable — but success *also* navigates to
   fleetTable afterwards, so detect success by the `Fleet sent` text, not the URL.
-  Wrapped by `httpbot.mjs fleet <g:s:p> <mission> <code:count,...> [speed]`.
-  Recall with `httpbot.mjs fleetback [fleetID]` (`page=fleetTable&action=sendfleetback`,
-  `fleetID=<n>`); recalled fleets show `Transport (R)`.
-- Missions: 1 attack, 3 transport, 4 deploy, 5 hold; combat reports and the
+  Wrapped by `httpbot.mjs fleet <g:s:p> <mission> <code:count,...> [speed]`
+  (`speed` 1..10). Recall with `httpbot.mjs fleetback [fleetID]`
+  (`page=fleetTable&action=sendfleetback`, `fleetID=<n>`); recalled fleets show
+  `Transport (R)`.
+- Missions: 1 attack, 3 transport, 4 deploy, 5 hold, **6 espionage**; combat reports and the
   simulator share the `CombatReport.php?raport=<id>` format.
 - The galaxy-spanning distance (acc1 3:125:12 -> acc2 2:188:16) is **not** a fuel
   blocker (a Battle Recycler burns ~1 deuterium; fuel comes from the planet, not

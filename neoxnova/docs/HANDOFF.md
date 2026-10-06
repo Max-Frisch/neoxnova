@@ -80,10 +80,16 @@ Seeded commander password: **`commander-dev-pass`** (regenerate: `go run ./cmd/h
    tests): `score = probes + (yourEsp − enemyEsp)·|yourEsp − enemyEsp|`; reveals
    Fleet ≥2, Defense ≥3, Buildings ≥5, Research ≥7 (Resources always) — reproduces
    the reference required-probe table. Counter-espionage approximated
-   (`0.25%·2^(def−atk)·probes·defShips`, clamped; no ships ⇒ 0). **TODO**: mission
-   wiring — report store + engine resolver + an **incoming-spy notification for the
-   defender** (so online players can spoof/move fleet, as on niburu). No
-   academy/senate espionage bonus exists (confirmed).
+   (`0.25%·2^(def−atk)·probes·defShips`, clamped; no ships ⇒ 0). **Live findings
+   captured** in `docs/ESPIONAGE_LIVE_2026-10-06.md`: fleet-send wizard semantics,
+   attacker report format, defender incoming-event text/colours, probe destruction.
+   **OPEN QUESTION before wiring the resolver**: live niburu **revealed the full
+   report even at equal espionage tech with 1 probe** (classic score = 1 → resources
+   only) — so niburu likely does **not** gate sections; tech difference may only
+   drive counter-espionage. Confirm with owner, then implement: report store +
+   engine `resolveEspionage` + a generic **incoming-fleet notification** (shared by
+   transport/attack/espionage, mission-specific text+colour; defender can react).
+   No academy/senate espionage bonus (confirmed).
 4. **In-game auto-builder menu** (a game page like Arsenal/Buildings) — NOT an
    external/SDK API (the old "API keys" wording was a mis-communication). Design
    captured in **`docs/AUTO_BUILD_DESIGN.md`**: persisted blueprint per planet +
