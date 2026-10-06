@@ -9,7 +9,7 @@
 - **Rolling farm (plan-only, 2026-10-06):** full runbook/spec in `docs/ROLLING_FARM.md`. Scripts
   (`farm-plan.mjs`, `run-farm-build/send.sh`, `run-farm.ps1`) + recon are the next session's first
   tasks. Hosts kept as-is (acc1 local, acc2 VM). Set = `207:S,203:5S,219:round(S/250)` + 1 each of
-  `210/202/204/205/206`; S grows endogenously (`floor(have_BB/7)` after each full rotation).
+  `202/204/205/206` (no Spy Probe `210` — errors at slot 21); S grows endogenously (`floor(have_BB/7)` after each full rotation).
 - **Expo matrix (2026-10-06):** both accounts, `cmd=1`, main planets, `time=1`, `speed=10`.
   **Round 1** (08:49Z) = **0 combat / 14 fleets**. **Round 2** re-fired 7 arms (09:30–09:37Z);
   1 delayed returner per account, both landed ~10:04Z. **Round 3** (10:06Z) fired on **both**

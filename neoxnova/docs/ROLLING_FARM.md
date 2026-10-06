@@ -26,17 +26,19 @@ Referenced from `BACKLOG.md`. Everything runs from `neoxnova/tools/explorer/`.
 | BB (Battleship) | `207` | `S` | main damage |
 | HC (Heavy Cargo) | `203` | `5 * S` | held at 5:1 to BB |
 | BR (Battle Recycler) | `219` | `round(S / 250)` | use your 250:1 rule |
-| Spy Probe | `210` | `1` | |
 | Light Cargo | `202` | `1` | |
 | Light Fighter | `204` | `1` | |
 | Heavy Fighter | `205` | `1` | |
 | Cruiser | `206` | `1` | |
 
-Exactly **one of each small ship** per fleet (the 1-of-each is a probe for the
-"unlock all ship-find types" theory).
+Exactly **one of each small ship** per fleet (Light Cargo / LF / HF / Cruiser;
+the 1-of-each is a probe for the "unlock all ship-find types" theory).
+
+> **Do not send Spy Probe (`210`)** — spies sent to slot 21 / an expedition
+> target throw an error on this server. It is excluded from the set entirely.
 
 Set string for the `expedition` command:
-`207:S,203:5S,219:BR,210:1,202:1,204:1,205:1,206:1`
+`207:S,203:5S,219:BR,202:1,204:1,205:1,206:1`
 
 ### Fleet points (unit cost / 1e6 metal+crystal, excl. deuterium)
 Verified against `testdata/niburus_catalog.json`:
@@ -96,7 +98,7 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 ### Send — `run-farm-send.sh <acc>` (loop ~60 s)
 1. `node httpbot.mjs exp-state` → count outgoing **Expedition** fleets.
 2. If `free = 7 - expeditions > 0` **and** state phase is `ready`:
-   `node httpbot.mjs expedition "207:S,203:5S,219:BR,210:1,202:1,204:1,205:1,206:1" 7 1 1 10`
+   `node httpbot.mjs expedition "207:S,203:5S,219:BR,202:1,204:1,205:1,206:1" 7 1 1 10`
 3. Sleep 60 s; fast/delay returns are staggered, re-fire when slots free.
 4. Guard total fleet slots: 7 expo + pooling ≤ **25** total movements.
 
@@ -156,7 +158,7 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 
 ## Safety / guardrails
 - Confirm the set string parses with a **1-fleet smoke send** before any mass
-  send: `expedition "207:1,203:5,219:1,210:1,202:1,204:1,205:1,206:1" 1 1 1 10`
+  send: `expedition "207:1,203:5,219:1,202:1,204:1,205:1,206:1" 1 1 1 10`
   and verify the `slots now x/y` line.
 - Watch fleet-slot use (7 expo + pooling ≤ 25); back off pooling near the cap.
 - **Never** send DD (`226`), Black Moon (`216`), or Frigate (`227`) — leave parked.
