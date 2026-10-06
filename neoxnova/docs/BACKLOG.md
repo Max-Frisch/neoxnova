@@ -3,8 +3,13 @@
 ## Live state
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
 - acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders **stopped** (all 6 hit caps);
-  **moon present** (diameter <10 000). Next session: parallel acc1+acc2 expedition testing.
+  **moon present** (diameter <10 000). Host **off/asleep** this session — only acc2 VM runs.
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
+- **acc2 rolling farm ONLINE (2026-10-06 ~17:22Z):** VM tmux `farm-acc2` (build), `farmsend-acc2`
+  (send), `expharv-acc2` (harvest), `bonus-acc2` (**new** `run-bonus.sh`, visits `game.php?page=bonus`
+  every 900 s). **Wave 1 fired 7/7** at `S=42000` (`207:42000,203:210000,219:168` +1 each small ≈
+  5.2 k pts/fleet; main HC was 1.484 M). State `data/farm-state-acc2.json` cycle=1 phase=build;
+  colonies rebuilding shares (3000-unit batches). Local `run-bonus.sh` is **untracked/uncommitted**.
 - VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
 - **Rolling farm (plan-only, 2026-10-06):** full runbook/spec in `docs/ROLLING_FARM.md`. Scripts
   (`farm-plan.mjs`, `run-farm-build/send.sh`, `run-farm.ps1`) + recon are the next session's first
@@ -67,6 +72,7 @@
    battle→report→recycle→abandon.
 
 ## Done (newest first)
+- acc2 rolling farm live (build+send+harvest) + Online-Bonus daemon `run-bonus.sh` (untracked)
 - expedition live capture + tooling (`httpbot` `expedition`/`exp-state`/`exp-log`); docs/EXPEDITIONS_LIVE_2026-10-06
 - espionage: full report + counter-espionage + reports routes — `9074c93`
 - espionage live matrix doc; explorer fleet step-2 mission fix — `2c19386`, `602a324`
