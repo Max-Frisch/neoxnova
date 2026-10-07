@@ -43,10 +43,9 @@
 - Set = `207:S,203:5S,219:round(S/250)` + 1 each `202/204/205/206` (no Spy Probe `210`; errors at slot 21).
 
 ## Open backlog (ordered; one item per session)
-0. **EXPAND BUILD SITES.** **acc1 DONE** — 7 sites (main `1593` + `1655/1656/1657` `3:125:9-11` +
-   `1690/1692/1693` `3:124:9-11`; all shipyard 16). **acc2 TODO** — expand to main + 5
-   (`2:188:10-11` + `2:187:9-11`; currently `1598` + `1672/1673/1674`): `httpbot.mjs planets` recon,
-   add cps to `plans/farm-sites.json`, launch one `run-farm-worker.sh` per new site, verify.
+0. **EXPAND BUILD SITES — DONE both.** acc1 = 7 sites (main `1593` + `1655/1656/1657` `3:125:9-11`
+   + `1690/1692/1693` `3:124:9-11`). acc2 = 6 sites (main `1598` + `1672/1673` `2:188:10-11` +
+   `1674/1675/1676` `2:187:9-11`; no `2:188:9` owned). All shipyard 14–16.
 1. **Expedition resolver (Go)** — model `MissionExpedition` in `internal/engine`: outcome roll, loot,
    points-scaled enemy. BLOCKERS: enemy formula unknown; `cmd=2` leaks ghost fleets (avoid). Notes:
    `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
@@ -66,6 +65,9 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: acc2 expanded to 6 build sites (`1675/1676` `2:187:10-11`); wrote
+  `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` (next-session brief for the Go Arsenal/Market model;
+  tiers = 5k/50k/250k, live routes/forms captured).
 - 2026-10-07: acc1 expanded to 7 build sites (added `1690/1692/1693` `3:124:9-11`); S growth reworked
   to be build-capacity-limited (whole fleet incl. in-flight, monotonic ratchet, `growth` headroom so
   shipyard throughput is the only limit).
@@ -82,7 +84,8 @@
   relocation; combat engine; auth — see `git log --oneline`.
 
 ## Deep dives (read on demand)
-`docs/ROLLING_FARM.md` · `docs/EXPLORER.md` · `docs/BALANCE_DATA_NEEDED.md` · `docs/COMBAT_FINDINGS.md` /
+`docs/ROLLING_FARM.md` · `docs/EXPLORER.md` · `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` ·
+`docs/BALANCE_DATA_NEEDED.md` · `docs/COMBAT_FINDINGS.md` /
 `COMBAT_MODEL.md` / `COMBAT_TEST_PLAN.md` · `docs/ESPIONAGE_LIVE_2026-10-06.md` ·
 `docs/EXPEDITIONS_LIVE_2026-10-06.md` · `docs/ARSENAL_LIVE_2026-10-06.md` · `docs/AUTO_BUILD_DESIGN.md`.
 
