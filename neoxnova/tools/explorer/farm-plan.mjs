@@ -71,7 +71,9 @@ if (mode === 'starter') {
 
 if (mode === 'sent') {
   // Called immediately BEFORE firing; main still holds the pre-send total.
-  st.S = Math.max(DEFAULT_S, Math.floor(have.bb / 7));
+  // Cap S by the scarcest fleet component (BB:HC = 1:5) so a bloated stockpile
+  // of one ship cannot balloon S beyond what the other can actually field.
+  st.S = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / 7), Math.floor(have.hc / 35)));
   st.br = brOf(st.S);
   st.cycle += 1;
   st.phase = 'build';
@@ -89,11 +91,15 @@ if (st.phase === 'build' && have.bb >= needBB && have.hc >= needHC && have.br >=
 }
 
 const share = (total) => Math.ceil(total / n);
-const bbShare = share(needBB), hcShare = share(needHC), brShare = share(needBR);
+const bbShare = share(needBB), hcShare = share(needHC);
+// BB/HC are spread across sites; BR is crystal-heavy and the (crystal-poor)
+// colonies cannot supply their share, which deadlocked the ready gate. Keep the
+// whole BR need on the crystal-rich main; sites build BB/HC only.
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': brShare, ...SMALL } }, null, 2) + '\n');
+  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': needBR, ...SMALL } }, null, 2) + '\n');
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': brShare } }, null, 2) + '\n');
+  JSON.stringify({ ships: { '207': bbShare, '203': hcShare } }, null, 2) + '\n');
 writeState(st);
 console.log(`[farm-plan] ${acc} plan cycle=${st.cycle} S=${st.S} phase=${st.phase} br=${st.br} ` +
-  `have BB=${have.bb} HC=${have.hc} BR=${have.br} -> share BB=${bbShare} HC=${hcShare} BR=${brShare} (${n} sites)`);
+  `have BB=${have.bb} HC=${have.hc} BR=${have.br} -> main BB=${bbShare} HC=${hcShare} BR=${needBR}; ` +
+  `site BB=${bbShare} HC=${hcShare} (${n} sites)`);
