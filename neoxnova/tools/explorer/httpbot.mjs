@@ -767,6 +767,27 @@ async function cmdExpedition(shipsCsv, numArg, timeArg, speedArg, pve, cpArg) {
   fs.writeFileSync(runPath, JSON.stringify(runs, null, 2));
 }
 
+// Resource Trader (page=trader). Value ratio metal:crystal:deuterium = 1:2:4;
+// buying <resource> with others yields  sum(given * value_given / value_bought)
+// (e.g. buying crystal: 2 metal -> 1 crystal, 1 deut -> 2 crystal). Every call
+// costs 250 Dark Matter, so consolidate into ONE big order.
+// Usage: httpbot.mjs trade <buyCode 901|902|903> <giveCode:amt,...> [--cp id]
+async function cmdTrade(buy, giveArg, cpArg) {
+  await login();
+  const cpq = cpArg ? `&cp=${cpArg}` : '';
+  const form = { mode: 'send', resource: String(buy) };
+  for (const pair of String(giveArg || '').split(',')) {
+    const [c, n] = pair.split(':');
+    if (c) form['trade[' + c + ']'] = String(n);
+  }
+  const html = await postForm('page=trader' + cpq, form);
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DIR, 'trader-result.html'), html);
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, '')).replace(/\s+/g, ' ');
+  const hit = /not enough[^.]{0,60}|not possible[^.]{0,60}|too little[^.]{0,60}|Dark Matter[^.]{0,60}|no longer[^.]{0,60}/i.exec(txt);
+  console.log(`[trade] buy=${buy} give=${giveArg}${cpArg ? ` cp=${cpArg}` : ''}${hit ? ' :: ' + hit[0] : ''}`);
+}
+
 // List outgoing fleets from fleetTable (ID / mission / destination / objective / eta).
 async function cmdExpState() {
   await login();
@@ -1052,6 +1073,7 @@ try {
   else if (cmd === 'fleetback') await cmdFleetBack(process.argv[3]);
   else if (cmd === 'expedition') await cmdExpedition(process.argv[3], process.argv[4], process.argv[5], process.argv[6], flag('--pve'), flag('--cp'));
   else if (cmd === 'exp-state') await cmdExpState();
+  else if (cmd === 'trade') await cmdTrade(process.argv[3], process.argv[4], flag('--cp'));
   else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'exp-report') await cmdExpReports();
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
@@ -1068,5 +1090,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|trade|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }
