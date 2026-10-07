@@ -21,13 +21,14 @@ import (
 // multiple instances) and resolves them idempotently. Redis is an optional
 // wake-up accelerator only — correctness never depends on it.
 type EventEngine struct {
-	rdb    *redis.Client
-	db     *sql.DB
-	builds *store.BuildStore
+	rdb     *redis.Client
+	db      *sql.DB
+	builds  *store.BuildStore
+	arsenal *store.ArsenalStore
 }
 
 func NewEventEngine(rdb *redis.Client, db *sql.DB) *EventEngine {
-	return &EventEngine{rdb: rdb, db: db, builds: store.NewBuildStore(db)}
+	return &EventEngine{rdb: rdb, db: db, builds: store.NewBuildStore(db), arsenal: store.NewArsenalStore(db)}
 }
 
 // StartScheduler runs the resolution loop until the context is cancelled.
@@ -104,6 +105,14 @@ func (e *EventEngine) processDue(ctx context.Context, universeID string) {
 		WHERE status = 'IN_PROGRESS' AND end_time <= NOW()
 		ORDER BY end_time LIMIT 200`) {
 		e.resolveResearch(ctx, id)
+	}
+	for _, id := range e.dueIDs(ctx, `
+		SELECT id FROM market_lots
+		WHERE expires_at <= NOW()
+		ORDER BY expires_at LIMIT 200`) {
+		if err := e.arsenal.ExpireLot(ctx, id); err != nil {
+			log.Printf("[ERROR] Failed to expire market lot #%d: %v", id, err)
+		}
 	}
 	_ = universeID
 }

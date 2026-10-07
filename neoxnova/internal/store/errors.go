@@ -29,6 +29,10 @@ var (
 	ErrInsufficientDarkMatter = errors.New("insufficient dark matter")
 	ErrRelocationCooldown     = errors.New("planet was relocated too recently")
 	ErrAttackLocked           = errors.New("planet cannot attack yet after relocation")
+	ErrInsufficientUpgrades   = errors.New("insufficient upgrade drawings")
+	ErrLotExpired             = errors.New("market lot has expired")
+	ErrCannotBuyOwnLot        = errors.New("cannot buy your own market lot")
+	ErrInsufficientAntimatter = errors.New("insufficient antimatter")
 )
 
 // NoobProtectionRatio is the maximum allowed points ratio (in either direction)

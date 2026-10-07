@@ -198,3 +198,58 @@ type BuildingsResponse struct {
 	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
 	NextCosts map[string]CargoManifest `json:"next_costs,omitempty"`
 }
+
+// ArsenalUpgrade is one catalog upgrade enriched with the account's owned state.
+// Bonus and NextBonus mirror the live Arsenal page's `+X%` and `(+Y)` display.
+type ArsenalUpgrade struct {
+	Code      int     `json:"code"`
+	Key       string  `json:"key,omitempty"`
+	Name      string  `json:"name"`
+	Group     string  `json:"group"`
+	Class     string  `json:"class,omitempty"`
+	Level     int     `json:"level"`
+	Bonus     float64 `json:"bonus"`
+	NextBonus float64 `json:"next_bonus"`
+	Available int     `json:"available"`
+}
+
+// ArsenalActivateRequest is the body of POST /api/v1/arsenal/activate. Either
+// UpgradeCode (type id) or GreID (live activate key, e.g. "combustion") may be
+// supplied; the code wins when both are present.
+type ArsenalActivateRequest struct {
+	UpgradeCode int    `json:"upgrade_code"`
+	GreID       string `json:"greid"`
+}
+
+// ArsenalActivateResult reports the outcome of one activation attempt.
+type ArsenalActivateResult struct {
+	Code    int     `json:"code"`
+	Name    string  `json:"name"`
+	Success bool    `json:"success"`
+	Chance  float64 `json:"chance"`
+	Level   int     `json:"level"`
+	Bonus   float64 `json:"bonus"`
+}
+
+// MarketLot is one live auction listing (GET /api/v1/market).
+type MarketLot struct {
+	ID            int64     `json:"id"`
+	UpgradeCode   int       `json:"upgrade_code"`
+	Upgrade       string    `json:"upgrade"`
+	Amount        int       `json:"amount"`
+	TotalPriceAtm int64     `json:"total_price_atm"`
+	ExpiresAt     time.Time `json:"expires_at"`
+}
+
+// MarketListRequest is the body of POST /api/v1/market/list. Rate is the chosen
+// per-unit Antimatter price; the lot's total price is Rate*Amount.
+type MarketListRequest struct {
+	UpgradeCode int   `json:"upgrade_code"`
+	Amount      int   `json:"amount" validate:"min=1,max=25"`
+	Rate        int64 `json:"rate" validate:"min=1,max=1000000"`
+}
+
+// MarketBuyRequest is the body of POST /api/v1/market/buy.
+type MarketBuyRequest struct {
+	LotID int64 `json:"lot_id"`
+}
