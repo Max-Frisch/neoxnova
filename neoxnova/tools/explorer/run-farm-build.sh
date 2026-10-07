@@ -19,6 +19,9 @@ exec >>"$LOG" 2>&1
 
 NODE=(node --max-old-space-size=96)
 EVERY="${FARM_BUILD_EVERY_S:-30}"
+# Only pool a colony once it has accumulated a real batch, so we don't spam tiny
+# deploy fleets (each is a fleet movement; expo + pooling must stay under the cap).
+POOL_MIN="${FARM_POOL_MIN:-50000}"
 CFG="plans/farm-sites.json"
 
 read_cfg() { CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC][process.argv[1]]))" "$1"; }
@@ -35,7 +38,7 @@ while true; do
   for cp in "${SITES[@]}"; do
     [ "$cp" = "$MAIN_CP" ] && continue
     "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
-    POOL=$(ACC="$ACC" CP="$cp" node -e "const s=(JSON.parse(require('fs').readFileSync('data/farm-site-'+process.env.ACC+'-'+process.env.CP+'.json','utf8')).ships)||{};const b=+s['207']||0,h=+s['203']||0,r=+s['219']||0;if(b||h||r)process.stdout.write('207:'+b+',203:'+h+',219:'+r)")
+    POOL=$(ACC="$ACC" CP="$cp" POOL_MIN="$POOL_MIN" node -e "const s=(JSON.parse(require('fs').readFileSync('data/farm-site-'+process.env.ACC+'-'+process.env.CP+'.json','utf8')).ships)||{};const b=+s['207']||0,h=+s['203']||0,r=+s['219']||0;if(b+h+r>=+process.env.POOL_MIN)process.stdout.write('207:'+b+',203:'+h+',219:'+r)")
     if [ -n "$POOL" ]; then
       "${NODE[@]}" httpbot.mjs fleet "$MAIN_COORDS" 4 "$POOL" 10 --cp "$cp"
       echo "[$(date +%T)] pooled $cp -> $MAIN_COORDS : $POOL"
