@@ -44,8 +44,9 @@
    store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
    ~10%-of-combat-win drop into the expedition resolver (item 1) via
-   `game.DropPool`/`AddUpgradeItems`; (b) tier gates the type pool ONLY (confirmed
-   2026-10-07: ≥5k light, ≥50k light+medium, ≥250k light+medium+heavy; drop chance stays flat);
+   `game.DropPool`/`RollDrop`/`AddUpgradeItems`; (b) tier gates the type pool ONLY — DONE
+   2026-10-07: exact light/medium/heavy sets in `arsenal.go` (`RollDrop` added; chance stays
+   flat ~10%). ~~confirm tier gates the type pool vs the drop chance~~;
    (c) **apply bonuses to production/combat** — DONE 2026-10-07:
    `internal/game/unit_classes.go` (from live cards, fixture `testdata/niburus_unit_classes.json`,
    `httpbot card`/`cards`), weapon/armor/shield folded additively into the tech bonus
@@ -73,6 +74,10 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **arsenal drop tiers fixed** — `arsenal.go` light/medium/heavy pools now hold the
+  owner-confirmed sets (light: 1,5,8,11,14,17,18,19; medium: 2,3,6,9,12,15; heavy: 4,7,10,13,16);
+  `DropPool` is cumulative by tier; new `RollDrop` (flat ~10% chance, pick from the tier pool).
+  Added a partition test + roll tests.
 - 2026-10-07: **combat per-weapon techs (item 1d)** — `combat.go` `DerivedAttack` sums a unit's
   card weapon components (specific research + arsenal weapon additive per component; general
   Weapons tech 109 compounds the sum); `CombatTechs` gains Laser/Ion/Plasma/Graviton

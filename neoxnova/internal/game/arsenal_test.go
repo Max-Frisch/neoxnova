@@ -1,6 +1,9 @@
 package game
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestArsenalCatalog(t *testing.T) {
 	if len(Upgrades) != 19 {
@@ -61,6 +64,59 @@ func TestArsenalTier(t *testing.T) {
 	}
 	if !has(t3, 13) || !has(t3, 4) {
 		t.Fatalf("tier 3 pool wrong: %v", t3)
+	}
+}
+
+// TestDropPoolsPartitionEveryUpgrade locks the owner-confirmed categorization:
+// each of the 19 upgrades is in exactly one light/medium/heavy pool, and the
+// tiers are cumulative (the tier gates the pool, not the flat drop chance).
+func TestDropPoolsPartitionEveryUpgrade(t *testing.T) {
+	seen := map[int]int{}
+	for _, pool := range [][]int{lightPool, mediumPool, heavyPool} {
+		for _, code := range pool {
+			if _, ok := UpgradeByCode(code); !ok {
+				t.Fatalf("pool references unknown upgrade %d", code)
+			}
+			seen[code]++
+		}
+	}
+	if len(seen) != 19 {
+		t.Fatalf("pools cover %d upgrades, want 19", len(seen))
+	}
+	for code, n := range seen {
+		if n != 1 {
+			t.Fatalf("upgrade %d appears in %d pools, want 1", code, n)
+		}
+	}
+
+	light := []int{1, 5, 8, 11, 14, 17, 18, 19}
+	medium := append(append([]int{}, light...), 2, 3, 6, 9, 12, 15)
+	heavy := append(append([]int{}, medium...), 4, 7, 10, 13, 16)
+	for _, tc := range []struct {
+		tier int
+		want []int
+	}{{1, light}, {2, medium}, {3, heavy}} {
+		if got := DropPool(tc.tier); !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("DropPool(%d) = %v, want %v", tc.tier, got, tc.want)
+		}
+	}
+}
+
+func TestRollDrop(t *testing.T) {
+	// A chance roll at/above the drop chance never yields an item.
+	if code, ok := RollDrop(1, ArsenalDropChance, 0); ok || code != 0 {
+		t.Fatalf("miss roll dropped %d ok=%v, want none", code, ok)
+	}
+	// Deterministic pick: pickRoll 0 -> first pool entry, ~1 -> last.
+	if code, ok := RollDrop(1, 0, 0); !ok || code != 1 {
+		t.Fatalf("tier 1 first pick = %d ok=%v, want 1", code, ok)
+	}
+	if code, ok := RollDrop(3, 0, 0.999999); !ok || code != 16 {
+		t.Fatalf("tier 3 last pick = %d ok=%v, want 16", code, ok)
+	}
+	// Tier 0 has no pool, so it can never drop.
+	if code, ok := RollDrop(0, 0, 0); ok || code != 0 {
+		t.Fatalf("tier 0 dropped %d ok=%v, want none", code, ok)
 	}
 }
 

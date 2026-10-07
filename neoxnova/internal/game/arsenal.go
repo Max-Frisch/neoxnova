@@ -134,15 +134,21 @@ const ArsenalDropChance = 0.10
 // fleet-point tier. Owner-confirmed (2026-10-07): the tier gates the TYPE POOL
 // only, never the drop chance — the chance stays a flat ArsenalDropChance.
 // Tier 1 (>=5k) yields light, tier 2 (>=50k) light+medium, tier 3 (>=250k)
-// light+medium+heavy. Generic conveyors/production are available from tier 1 on.
+// light+medium+heavy. Every upgrade (1..19) belongs to exactly one pool.
 //
-// 250k is in practice unreachable on the farm's expedition flights (a combat
-// encounter AND a win at that size is too rare), so heavy drops stay theoretical.
+//	light  laser weapon(1), light armor(5), light shields(8), jet engine(11),
+//	       light conveyor(14), metal/crystal/deuterium production(17/18/19)
+//	medium ion cannon(2), plasma gun(3), medium armor(6), medium shields(9),
+//	       impulse engine(12), average conveyor(15)
+//	heavy  gravitational gun(4), heavy armor(7), heavy shields(10),
+//	       hyperspace engine(13), heavy conveyor(16)
+//
+// 250k is not out of reach in principle, but the test accounts here are not
+// hyper-optimised players, so reaching it in a reasonable time is unlikely.
 var (
-	lightPool  = []int{1, 2, 5, 8, 11}
-	mediumPool = []int{3, 6, 9, 12}
-	heavyPool  = []int{4, 7, 10, 13}
-	genericDef = []int{14, 15, 16, 17, 18, 19}
+	lightPool  = []int{1, 5, 8, 11, 14, 17, 18, 19}
+	mediumPool = []int{2, 3, 6, 9, 12, 15}
+	heavyPool  = []int{4, 7, 10, 13, 16}
 )
 
 // DropPool returns the upgrade codes that can drop at a tier. Tier 0 yields nil.
@@ -150,8 +156,7 @@ func DropPool(tier int) []int {
 	if tier <= 0 {
 		return nil
 	}
-	pool := append([]int{}, genericDef...)
-	pool = append(pool, lightPool...)
+	pool := append([]int{}, lightPool...)
 	if tier >= 2 {
 		pool = append(pool, mediumPool...)
 	}
@@ -159,6 +164,28 @@ func DropPool(tier int) []int {
 		pool = append(pool, heavyPool...)
 	}
 	return pool
+}
+
+// RollDrop resolves one expedition combat-win drop. chanceRoll is the drop roll
+// (against the flat ArsenalDropChance); pickRoll selects a type uniformly from
+// the tier's pool. Both are in [0,1). It returns the chosen upgrade code and
+// whether a drop occurred. Intended for the expedition resolver (backlog item 1).
+func RollDrop(tier int, chanceRoll, pickRoll float64) (int, bool) {
+	if chanceRoll >= ArsenalDropChance {
+		return 0, false
+	}
+	pool := DropPool(tier)
+	if len(pool) == 0 {
+		return 0, false
+	}
+	if pickRoll < 0 {
+		pickRoll = 0
+	}
+	idx := int(pickRoll * float64(len(pool)))
+	if idx >= len(pool) {
+		idx = len(pool) - 1
+	}
+	return pool[idx], true
 }
 
 // ActivationChance is the success probability of the activation that would take

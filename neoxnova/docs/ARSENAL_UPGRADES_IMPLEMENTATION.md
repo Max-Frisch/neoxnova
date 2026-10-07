@@ -136,8 +136,17 @@ matches exactly.
   Ignore the 75 000 figure. **Confirmed 2026-10-07:** the tier gates the **type pool only**,
   **not** the drop chance (the chance stays a flat ≈10 % of combat wins). Tier 1 (≥5k) →
   light upgrades; tier 2 (≥50k) → light + medium; tier 3 (≥250k) → light + medium + heavy.
-  250k is effectively unreachable on the farm (a combat encounter *and* a win at that size is
-  too rare), so heavy drops remain theoretical.
+  250k is not out of reach in principle, but these test accounts are not hyper-optimised
+  players, so reaching it in a reasonable time is unlikely — heavy drops stay hard to observe.
+
+  | pool | upgrades |
+  |---|---|
+  | light | laser weapon(1), light armor(5), light shields(8), jet engine(11), light conveyor(14), metal/crystal/deuterium production(17/18/19) |
+  | medium | ion cannon(2), plasma gun(3), medium armor(6), medium shields(9), impulse engine(12), average conveyor(15) |
+  | heavy | gravitational gun(4), heavy armor(7), heavy shields(10), hyperspace engine(13), heavy conveyor(16) |
+
+  Implemented in `internal/game/arsenal.go` (`lightPool`/`mediumPool`/`heavyPool`,
+  `DropPool`, `RollDrop`); every upgrade 1..19 is in exactly one pool.
 - Hostail (`cmd=2`) is buggy (ghost fleets) — **do not** implement its path yet.
 
 ---
