@@ -7,8 +7,8 @@ bootstraps and tunes; **never** load full datasets — read file tails only.
 
 Referenced from `BACKLOG.md`. Everything runs from `neoxnova/tools/explorer/`.
 
-> Status: **plan only** (2026-10-06). Scripts + recon are the first tasks of the
-> next session (see "Next session — first steps").
+> Status: **LIVE** (since 2026-10-06/07) on both accounts. See `BACKLOG.md` "Live state"
+> for the current cycle/S and the BR-gate fix.
 
 ## Accounts & hosts
 - **acc1 Bratwurst** — main `3:125:12` (cp `1593`); runs locally on Windows
@@ -60,7 +60,10 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 
 ## Growth rule
 - **S is endogenous.** After a *full rotation* (all 7 fleets home and pooled at
-  main), `S = floor(have_BB_on_main / 7)`; then rebuild toward `7*S` and send 7.
+  main), `S = max(42000, min(floor(have_BB/7), floor(have_HC/35)))` — capped by
+  the **scarcest** fleet component (BB:HC = 1:5) so a bloated stockpile of one
+  ship cannot balloon S beyond what the other can field; then rebuild toward
+  `7*S` and send 7.
 - Ship-find loot + continuous production make each cycle's S larger than the
   last; no fixed increment to tune.
 - Start at **S = 42 000** (HC 210 000) once, then hand over to the rule.
@@ -90,14 +93,16 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 
 ## Daemons
 
-### Build — `run-farm-build.sh <acc>` (loop ~5 min)
+### Build — `run-farm-build.sh <acc>` (tight loop, ~60 s)
 1. `node httpbot.mjs levels --cp <main> --out data/farm-main-<acc>.json`.
 2. `node farm-plan.mjs --acc <acc>` → recompute S, write
-   `plans/farm-<acc>-main.json` (share + 7× each small ship) and
-   `plans/farm-<acc>-site.json` (BB/HC/BR share only) and
+   `plans/farm-<acc>-main.json` (BB/HC **share** + the **whole** BR need + 7× each
+   small ship) and `plans/farm-<acc>-site.json` (BB/HC share only) and
    `data/farm-state-<acc>.json`.
-3. Per build site: `EXPLORER_UNIT_BATCH=3000 node httpbot.mjs resolve --goals
-   <plan> --cp <id> --steps 60` (main uses `-main`, colonies use `-site`).
+3. Per build site: `EXPLORER_UNIT_BATCH=8000 node httpbot.mjs resolve --goals
+   <plan> --cp <id> --steps 60` (main uses `-main`, colonies use `-site`). `resolve`
+   blocks while units build and refills as each batch drains, so the shipyard queue
+   stays busy without oversized single orders.
 4. Pool each colony → main (one bundled send, never per single ship):
    `node httpbot.mjs fleet <mainCoords> 4 207:<n>,203:<n>,219:<n> 10 --cp <colony>`
    with `<n>` = live counts from that colony's `levels`.
@@ -119,8 +124,9 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 - `build` → when main holds ≥ `7*S` BB (and ≥ `35*S` HC, ≥ `7*br` BR, small ships
   present) set `phase="ready"`.
 - `ready` + 0 outgoing expeditions → send 7, then `cycle++`, recompute
-  `S = max(42000, floor(have_BB_before_send / 7))` for the **next** cycle,
-  `phase="build"`. (Compute S from the pre-send total so it grows, not from 0.)
+  `S = max(42000, min(have_BB_before_send/7, have_HC_before_send/35))` for the
+  **next** cycle, `phase="build"`. (Compute S from the pre-send total so it grows,
+  not from 0; cap by the scarcest component.)
 - Never send partial rounds with a stale S; if not all 7 slots are free, wait.
 
 ## Scripts to create (next session)

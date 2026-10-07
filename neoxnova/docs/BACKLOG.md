@@ -2,19 +2,24 @@
 
 ## Live state
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
-- acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders **stopped** (all 6 hit caps);
-  **moon present** (diameter <10 000). Host **off/asleep** this session — only acc2 VM runs.
-- acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` **running**, `1697/98` done.
-- **acc2 rolling farm ONLINE (2026-10-06 ~17:22Z):** VM tmux `farm-acc2` (build), `farmsend-acc2`
-  (send), `expharv-acc2` (harvest), `bonus-acc2` (**new** `run-bonus.sh`, visits `game.php?page=bonus`
-  every 900 s). **Wave 1 fired 7/7** at `S=42000` (`207:42000,203:210000,219:168` +1 each small ≈
-  5.2 k pts/fleet; main HC was 1.484 M). State `data/farm-state-acc2.json` cycle=1 phase=build;
-  colonies rebuilding shares (3000-unit batches). Local `run-bonus.sh` is **untracked/uncommitted**.
+- **Both rolling farms ONLINE (2026-10-07 ~01:54Z).** acc1 local (build+send+harvest), acc2 VM.
+  Fires `time=1 speed=10` (7 arms) whenever `phase=ready` **and** 0 real `(A)` exps. S grows via
+  `farm-plan sent`: `S = max(42000, min(floor(BB/7), floor(HC/35)))` (cap = scarcest component).
+  Latest: acc1 cycle=1 S 42 000→**83 204** (BB cap); acc2 cycle=3 S 72 189→**98 314** (HC cap).
+- **Farm bug fixed `eb79f39`,`9fcbcab`:** acc2 sat `phase=build` 8 h+ — the ready gate required
+  main `BR >= 7*br=2023` but BR collapsed to 294 post-send and crystal-poor colonies owned the BR
+  share, so `resolve` never rebuilt it (BB/HC over-built to 2.0M/3.4M meanwhile). Fix: **main carries
+  the whole BR need**, sites build BB/HC only. Also: build batch 3000→**8000** and loop sleep
+  300→**60 s** (no huge batches, no shipyard idle). Deploy = commit→push→VM `reset --hard`.
+- acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders stopped (caps); **moon present**
+  (<10 000 km). Host back on this session.
+- acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` running, `1697/98` done.
+  VM tmux `farm-acc2` (build), `farmsend-acc2` (send), `expharv-acc2` (harvest), `bonus-acc2`
+  (`run-bonus.sh`, `page=bonus` every 900 s).
 - VM sync rule: local commit -> `push` -> `ssh azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.
-- **Rolling farm (plan-only, 2026-10-06):** full runbook/spec in `docs/ROLLING_FARM.md`. Scripts
-  (`farm-plan.mjs`, `run-farm-build/send.sh`, `run-farm.ps1`) + recon are the next session's first
-  tasks. Hosts kept as-is (acc1 local, acc2 VM). Set = `207:S,203:5S,219:round(S/250)` + 1 each of
-  `202/204/205/206` (no Spy Probe `210` — errors at slot 21); S grows endogenously (`floor(have_BB/7)` after each full rotation).
+- **Rolling farm (LIVE since 2026-10-06/07):** runbook/spec in `docs/ROLLING_FARM.md` (S-rule line
+  below is now stale — see Live state). Set = `207:S,203:5S,219:round(S/250)` + 1 each of
+  `202/204/205/206` (no Spy Probe `210` — errors at slot 21).
 - **Expo matrix (2026-10-06):** both accounts, `cmd=1`, main planets, `time=1`, `speed=10`.
   **Round 1** (08:49Z) = **0 combat / 14 fleets**. **Round 2** re-fired 7 arms (09:30–09:37Z);
   1 delayed returner per account, both landed ~10:04Z. **Round 3** (10:06Z) fired on **both**
