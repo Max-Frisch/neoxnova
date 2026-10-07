@@ -41,6 +41,7 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("GET /api/v1/planets/{id}/combat-reports", h.RequireAuth(h.PlanetCombatReports))
 	mux.HandleFunc("GET /api/v1/espionage/reports/{id}", h.RequireAuth(h.EspionageReport))
 	mux.HandleFunc("GET /api/v1/planets/{id}/espionage-reports", h.RequireAuth(h.PlanetEspionageReports))
+	mux.HandleFunc("GET /api/v1/planets/{id}/incoming-fleets", h.RequireAuth(h.PlanetIncomingFleets))
 	mux.HandleFunc("GET /api/v1/arsenal", h.RequireAuth(h.ArsenalList))
 	mux.HandleFunc("POST /api/v1/arsenal/activate", h.RequireAuth(h.ArsenalActivate))
 	mux.HandleFunc("GET /api/v1/market", h.RequireAuth(h.MarketLots))

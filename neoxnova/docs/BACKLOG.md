@@ -66,8 +66,10 @@
    `CombatTechs` carries Laser/Ion/Plasma/Graviton, `loadCombatTechs` reads 120/121/122/199, seed
    includes them. Tests replay `real-big-acc1-acc2.report.json` (82/246/853/1538/3077) + the
    `unitStats.Attack == Σ base_w` invariant. Details: ARSENAL doc §8.
-2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
-   defenders (currently only espionage).
+2. **Incoming-fleet view** (transport/attack/espionage) — DONE 2026-10-07:
+   `GET /api/v1/planets/{id}/incoming-fleets` returns inbound OUTBOUND fleets with
+   `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
+   maps missions to live labels. Colours are provisional pending a live incoming sample.
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
 4. **Moons** — acc1 `3:125:12` has a moon (live; <10 000 km). Rules: ≥10 000 = indestructible; else
    destructible by Deathstar. Scope: moonbase, moon buildings, creation (debris) + destruction.
@@ -75,6 +77,11 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **incoming-fleet view (item 2)** — `FleetStore.IncomingFleets` (owner-checked,
+  OUTBOUND fleets targeting a celestial), `models.IncomingFleet`, `game.MissionDisplayFor`
+  (live labels + colour + hostile flag), handler + route
+  `GET /api/v1/planets/{id}/incoming-fleets`. Pure + DB-integration tests. Composition is not
+  exposed; colours are provisional.
 - 2026-10-07: **arsenal/market tooling (item 1c-e)** — `parseArsenalPage` + `parseMarketLots`
   in `parse.mjs`; `httpbot.mjs arsenal|market|activate <greid>|sell <type> <amt> <rate>` (the
   mutating two dry-run unless `--go`), verified offline against the live page captures.

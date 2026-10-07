@@ -266,3 +266,56 @@ func (s *FleetStore) Recall(ctx context.Context, fleetID int64) (RecallResult, e
 
 	return RecallResult{Arrival: newReturnArrival, Elapsed: elapsed}, nil
 }
+
+// IncomingFleets lists the fleets currently inbound (phase OUTBOUND) to one of
+// the caller's celestials, resolved to defender-facing labels. The caller must
+// own the celestial; a missing or foreign one yields ErrNotFound (it does not
+// reveal whether the object exists). Compositions are not returned.
+func (s *FleetStore) IncomingFleets(ctx context.Context, celestialID, userID int64) ([]models.IncomingFleet, error) {
+	var owner int64
+	err := s.db.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, celestialID).Scan(&owner)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && owner != userID) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, mission, origin_galaxy, origin_system, origin_position, origin_type,
+		       target_galaxy, target_system, target_position, target_type,
+		       start_time, arrival_time
+		FROM fleets
+		WHERE target_id = $1 AND phase = 'OUTBOUND'
+		ORDER BY arrival_time ASC
+	`, celestialID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]models.IncomingFleet, 0)
+	for rows.Next() {
+		var f models.IncomingFleet
+		var missionStr, oT, tT string
+		var oG, oS, oP, tG, tS, tP int
+		if err := rows.Scan(
+			&f.FleetID, &missionStr,
+			&oG, &oS, &oP, &oT, &tG, &tS, &tP, &tT,
+			&f.DepartureTime, &f.ArrivalTime,
+		); err != nil {
+			return nil, err
+		}
+		f.Mission = models.MissionType(missionStr)
+		display := game.MissionDisplayFor(missionStr)
+		f.MissionText, f.Colour, f.Hostile = display.Text, display.Colour, display.Hostile
+		f.Origin = models.Coordinates{Galaxy: oG, System: oS, Position: oP, Type: models.CelestialType(oT)}
+		f.Destination = models.Coordinates{Galaxy: tG, System: tS, Position: tP, Type: models.CelestialType(tT)}
+		f.RemainingSecs = int64(time.Until(f.ArrivalTime).Seconds())
+		if f.RemainingSecs < 0 {
+			f.RemainingSecs = 0
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
+}

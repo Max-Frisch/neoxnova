@@ -121,6 +121,22 @@ type FleetEventSummary struct {
 	Cargo         CargoManifest    `json:"cargo"`
 }
 
+// IncomingFleet is one fleet inbound to a defender's celestial, as shown in the
+// incoming-fleet view. The attacker's exact composition is deliberately NOT
+// exposed (only mission, origin, ETA and a threat flag).
+type IncomingFleet struct {
+	FleetID       int64       `json:"fleet_id"`
+	Mission       MissionType `json:"mission"`
+	MissionText   string      `json:"mission_text"`
+	Colour        string      `json:"colour"`
+	Hostile       bool        `json:"hostile"`
+	Origin        Coordinates `json:"origin"`
+	Destination   Coordinates `json:"destination"`
+	DepartureTime time.Time   `json:"departure_time"`
+	ArrivalTime   time.Time   `json:"arrival_time"`
+	RemainingSecs int64       `json:"remaining_seconds"`
+}
+
 type QueueItemSummary struct {
 	ItemCode      string    `json:"item_code"`
 	TargetLevel   int       `json:"target_level"`
