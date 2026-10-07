@@ -36,10 +36,13 @@
 ## Open backlog (ordered; one item per session)
 0. **EXPAND BUILD SITES — DONE both** (acc1 7, acc2 6).
 1. **Expedition resolver (Go)** — model `MissionExpedition` in `internal/engine`: outcome roll, loot,
-   points-scaled enemy. BLOCKERS: enemy formula unknown; `cmd=2` leaks ghost fleets (avoid). Notes:
-   `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
-1b. **Expedition enemy formula** — behavior >503 pts still unmeasured (rounds 4+5 rolled 0 combats);
-   next: fire more big arms. Table in `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6.
+   enemy. Enemy formula now known (item 1b); remaining blocker: `cmd=2` leaks ghost fleets (avoid).
+   Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
+   per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
+   to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
+   types ⇒ one roll per fleet. Small fleets sit on the template (old 2–40× ratios). Data + tables:
+   `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 1c. **Arsenal upgrades (Go model)** — DONE 2026-10-07 (catalog, tiers 5k/50k/250k, activation rules,
    store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
@@ -86,6 +89,11 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **expedition enemy formula resolved (item 1b)** — overnight reports (acc1 40 fights,
+  acc2 42) show the enemy is the sent fleet mirrored × a per-fleet roll ~0.6–0.9 (median 0.66) plus
+  a small random template; verified to S=814,397 BB. Win record flipped at scale (acc1 29W/11D/0L,
+  acc2 37W/5D/0L). Black holes are account-asymmetric (acc1 2/461, acc2 19/493). Details
+  `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - 2026-10-07: **moon creation wired (item 4)** — `resolveAttack` rolls
   `game.MoonCreation(res.MoonChance, CombatSeed^salt)` when an ATTACK lands on a player-owned
   planet; a success inserts a `MOON` at the same coordinates (0 fields/production, inherited temp,
@@ -153,6 +161,9 @@
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
+- Expedition black-hole rate is **account-asymmetric** (acc1 0.43 %, acc2 3.85 % overnight); cause
+  unknown (luck vs size/speed). 34 `unknown` outcomes are "Moa Tikarr demands surrender" — verify
+  whether these are combats whose report we drop. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
   numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
   cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.

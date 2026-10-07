@@ -189,3 +189,56 @@ Open for the resolver (backlog 1b/1): the harvested reports are now large-fleet
 (~8k–11k pts) and can extend the §6 enemy-points-ratio table past 503 pts; the enemy
 template/composition still needs a controlled diff. Our set is fixed, so enemy size
 is the only variable left.
+
+## 8. Overnight campaign — enemy formula resolved (2026-10-08)
+
+Both accounts ran the fixed set all night. The enemy generation model is now
+**measured and closed** (backlog 1b).
+
+### Enemy = mirror × ~0.66 + small template
+Across Oct 7–8 fights the defender is the attacker's own composition scaled by a
+single per-fleet roll, plus a small random template (Light Fighter / Cruiser /
+Star Fighter, tens–hundreds of units). Verified far past the old 503-pt ceiling:
+
+| S (BB) | def207/atk207 | result |
+|---|---:|---|
+| 623,318 | 0.62–0.64 | attacker |
+| 751,803 | 0.66–0.93 | attacker / draw |
+| 814,397 | 0.62–0.68 | attacker |
+
+Recent 40 acc1 fights: median **0.66**, range **0.60–0.94** (acc2 shows the same
+0.67–0.87). The ratio is uniform across every shared type in a report (e.g. 203
+and 207 both 0.660), so it is **one roll per fleet**, not per unit. Small fleets
+are dominated by the template, which is why the old §6 ratio table reads 2–40×
+below ~500 pts.
+
+Model: `enemy = round(fleet × roll[~0.6..0.9]) + template(HC/LF/Cruiser/BB/SF)`.
+
+### Win record flipped at scale
+- acc1 Oct 7–8: **29 W / 11 D / 0 L** (was 14 W / 11 L / 10 D at ~9k pts).
+- acc2 Oct 7–8: **37 W / 5 D / 0 L**.
+At 450k–815k pts the player essentially cannot lose — but the wins are bloody:
+40 acc1 fights cost **~40.9 M HC + 2.96 M BB**, yielding **627 B M / 443 B C**
+debris. HC take ~25–50 % losses per fight — this is the crystal drain in
+`docs/ROLLING_FARM.md`.
+
+### Black-hole rate is account-asymmetric
+- acc1: **2 / 461 (0.43 %)**.
+- acc2: **19 / 493 (3.85 %)** — 19 fleets lost, clustered on Oct 7.
+Combined 21/954 ≈ 2.2 %. Still below vanilla 1/9 (11 %), but acc2 is ~9× acc1;
+whether that is luck or a size/speed/account effect is unresolved.
+
+### Growth, loot, new outcomes
+- acc1 S grew 83,204 → **814,397** (~10× in a day); acc2 → **445,401**.
+- acc1 loot from 198 return acks: **800.8 B M, 511.2 B C, 50.1 B D, 391,187 DM**.
+  "ships" finds are large (one dropped LC 787,657 + HC 22,120 + HF 1,673 +
+  Cruiser 262).
+- Both accounts are now **build-capacity-limited** ("not enough ships for 1
+  fleet"): acc1 fires 5/9 slots, acc2 8/9. The S ratchet sits above the current
+  cap, so combat losses cannot refill fast enough to keep slots full.
+- New outcome strings logged: 34× "Moa Tikarr demands unconditional surrender"
+  (the whole `unknown` bucket; no separate combat report harvested — check
+  whether these are dropped combats), plus bacterium / red-giant /
+  particle-storm / life-form / disconnect flavour.
+- 1 genuine arsenal drop: *"drawing for an upgrade Jet engine"* (Oct 7 05:07),
+  again below the documented 75,000-pt gate.
