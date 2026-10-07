@@ -227,6 +227,10 @@ async function cmdResolve(goalsPath, steps, cpArg) {
   for (const [c, n] of Object.entries(goals.ships || {})) unitTargets.push({ code: String(c), target: Number(n), scope: 'fleet' });
   for (const [c, n] of Object.entries(goals.defenses || {})) unitTargets.push({ code: String(c), target: Number(n), scope: 'defense' });
   const unitBatch = Number(env.EXPLORER_UNIT_BATCH || 100);
+  // Rate-aware batching: size each unit order to ~this many seconds of the
+  // shipyard's "Building: N per second" throughput, then re-submit just after it
+  // completes (see the unit post below). 0 = off (use unitBatch only).
+  const unitSeconds = Number(env.EXPLORER_UNIT_SECONDS || 0);
   const unitVal = (html, c) => { const m = new RegExp('id="val_' + c + '"[^>]*>([\\d.]+)').exec(html); return m ? parseInt(m[1].replace(/[^\d]/g, ''), 10) : 0; };
   const unitAvail = (html, c) => new RegExp('name="fmenge\\[' + c + '\\]"').test(html);
   for (const c of [...gradual, ...bumpBuilders]) if (!goalTargets.has(c)) goalTargets.set(c, 0);
@@ -302,7 +306,14 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       const exp = pendU.get(u.code);
       if (exp !== undefined) { if (have >= exp) pendU.delete(u.code); else continue; }
       if (have >= u.target) continue;
-      unitTasks.push({ ...u, have, want: Math.min(unitBatch, u.target - have) });
+      const it = (u.scope === 'fleet' ? S.byCode : D.byCode)[Number(u.code)];
+      const rate = it ? (it.perSec || 0) : 0;
+      const remaining = u.target - have;
+      let want = Math.min(unitBatch, remaining);
+      // If we know the throughput, make the order last ~unitSeconds (but never a
+      // tiny order that drains before the next pass).
+      if (unitSeconds > 0 && rate > 0) want = Math.min(remaining, Math.max(want, Math.ceil(rate * unitSeconds)));
+      unitTasks.push({ ...u, have, want, rate });
     }
     const unitsPending = unitTargets.some((u) => unitAvail(unitHtml(u.scope), u.code) && unitVal(unitHtml(u.scope), u.code) < u.target);
     if (unmet.length === 0 && !unitsPending && !(energy !== null && energy < 0)) {
@@ -426,7 +437,10 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       if (stalls >= 3 && !Object.keys(B.queued).length && !Object.keys(R.queued).length
           && (pendB.size || pendR.size || pendU.size)) {
         console.log(`[!] clearing stale pending (bld=${pendB.size} res=${pendR.size} unit=${pendU.size})`);
-        pendB.clear(); pendR.clear(); pendU.clear();
+        // NB: do NOT clear pendU — we don't parse the shipyard queue here, so an
+        // in-progress unit order looks "empty" and clearing it would re-order the
+        // same batch (overproducing). The daemon's next resolve run re-evaluates.
+        pendB.clear(); pendR.clear();
       }
       if (maxStalls && stalls >= maxStalls) { console.log(`[~] stalled ${stalls} times; exiting`); break; }
       console.log(`[~] queues busy${energy !== null ? ` (energy ${energy}%)` : ''}; waiting`);
@@ -461,8 +475,11 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       await delay();
       await postForm(q + cpq, { [`fmenge[${u.code}]`]: u.want });
       pendU.set(u.code, u.have + u.want);
-      await delay();
-      console.log(`[+] ${u.scope} ${u.want}x code ${u.code} (have ${u.have}/${u.target})`);
+      console.log(`[+] ${u.scope} ${u.want}x code ${u.code} (have ${u.have}/${u.target}${u.rate ? ` @${u.rate}/s` : ''})`);
+      // Time the next pass to just after this order finishes (instead of a fixed
+      // short poll), so the shipyard never drains between batches.
+      if (u.rate > 0) await sleep(Math.min(Math.ceil((u.want / u.rate) * 1000), 900000) + 2500);
+      else await delay();
     }
     stalls = 0;
   }

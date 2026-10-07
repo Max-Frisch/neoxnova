@@ -20,9 +20,14 @@ NODE=(node --max-old-space-size=96)
 # shipyard queue as soon as each batch drains, so we only need it big enough to
 # cover one refill gap, not the whole goal. Override with EXPLORER_UNIT_BATCH.
 BATCH="${EXPLORER_UNIT_BATCH:-8000}"
-# Short loop interval: resolve paces itself (it blocks while units build), so a
-# long sleep just leaves the shipyard idle between passes. Keep it tight.
-EVERY="${FARM_BUILD_EVERY_S:-60}"
+# Rate-aware batching: size each unit order to ~FARM_UNIT_SECONDS of the
+# shipyard's "Building: N per second" throughput and let resolve re-submit just
+# after it completes (EXPLORER_UNIT_SECONDS in httpbot). Per-planet resolve is
+# capped by FARM_RESOLVE_STEPS batches.
+UNIT_SECONDS="${FARM_UNIT_SECONDS:-90}"
+RESOLVE_STEPS="${FARM_RESOLVE_STEPS:-4}"
+# Loop interval is a floor only — resolve itself now paces to the build rate.
+EVERY="${FARM_BUILD_EVERY_S:-15}"
 CFG="plans/farm-sites.json"
 
 read_cfg() { CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC][process.argv[1]]))" "$1"; }
@@ -39,10 +44,10 @@ while true; do
 
   PHASE=$(ACC="$ACC" node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('data/farm-state-'+process.env.ACC+'.json','utf8')).phase)")
   if [ "$PHASE" = "build" ]; then
-    EXPLORER_UNIT_BATCH="$BATCH" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-main.json" --cp "$MAIN_CP" --steps 60
+    EXPLORER_UNIT_BATCH="$BATCH" EXPLORER_UNIT_SECONDS="$UNIT_SECONDS" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-main.json" --cp "$MAIN_CP" --steps "$RESOLVE_STEPS"
     for cp in "${SITES[@]}"; do
       [ "$cp" = "$MAIN_CP" ] && continue
-      EXPLORER_UNIT_BATCH="$BATCH" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-site.json" --cp "$cp" --steps 60
+      EXPLORER_UNIT_BATCH="$BATCH" EXPLORER_UNIT_SECONDS="$UNIT_SECONDS" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-site.json" --cp "$cp" --steps "$RESOLVE_STEPS"
       "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
       POOL=$(ACC="$ACC" CP="$cp" node -e "const s=(JSON.parse(require('fs').readFileSync('data/farm-site-'+process.env.ACC+'-'+process.env.CP+'.json','utf8')).ships)||{};const b=+s['207']||0,h=+s['203']||0,r=+s['219']||0;if(b||h||r)process.stdout.write('207:'+b+',203:'+h+',219:'+r)")
       if [ -n "$POOL" ]; then
