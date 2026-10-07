@@ -57,7 +57,8 @@
    k=10+⌊(L+2)/4⌋); the upgrade folds in as a running additive percent on the total conveyor output
    (one Average +0.5%, ten = +5%) — semantics owner-confirmed 2026-10-07, only the live magnitude
    unverified (no items owned);
-   (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`.
+   (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`
+   — DONE 2026-10-07 (`parseArsenalPage`/`parseMarketLots` + the four commands, dry unless `--go`).
 1d. **Combat bonus model — per-weapon techs** — DONE 2026-10-07. `combat.go` `DerivedAttack`
    walks each unit's card weapon components: per component `base·(1+(weaponTech+arsenalWeapon)/100)`
    with `weaponTech` = 2%·Laser/Ion/Plasma (120/121/122), 4%·Graviton (199), 0 Standard; the sum is
@@ -74,6 +75,9 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **arsenal/market tooling (item 1c-e)** — `parseArsenalPage` + `parseMarketLots`
+  in `parse.mjs`; `httpbot.mjs arsenal|market|activate <greid>|sell <type> <amt> <rate>` (the
+  mutating two dry-run unless `--go`), verified offline against the live page captures.
 - 2026-10-07: **arsenal drop tiers fixed** — `arsenal.go` light/medium/heavy pools now hold the
   owner-confirmed sets (light: 1,5,8,11,14,17,18,19; medium: 2,3,6,9,12,15; heavy: 4,7,10,13,16);
   `DropPool` is cumulative by tier; new `RollDrop` (flat ~10% chance, pick from the tier pool).

@@ -8,11 +8,15 @@
 //   node httpbot.mjs simsuite scenarios.json [--out dir]  # batch battle-sim tests
 //   node httpbot.mjs card <code>               # parse one unit information card (class fields)
 //   node httpbot.mjs cards [--out file]        # fetch every ship/defense card -> data/unit-info.json
+//   node httpbot.mjs arsenal                   # list upgrades (bonus, next bracket, available, greid)
+//   node httpbot.mjs market                    # list live market lots (id, name, amount, price)
+//   node httpbot.mjs activate <greid> [--go]   # activate one upgrade drawing (dry unless --go)
+//   node httpbot.mjs sell <type> <amt> <rate> [--go]  # list drawings on the market (dry unless --go)
 //   node httpbot.mjs resolve --goals f.json [--steps N] [--cp id]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, parseArsenalPage, parseMarketLots, stripTags, num } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -234,6 +238,64 @@ async function cmdCards(outArg) {
   fs.writeFileSync(out, JSON.stringify({ updatedAt: new Date().toISOString(), account: USER, units }, null, 2));
   console.log(`WROTE ${out} (${Object.keys(units).length} units)`);
   return units;
+}
+
+// Arsenal upgrade list (game.php?page=arsenal): current bonus, next-activation
+// bracket, held drawings and the activate `greid` key for each upgrade.
+async function cmdArsenal() {
+  await login();
+  const html = await (await getPage('page=arsenal')).text();
+  const upgrades = parseArsenalPage(html);
+  console.log(JSON.stringify({ account: USER, count: upgrades.length, upgrades }, null, 2));
+  return upgrades;
+}
+
+// Live market lots (game.php?page=market): id, upgrade, amount, total Antimatter.
+async function cmdMarket() {
+  await login();
+  const html = await (await getPage('page=market')).text();
+  const lots = parseMarketLots(html);
+  console.log(JSON.stringify({ account: USER, count: lots.length, lots }, null, 2));
+  return lots;
+}
+
+// Activate one upgrade drawing (POST page=arsenal mode=send greid=<key>).
+// Dry by default (shows the held drawing it would consume); pass --go to post.
+// The `greid` key is the live internal name, not the 1..19 market `type` id.
+async function cmdActivate(greid, go) {
+  if (!greid) throw new Error('need a greid key (e.g. combustion)');
+  await login();
+  if (!go) {
+    const html = await (await getPage('page=arsenal')).text();
+    const item = parseArsenalPage(html).find((u) => u.greid === greid);
+    console.log(item
+      ? `[activate] DRY greid=${greid} (${item.name}, have ${item.available}, next +${item.nextBonus})`
+      : `[activate] DRY greid=${greid} (not currently activatable; no owned drawing or unknown key)`);
+    return;
+  }
+  const html = await postForm('page=arsenal', { mode: 'send', greid });
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DIR, 'arsenal-activate.html'), html);
+  const after = parseArsenalPage(html).find((u) => u.greid === greid);
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, '')).replace(/\s+/g, ' ');
+  console.log(`[activate] greid=${greid} posted${after ? ` -> bonus ${after.bonus}%, have ${after.available}` : ''}`);
+  console.log(`[activate] ${txt.slice(0, 300)}`);
+}
+
+// List (sell) upgrade drawings on the market (POST page=market mode=sellUpgrades).
+// `type` is the 1..19 market id, `rate` the Antimatter price per unit.
+// Dry by default; pass --go to post. Usage: sell <type> <amount> <rate> [--go]
+async function cmdSell(type, amount, rate, go) {
+  if (!type) throw new Error('need a type 1..19');
+  const form = { mode: 'sellUpgrades', type: String(type), amount: String(amount || 1), rate: String(rate || 500) };
+  await login();
+  if (!go) { console.log(`[sell] DRY ${JSON.stringify(form)}`); return; }
+  const html = await postForm('page=market', form);
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DIR, 'market-sell.html'), html);
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, '')).replace(/\s+/g, ' ');
+  console.log(`[sell] posted ${JSON.stringify(form)}`);
+  console.log(`[sell] ${txt.slice(0, 300)}`);
 }
 
 // Conveyor probe: measure how the shipyard/defense "Building: N per second"
@@ -1270,6 +1332,10 @@ try {
   else if (cmd === 'exp-report') await cmdExpReports();
   else if (cmd === 'card') await cmdCard(process.argv[3]);
   else if (cmd === 'cards') await cmdCards(flag('--out'));
+  else if (cmd === 'arsenal') await cmdArsenal();
+  else if (cmd === 'market') await cmdMarket();
+  else if (cmd === 'activate') await cmdActivate(process.argv[3], process.argv.includes('--go'));
+  else if (cmd === 'sell') await cmdSell(process.argv[3], process.argv[4], process.argv[5], process.argv.includes('--go'));
   else if (cmd === 'conveyor-probe') await cmdConveyorProbe(process.argv[3], process.argv[4], process.argv[5]);
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
   else if (cmd === 'simsuite') await cmdSimSuite(process.argv[3], flag('--out'));
@@ -1285,5 +1351,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|card|cards|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|card|cards|arsenal|market|activate|sell|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }

@@ -140,6 +140,51 @@ export function parseInfoCard(html) {
   return out;
 }
 
+// Parse the Arsenal page (game.php?page=arsenal): one entry per upgrade with the
+// current accumulated bonus, the bracket the NEXT activation would add, how many
+// un-activated drawings are held, and the activate-form `greid` key when present
+// (Absent upgrades have no form). See docs/ARSENAL_UPGRADES_IMPLEMENTATION.md §1.1.
+export function parseArsenalPage(html) {
+  const out = [];
+  for (const ch of html.split('class="build_box"').slice(1)) {
+    const headM = /class="head">\s*([\s\S]*?)\s*<\/div>/.exec(ch);
+    const name = headM ? stripTags(headM[1]) : '';
+    if (!name) continue;
+    const bonusM = /Bonus:\s*<span[^>]*>\s*([+-]?[\d.]+)\s*%\s*<\/span>\s*(?:<sup>\s*\(([+-]?[\d.]+)\)\s*<\/sup>)?/i.exec(ch);
+    const availM = /Avaiable:\s*<span[^>]*>\s*([\d.]+)/i.exec(ch);
+    const greidM = /name="greid"\s+value="([^"]+)"/i.exec(ch);
+    out.push({
+      name,
+      bonus: bonusM ? Number(bonusM[1]) : 0,
+      nextBonus: bonusM && bonusM[2] != null ? Number(bonusM[2]) : null,
+      available: availM ? num(availM[1]) : 0,
+      greid: greidM ? greidM[1] : null,
+    });
+  }
+  return out;
+}
+
+// Parse live market lots (game.php?page=market): each lot is a BuyUpgrade form
+// wrapping a table row. Returns { id, name, amount, priceAtm } per lot.
+// See docs/ARSENAL_UPGRADES_IMPLEMENTATION.md §1.2.
+export function parseMarketLots(html) {
+  const lots = [];
+  for (const m of html.matchAll(/<form[^>]*action="game\.php\?page=market"[^>]*>([\s\S]*?)<\/form>/gi)) {
+    const block = m[1];
+    if (!/name="mode"\s+value="BuyUpgrade"/.test(block)) continue;
+    const idM = /name="id"\s+value="(\d+)"/.exec(block);
+    const cells = [...block.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => stripTags(c[1]).replace(/\s+/g, ' ').trim());
+    if (cells.length < 4) continue;
+    lots.push({
+      id: idM ? Number(idM[1]) : num(cells[0]),
+      name: cells[1],
+      amount: num(cells[2]),
+      priceAtm: num(cells[3]),
+    });
+  }
+  return lots;
+}
+
 // Parse the active construction queue rows: [{ name, level }].
 export function parseQueue(html) {
   const out = [];

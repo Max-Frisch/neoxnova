@@ -190,6 +190,11 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 - `httpbot.mjs activate <greid>` and `httpbot.mjs sell <type> <amount> <rate>` (dry + `--go`).
 - Enumerate every `greid` by owning one of each upgrade, then fill §2's `greid` column.
 
+> **DONE 2026-10-07** (first three): `parseArsenalPage`/`parseMarketLots` in `parse.mjs`,
+> `httpbot.mjs arsenal|market|activate|sell` (activate/sell dry-run unless `--go`, verified
+> against `data/_live_page_arsenal.html` / `_live_page_market.html`). The `greid` enumeration
+> still needs an owned drawing of each type.
+
 ## 5. Open questions / risks
 - ~~Confirm **5k/50k/250k** semantics (type pool vs chance vs both).~~ **Resolved 2026-10-07:**
   the tier gates the type pool (light → light+medium → light+medium+heavy); the drop chance is flat.
