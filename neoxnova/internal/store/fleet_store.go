@@ -122,7 +122,8 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 		}
 	}
 
-	// Engine technologies speed up their class of ships (+10%/level).
+	// Engine technologies speed up their class of ships (+10%/level); Arsenal
+	// engine upgrades add an extra additive percent on top.
 	var combustion, impulse, hyperspace int
 	if err := tx.QueryRowContext(ctx, `
 		SELECT COALESCE(MAX(level) FILTER (WHERE tech_code = 'combustion_drive'), 0),
@@ -132,9 +133,13 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	`, userID).Scan(&combustion, &impulse, &hyperspace); err != nil {
 		return DispatchResult{}, err
 	}
+	upgrades, err := LoadAccountUpgrades(ctx, tx, userID)
+	if err != nil {
+		return DispatchResult{}, err
+	}
 
 	dist := game.CalculateCoordinateDistance(oG, oS, oP, req.Target.Galaxy, req.Target.System, req.Target.Position)
-	baseSpeed := game.FleetMaxSpeed(req.Ships, combustion, impulse, hyperspace)
+	baseSpeed := game.FleetMaxSpeed(req.Ships, combustion, impulse, hyperspace, upgrades)
 	durationSecs := game.CalculateFlightDuration(dist, baseSpeed, req.SpeedPercent, fleetSpeed)
 
 	fuelBurn := game.CalculateDeuteriumConsumption(game.FleetFuelBase(req.Ships), dist, req.SpeedPercent)

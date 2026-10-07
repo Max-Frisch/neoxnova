@@ -325,12 +325,13 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	var tempMax int
 	var resourceSpeed float64
 	var baseFields int64
+	var owner sql.NullInt64
 	if err := tx.QueryRowContext(ctx, `
-		SELECT c.temp_max, u.resource_speed, c.base_fields_max
+		SELECT c.temp_max, u.resource_speed, c.base_fields_max, c.user_id
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields); err != nil {
+	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner); err != nil {
 		return err
 	}
 	var satCount int
@@ -343,7 +344,15 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	if err != nil {
 		return err
 	}
-	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount)
+	bonus := game.ProductionBonus{}
+	if owner.Valid {
+		upgrades, err := LoadAccountUpgrades(ctx, tx, owner.Int64)
+		if err != nil {
+			return err
+		}
+		bonus = game.ProductionBonusFor(upgrades)
+	}
+	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus)
 
 	fieldsUsed := 0
 	for _, lvl := range levels {

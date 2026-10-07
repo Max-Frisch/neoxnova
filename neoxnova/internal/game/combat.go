@@ -33,6 +33,14 @@ func CombatSeed(attacker, defender Combatant) int64 {
 		for _, k := range skills {
 			fmt.Fprintf(h, "a%s=%d;", k, c.Academy[k])
 		}
+		ups := make([]int, 0, len(c.Upgrades))
+		for k := range c.Upgrades {
+			ups = append(ups, k)
+		}
+		sort.Ints(ups)
+		for _, k := range ups {
+			fmt.Fprintf(h, "p%d=%.4f;", k, c.Upgrades[k])
+		}
 	}
 	write(attacker)
 	h.Write([]byte("|"))
@@ -75,9 +83,21 @@ type Combatant struct {
 	Units   map[string]int64
 	Techs   CombatTechs
 	Academy map[string]int // skill code -> level (1103 Double attack, 1109 Chain reaction, ...)
+	// Upgrades maps an Arsenal upgrade code (1..19) to the account's accumulated
+	// bonus percent (account_upgrades.value). Each unit applies the bonus for its
+	// card class, folded additively into the tech bonus.
+	Upgrades map[int]float64
 	// AcademyDamagePct is a legacy flat attack bonus (kept for callers that only
 	// have an aggregate figure). Prefer Academy.
 	AcademyDamagePct float64
+}
+
+// upgradePct returns the accumulated Arsenal bonus (in percent) for a code.
+func (c Combatant) upgradePct(code int) float64 {
+	if code == 0 || len(c.Upgrades) == 0 {
+		return 0
+	}
+	return c.Upgrades[code]
 }
 
 // SideReport is the per-unit outcome for one side.
@@ -135,6 +155,13 @@ func TechBonus(level int) int {
 // DerivedStat applies a tech bonus to a base stat: round(base*(1+bonus/100)).
 func DerivedStat(base, techLevel int) int {
 	return int(math.Round(float64(base) * (1.0 + float64(TechBonus(techLevel))/100.0)))
+}
+
+// DerivedStatBonus is DerivedStat with an extra additive percentage (the
+// Arsenal upgrade bonus for the unit's class). Both bonuses share one percent
+// sum so they never compound: round(base*(1+(tech+extra)/100)).
+func DerivedStatBonus(base, techLevel int, extraPct float64) int {
+	return int(math.Round(float64(base) * (1.0 + (float64(TechBonus(techLevel))+extraPct)/100.0)))
 }
 
 // MoonChance is the classic OGame formula: min(20, (M+C)/100000) percent. The
@@ -242,11 +269,12 @@ func buildSide(c Combatant) (*combatSide, SideReport) {
 		if !ok {
 			continue // unknown unit: cannot model
 		}
+		classes := unitClasses[code]
 		ct := &combatType{
 			code:   code,
-			attack: DerivedStat(stats.Attack, c.Techs.Weapons),
-			shield: DerivedStat(stats.Shield, c.Techs.Shield),
-			hull:   DerivedStat(stats.Hull, c.Techs.Armour),
+			attack: DerivedStatBonus(stats.Attack, c.Techs.Weapons, c.upgradePct(UpgradeCodeForClass("weapon", classes.Weapon))),
+			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))),
+			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))),
 			isShip: isShipCode(code),
 		}
 		if c.AcademyDamagePct != 0 {

@@ -16,6 +16,8 @@
   ~2.5 s after completion. **Symmetric ratio gate (account-wide):** the plan sums main + sites +
   in-flight (`st.active`) and builds ONLY the deficient type — HC-only while HC < 5·BB, BB-only while
   HC > 5·BB, both when balanced. (Was main-only and HC-biased, so HC ballooned while BB idled.)
+  **Workers re-read the plan every resolve pass** (was once at startup → sites kept building a stale
+  HC plan while `farm-plan` said `gate=BB`; restart or session-error was the only refresh).
 - **Expo send (`run-farm-send.sh`, 30 s):** slots = LIVE `expeditionSlots` (config fallback; acc1/acc2
   = 9). `active` = `/Expedition/` rows **not `/Hostail/`** (a real fleet flips A→R with `fleetID:null`
   on return). acc1 carries **6 permanent Hostail ghosts** — `used` double-counts them; ignore.
@@ -43,11 +45,23 @@
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
    ~10%-of-combat-win drop into the expedition resolver (item 1) via
    `game.DropPool`/`AddUpgradeItems`; (b) confirm tier gates the type
-   pool vs the drop chance; (c) **apply bonuses to production/combat** — NEXT SESSION: pull the
-   per-unit weapon/armor/shield/engine classes from the live cards
-   (`game.php?page=information&id=<code>`, ids 202–228/401–419) into `internal/game/unit_classes.go`,
-   then add them additively into combat/economy — see `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §6;
+   pool vs the drop chance; (c) **apply bonuses to production/combat** — DONE 2026-10-07:
+   `internal/game/unit_classes.go` (from live cards, fixture `testdata/niburus_unit_classes.json`,
+   `httpbot card`/`cards`), weapon/armor/shield folded additively into the tech bonus
+   (`DerivedStatBonus`), production 17/18/19 into `RecomputeProduction`, engine 11/12/13 into
+   `FleetMaxSpeed`; resolver/`RecomputeCelestial`/`Dispatch` load `account_upgrades` and activation
+   recomputes planets. OPEN: conveyor 14–16 — building 71/72/73 effect now measured
+   (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7: fleet `unitRate·L`, defense `·k(L)`,
+   k=10+⌊(L+2)/4⌋); the upgrade multiplier itself is unverified (no items owned);
    (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`.
+1d. **Combat bonus model — per-weapon techs (NEXT SESSION)** — verified vs live cards +
+   `data/combat/*.report.json`: units have MULTIPLE weapon components (`unit_classes.go`
+   `Weapons []WeaponClass`, already generated); real firepower =
+   `Σ base_w·(1+(weaponTech_w+arsenalWeapon)/100)` then `× (1+TechBonus(109)/100)`, where
+   `weaponTech` = 2%·Laser/Ion/Plasma tech (120/121/122), 4%·Graviton (199), 0 for Standard;
+   hull/shield add arsenal armor/shield into the same percent as 111/110. The card omits the
+   general techs. Refactor `combat.go` `buildSide` + `Combatant`/loaders; replay
+   `real-big-acc1-acc2.report.json` (82/246/853/1538/3077). Details: ARSENAL doc §8.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
    defenders (currently only espionage).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
@@ -57,6 +71,19 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **card + conveyor live findings** — `parseInfoCard` now captures every weapon
+  component + bonus tooltips; fixture/`unit_classes.go` regenerated with `Weapons []WeaponClass`
+  (HAR extractor added). Conveyor 71/72/73 throughput curve measured incl. Photon Cannon
+  (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7). Combat bonus formula re-derived from
+  `data/combat/` reports → queued as item 1d / §8.
+- 2026-10-07: **Arsenal upgrade bonuses applied** — per-unit classes extracted from the live info
+  cards (202–228/401–419) into `internal/game/unit_classes.go` (fixture + `httpbot card`/`cards`);
+  weapon/armor/shield added into the same percent sum as the tech bonus (`DerivedStatBonus`),
+  production 17–19 into `RecomputeProduction`, engines 11–13 into `FleetMaxSpeed`; resolver +
+  `RecomputeCelestial` + `Dispatch` read `account_upgrades`, activation recomputes planet production.
+- 2026-10-07: **worker plan-refresh fix** — `cmdResolve` now re-reads the goals file each pass
+  (kept old targets on a partial write) so long-lived workers follow ratio-gate flips; restarted all
+  7 acc1 workers — sites switched from stale HC to `code 207` (BB).
 - 2026-10-07: **farm ratio gate made symmetric + account-wide** (`farm-plan.mjs`): the plan now tallies
   main+sites+in-flight (`st.active`, persisted by the send loop) and builds only the deficient type, so
   the 5:1 HC:BB ratio converges instead of one type piling up idle; plan log shows `ratio`/`gate`.

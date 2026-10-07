@@ -6,11 +6,13 @@
 //   node httpbot.mjs planets                   # list planets (id/name/coords)
 //   node httpbot.mjs levels [--out file] [--cp id]  # current (or chosen) planet levels JSON
 //   node httpbot.mjs simsuite scenarios.json [--out dir]  # batch battle-sim tests
+//   node httpbot.mjs card <code>               # parse one unit information card (class fields)
+//   node httpbot.mjs cards [--out file]        # fetch every ship/defense card -> data/unit-info.json
 //   node httpbot.mjs resolve --goals f.json [--steps N] [--cp id]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, stripTags, num } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -195,6 +197,113 @@ async function cmdPlanets() {
   return planets;
 }
 
+// Fetch one unit's information card and parse its class fields (weapon type,
+// structural armor, shield and engine classes + base stats). Used to build the
+// per-unit upgrade-class mapping in internal/game/unit_classes.go.
+async function cmdCard(code) {
+  if (!code) throw new Error('need a unit code (e.g. 204)');
+  await login();
+  const html = await (await getPage(`page=information&id=${code}`)).text();
+  const card = parseInfoCard(html);
+  console.log(JSON.stringify({ code: Number(code), ...card }, null, 2));
+  return card;
+}
+
+// Fetch every ship (202-228) and defense (401-419) information card and write
+// data/unit-info.json. This is the raw input for unit-classes-dataset.mjs.
+async function cmdCards(outArg) {
+  await login();
+  const ids = [];
+  for (let i = 202; i <= 228; i++) ids.push(i);
+  for (let i = 401; i <= 419; i++) ids.push(i);
+
+  const units = {};
+  for (const id of ids) {
+    try {
+      const html = await (await getPage(`page=information&id=${id}`)).text();
+      if (!/Structural armor/i.test(html)) { console.log(`[skip] ${id} (no stat card)`); continue; }
+      const u = parseInfoCard(html);
+      units[id] = u;
+      console.log(`[ok] ${id} ${u.name}: weapon=${u.weaponType} armor=${u.armorClass} shield=${u.shieldClass} engine=${u.engineClass}`);
+    } catch (e) { console.log(`[ERR] ${id}: ${e.message}`); }
+    await delay();
+  }
+
+  const out = outArg || path.join(DATA_DIR, 'unit-info.json');
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, JSON.stringify({ updatedAt: new Date().toISOString(), account: USER, units }, null, 2));
+  console.log(`WROTE ${out} (${Object.keys(units).length} units)`);
+  return units;
+}
+
+// Conveyor probe: measure how the shipyard/defense "Building: N per second"
+// throughput changes as conveyors (71 light / 72 average / 73 heavy) gain
+// levels. Usage: httpbot.mjs conveyor-probe [cp] [rounds] [codesCSV]
+// e.g. `conveyor-probe 1695 2 72` levels only the Average conveyor.
+async function cmdConveyorProbe(cpArg, roundsArg, codesArg) {
+  const cp = cpArg || '1695';
+  const rounds = Math.max(1, Number(roundsArg || 3));
+  const CONVEYORS = String(codesArg || '71,72,73').split(',').map((s) => Number(s.trim())).filter(Boolean);
+  await login();
+  const cpq = `&cp=${cp}`;
+
+  const perSec = (sc) => Object.fromEntries(Object.values(sc.byCode).map((it) => [it.code, it.perSec]));
+  const snapshot = async () => {
+    const B = await scope('page=buildings' + cpq);
+    const S = await scope('page=shipyard&mode=fleet' + cpq);
+    const D = await scope('page=shipyard&mode=defense' + cpq);
+    return {
+      at: new Date().toISOString(),
+      conveyors: Object.fromEntries(CONVEYORS.map((c) => [c, B.levels[c] || 0])),
+      fleet: perSec(S),
+      defense: perSec(D),
+      resources: B.res,
+    };
+  };
+  const waitLevels = async (want) => {
+    for (let i = 0; i < 60; i++) {
+      const B = await scope('page=buildings' + cpq);
+      if (CONVEYORS.every((c) => (B.levels[c] || 0) >= want[c])) return true;
+      await sleep(3000);
+    }
+    return false;
+  };
+
+  let prev = await snapshot();
+  const baseline = prev;
+  console.log(`[probe] cp=${cp} baseline conveyors=${JSON.stringify(prev.conveyors)}`);
+  console.log(`[probe] baseline fleet perSec=${JSON.stringify(prev.fleet)}`);
+  console.log(`[probe] baseline defense perSec=${JSON.stringify(prev.defense)}`);
+
+  const results = [];
+  for (let r = 1; r <= rounds; r++) {
+    const want = {};
+    for (const c of CONVEYORS) want[c] = (prev.conveyors[c] || 0) + 1;
+    for (const c of CONVEYORS) {
+      await delay();
+      await postForm('page=buildings' + cpq, { cmd: 'insert', building: c, lvlup: want[c] });
+      console.log(`[probe] queued conveyor ${c} -> L${want[c]}`);
+    }
+    const ok = await waitLevels(want);
+    const cur = await snapshot();
+    if (!ok) console.log(`[probe] WARN round ${r}: levels not reached; got ${JSON.stringify(cur.conveyors)}`);
+    const delta = (a, b) => {
+      const d = {};
+      for (const k of Object.keys(b)) if (b[k] !== a[k]) d[k] = `${a[k]} -> ${b[k]}`;
+      return d;
+    };
+    console.log(`[probe] round ${r} conveyors=${JSON.stringify(cur.conveyors)}`);
+    console.log(`[probe]   fleet   delta=${JSON.stringify(delta(prev.fleet, cur.fleet))}`);
+    console.log(`[probe]   defense delta=${JSON.stringify(delta(prev.defense, cur.defense))}`);
+    results.push({ round: r, conveyors: cur.conveyors, fleet: cur.fleet, defense: cur.defense });
+    prev = cur;
+  }
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const out = path.join(DATA_DIR, `conveyor-probe-${cp}.json`);
+  fs.writeFileSync(out, JSON.stringify({ cp, account: USER, baseline, rounds: results }, null, 2));
+  console.log(`WROTE ${out}`);
+}
+
 // Energy balance shown on the buildings page: negative = lack of energy.
 function energyFromHtml(html) {
   const lack = /Lack of energy:\s*(\d+)%/.exec(html);
@@ -245,9 +354,16 @@ async function cmdResolve(goalsPath, steps, cpArg) {
   const allowSlow = new Set((goals.allowSlow || []).map(String));
   // Ship/defense build targets: ships go to the fleet page, defenses to the
   // defense page. Counts are read from `val_<code>` on the respective page.
-  const unitTargets = [];
-  for (const [c, n] of Object.entries(goals.ships || {})) unitTargets.push({ code: String(c), target: Number(n), scope: 'fleet' });
-  for (const [c, n] of Object.entries(goals.defenses || {})) unitTargets.push({ code: String(c), target: Number(n), scope: 'defense' });
+  // Rebuilt from the plan file every loop (see below): a long-lived worker must
+  // follow planner updates (e.g. the HC/BB ratio gate flipping) instead of
+  // building the targets it locked in when the process started.
+  const unitTargetsFrom = (g) => {
+    const out = [];
+    for (const [c, t] of Object.entries(g.ships || {})) out.push({ code: String(c), target: Number(t), scope: 'fleet' });
+    for (const [c, t] of Object.entries(g.defenses || {})) out.push({ code: String(c), target: Number(t), scope: 'defense' });
+    return out;
+  };
+  let unitTargets = unitTargetsFrom(goals);
   const unitBatch = Number(env.EXPLORER_UNIT_BATCH || 100);
   // Rate-aware batching: size each unit order to ~this many seconds of the
   // shipyard's "Building: N per second" throughput, then re-submit just after it
@@ -277,6 +393,9 @@ async function cmdResolve(goalsPath, steps, cpArg) {
   const prune = (pend, levels) => { for (const [c, t] of [...pend]) if ((levels[c] ?? 0) >= t) pend.delete(c); };
 
   for (let step = 0; step < steps; step++) {
+    // Follow planner updates: the ratio gate flips which unit type to build, so
+    // re-read the plan each pass; keep the previous targets if the file is mid-write.
+    try { unitTargets = unitTargetsFrom(JSON.parse(fs.readFileSync(goalsPath, 'utf8'))); } catch { /* keep previous */ }
     const B = await scope('page=buildings' + cpq);
     const R = await scope('page=research' + cpq);
     const S = await scope('page=shipyard&mode=fleet' + cpq);
@@ -1149,6 +1268,9 @@ try {
   else if (cmd === 'worker') await cmdWorker(process.argv[3], process.argv[4], flag('--interval'));
   else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'exp-report') await cmdExpReports();
+  else if (cmd === 'card') await cmdCard(process.argv[3]);
+  else if (cmd === 'cards') await cmdCards(flag('--out'));
+  else if (cmd === 'conveyor-probe') await cmdConveyorProbe(process.argv[3], process.argv[4], process.argv[5]);
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
   else if (cmd === 'simsuite') await cmdSimSuite(process.argv[3], flag('--out'));
   else if (cmd === 'resolve') {
@@ -1163,5 +1285,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|card|cards|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }

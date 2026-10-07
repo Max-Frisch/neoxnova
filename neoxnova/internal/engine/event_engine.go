@@ -558,6 +558,10 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 	if err != nil {
 		return err
 	}
+	atkUpgrades, err := store.LoadAccountUpgrades(ctx, tx, attackerID)
+	if err != nil {
+		return err
+	}
 	defShips, err := loadPlanetUnits(ctx, tx, "planet_ships", "ship_code", targetID)
 	if err != nil {
 		return err
@@ -568,6 +572,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 	}
 	var defTechs game.CombatTechs
 	var defAcademy map[string]int
+	var defUpgrades map[int]float64
 	if defOwner.Valid {
 		if defTechs, err = loadCombatTechs(ctx, tx, defOwner.Int64); err != nil {
 			return err
@@ -575,10 +580,13 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 		if defAcademy, err = loadAcademy(ctx, tx, defOwner.Int64); err != nil {
 			return err
 		}
+		if defUpgrades, err = store.LoadAccountUpgrades(ctx, tx, defOwner.Int64); err != nil {
+			return err
+		}
 	}
 
-	attacker := game.Combatant{Units: atkShips, Techs: atkTechs, Academy: atkAcademy}
-	defender := game.Combatant{Units: mergeCounts(defShips, defDefs), Techs: defTechs, Academy: defAcademy}
+	attacker := game.Combatant{Units: atkShips, Techs: atkTechs, Academy: atkAcademy, Upgrades: atkUpgrades}
+	defender := game.Combatant{Units: mergeCounts(defShips, defDefs), Techs: defTechs, Academy: defAcademy, Upgrades: defUpgrades}
 	res := game.Resolve(attacker, defender, game.CombatSeed(attacker, defender))
 
 	// Persist a player-readable report (full per-round detail as JSONB).

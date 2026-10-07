@@ -56,16 +56,20 @@ func TestFuelMatchesLiveSamples(t *testing.T) {
 
 func TestFleetMaxSpeed(t *testing.T) {
 	// Light Fighter (12500, combustion) at combustion 10 -> +100% -> 25000.
-	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0); got != 25000 {
+	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, nil); got != 25000 {
 		t.Fatalf("LF combustion 10 = %d, want 25000", got)
 	}
 	// Battleship (10000, hyperspace) at hyperspace 5 -> 15000.
-	if got := FleetMaxSpeed(map[string]int64{"207": 1}, 0, 0, 5); got != 15000 {
+	if got := FleetMaxSpeed(map[string]int64{"207": 1}, 0, 0, 5, nil); got != 15000 {
 		t.Fatalf("BS hyperspace 5 = %d, want 15000", got)
 	}
 	// Mixed fleet is limited by the slowest ship.
-	if got := FleetMaxSpeed(map[string]int64{"204": 1, "207": 1}, 10, 0, 0); got != 10000 {
+	if got := FleetMaxSpeed(map[string]int64{"204": 1, "207": 1}, 10, 0, 0, nil); got != 10000 {
 		t.Fatalf("mixed fleet = %d, want 10000 (BS limits)", got)
+	}
+	// Arsenal Jet engine +100% adds to the +100% tech: 12500*(1+2.0) = 37500.
+	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, map[int]float64{11: 100}); got != 37500 {
+		t.Fatalf("LF combustion 10 + engine upgrade 100%% = %d, want 37500", got)
 	}
 }
 

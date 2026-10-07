@@ -55,7 +55,7 @@ func TestRecomputeProduction(t *testing.T) {
 		"metal_mine": 10, "crystal_mine": 8,
 		"deuterium_synthesizer": 6, "solar_plant": 12,
 	}
-	eco := RecomputeProduction(levels, 40, 1.0, 0)
+	eco := RecomputeProduction(levels, 40, 1.0, 0, ProductionBonus{})
 	approx(t, "metal", eco.MetalPerHour, 778.122738030)
 	approx(t, "crystal", eco.CrystalPerHour, 342.9742096)
 	approx(t, "deut", eco.DeutPerHour, 136.0558848)
@@ -64,7 +64,7 @@ func TestRecomputeProduction(t *testing.T) {
 }
 
 func TestRecomputeProductionEnergyDeficit(t *testing.T) {
-	eco := RecomputeProduction(map[string]int{"metal_mine": 30}, 40, 1.0, 0)
+	eco := RecomputeProduction(map[string]int{"metal_mine": 30}, 40, 1.0, 0, ProductionBonus{})
 	if eco.EnergyMax != 0 {
 		t.Fatalf("energyMax = %v, want 0", eco.EnergyMax)
 	}
@@ -78,13 +78,33 @@ func TestRecomputeProductionResourceSpeed(t *testing.T) {
 		"metal_mine": 10, "crystal_mine": 8,
 		"deuterium_synthesizer": 6, "solar_plant": 12,
 	}
-	base := RecomputeProduction(levels, 40, 1.0, 0)
-	scaled := RecomputeProduction(levels, 40, 10000.0, 0)
+	base := RecomputeProduction(levels, 40, 1.0, 0, ProductionBonus{})
+	scaled := RecomputeProduction(levels, 40, 10000.0, 0, ProductionBonus{})
 	approx(t, "metal x10000", scaled.MetalPerHour, base.MetalPerHour*10000)
 	approx(t, "crystal x10000", scaled.CrystalPerHour, base.CrystalPerHour*10000)
 	approx(t, "deut x10000", scaled.DeutPerHour, base.DeutPerHour*10000)
 	// Energy is not scaled by the resource multiplier.
 	approx(t, "energyUsed unchanged", scaled.EnergyUsed, base.EnergyUsed)
+}
+
+func TestRecomputeProductionUpgradeBonus(t *testing.T) {
+	levels := map[string]int{
+		"metal_mine": 10, "crystal_mine": 8,
+		"deuterium_synthesizer": 6, "solar_plant": 12,
+	}
+	base := RecomputeProduction(levels, 40, 1.0, 0, ProductionBonus{})
+	boosted := RecomputeProduction(levels, 40, 1.0, 0, ProductionBonus{Metal: 100, Crystal: 50, Deuterium: 25})
+	approx(t, "metal +100%", boosted.MetalPerHour, base.MetalPerHour*2)
+	approx(t, "crystal +50%", boosted.CrystalPerHour, base.CrystalPerHour*1.5)
+	approx(t, "deut +25%", boosted.DeutPerHour, base.DeutPerHour*1.25)
+}
+
+func TestProductionBonusFor(t *testing.T) {
+	ups := map[int]float64{17: 12.5, 18: 3, 19: 0.4, 1: 99}
+	b := ProductionBonusFor(ups)
+	if b.Metal != 12.5 || b.Crystal != 3 || b.Deuterium != 0.4 {
+		t.Fatalf("ProductionBonusFor = %+v", b)
+	}
 }
 
 func TestDurationsPositive(t *testing.T) {

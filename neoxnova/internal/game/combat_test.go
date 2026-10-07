@@ -121,6 +121,55 @@ func TestAcademyProcsReduceAttackerLosses(t *testing.T) {
 	}
 }
 
+// TestDerivedStatBonus locks the additive semantics: the Arsenal upgrade percent
+// shares the tech percent sum instead of compounding with it.
+func TestDerivedStatBonus(t *testing.T) {
+	// TechBonus(10)=30, so +30% upgrade -> 100*(1+0.60) = 160 (not 130*1.3=169).
+	if got := DerivedStatBonus(100, 10, 30); got != 160 {
+		t.Fatalf("DerivedStatBonus(100,10,30) = %d, want 160 (additive)", got)
+	}
+	// A zero upgrade bonus must match the plain tech-only result.
+	if got, want := DerivedStatBonus(400, 10, 0), DerivedStat(400, 10); got != want {
+		t.Fatalf("zero upgrade = %d, want DerivedStat %d", got, want)
+	}
+}
+
+// TestBuildSideAppliesUpgrades checks that each unit applies the upgrade for
+// its card class, folded additively into the tech bonus. Battleship (207) is
+// laser / medium armor / medium shields.
+func TestBuildSideAppliesUpgrades(t *testing.T) {
+	boosted, _ := buildSide(Combatant{
+		Units:    map[string]int64{"207": 1},
+		Upgrades: map[int]float64{1: 50, 6: 40, 9: 30},
+	})
+	ct := boosted.instances[0].def
+	if ct.attack != 1050 { // 700 * 1.50
+		t.Fatalf("upgraded attack = %d, want 1050", ct.attack)
+	}
+	if ct.shield != 247 { // 190 * 1.30
+		t.Fatalf("upgraded shield = %d, want 247", ct.shield)
+	}
+	if ct.hull != 8120 { // 5800 * 1.40
+		t.Fatalf("upgraded hull = %d, want 8120", ct.hull)
+	}
+
+	// Tech + upgrade share one percent sum: TechBonus(10)=30, +50% = +80%.
+	mixed, _ := buildSide(Combatant{
+		Units:    map[string]int64{"207": 1},
+		Techs:    CombatTechs{Weapons: 10},
+		Upgrades: map[int]float64{1: 50},
+	})
+	if got := mixed.instances[0].def.attack; got != 1260 { // 700 * 1.80, not 700*1.3*1.5
+		t.Fatalf("tech+upgrade attack = %d, want 1260 (additive)", got)
+	}
+
+	// A Standard-weapon unit (Light Fighter 204) ignores the laser upgrade.
+	std, _ := buildSide(Combatant{Units: map[string]int64{"204": 1}, Upgrades: map[int]float64{1: 100}})
+	if got := std.instances[0].def.attack; got != 50 {
+		t.Fatalf("standard weapon attack = %d, want 50 (unaffected)", got)
+	}
+}
+
 // TestCombatSeedReproducible proves a simulator can reproduce a real battle:
 // CombatSeed depends only on the fleet/tech inputs (not map order), so
 // Resolve(battle, CombatSeed(battle)) is identical for identical fleets.

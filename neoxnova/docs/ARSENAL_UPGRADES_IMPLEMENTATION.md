@@ -188,6 +188,18 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 
 ## 6. NEXT SESSION — apply upgrade bonuses to combat/production (owner-confirmed)
 
+> **DONE 2026-10-07.** Per-unit classes extracted from the live cards into
+> `internal/game/unit_classes.go` (fixture `testdata/niburus_unit_classes.json`,
+> captured by `httpbot.mjs cards`, folded by `tools/explorer/unit-classes-dataset.mjs`).
+> Weapon/armor/shield bonuses are folded additively into the tech bonus in
+> `combat.go` (`DerivedStatBonus`), production upgrades (17/18/19) into
+> `economy.go` (`ProductionBonus`), and engine upgrades (11/12/13) into
+> `FleetMaxSpeed`. The engine resolver, `RecomputeCelestial` and `Dispatch` load
+> `account_upgrades`; activating a production upgrade recomputes the account's
+> planets. **Still open:** conveyor upgrades (14/15/16) target the conveyor
+> buildings (71/72/73), whose production effect is not modelled yet, so they are
+> extracted but not applied.
+
 Owner clarified the effect semantics (2026-10-07): each upgrade is an **additive
 percentage bonus**, scoped by unit **class**. E.g. "Laser weapons +0.75" adds
 +0.75 % damage to every ship/defense whose card declares a **laser** weapon;
@@ -217,3 +229,113 @@ Next session:
    speed is currently hardcoded `15.0` in `internal/game/game_math.go`).
 5. Loader: the engine/attack resolver must read the owner's `account_upgrades`
    (join `users`) and pass them into `Combatant`.
+
+---
+
+## 7. Conveyor buildings (71/72/73) — measured live 2026-10-07
+
+Conveyors are the "production factories" that set a planet's shipyard/defense
+throughput (the "Building: X per second" figure on the hangar/defenses pages).
+Measured with `tools/explorer/httpbot.mjs conveyor-probe <cp> <rounds> [codes]`,
+which snapshots the fleet/defense pages, raises the conveyor levels, and diffs.
+
+Model (`class` = light/medium/heavy; `L` = the matching conveyor's level):
+
+    fleet   rate (units/s) = unitRate[class] * L
+    defense rate (units/s) = unitRate[class] * L * k(L)
+
+    unitRate:  light 24   medium 12   heavy 2
+    L = 0  -> 0 (fresh colony shows every rate as 0; no base offset)
+    k(L) = 10 + floor((L+2)/4)
+         = 10 at L1; 11 at L2-5; 12 at L6-9; 13 at L10-13; 14 at L14-17; ...
+
+Class membership (from `page=information` cards + the produced lists):
+
+| factory | ships | defenses |
+|---|---|---|
+| light (71) | 202,203,204,205,212 | 401,402,403 |
+| medium (72) | 206,207,209,211,213,215,217,219 | 404,405,406,416,417 |
+| heavy (73) | 214,216,225,226,227 (,220,228,221,222) | 410,412,413,414,415,418,419 |
+
+Unlock: Light needs Nanite 5 + Shipyard 10; Average Nanite 8 + Shipyard 14;
+Heavy Nanite 10 + Shipyard 18.
+
+Worked checks: light L6 -> 144/s fleet, 1728/s defense; medium L5 -> 60/s, 660/s;
+main light L15 -> 360/s, 5040/s; heavy L1 -> 2/s fleet and 20/s defense (Photon
+Cannon, owner-measured L1–4 = 20/44/66/88, matching `2L·k(L)`).
+
+**Still unmodelled:** how the Arsenal conveyor upgrades (14/15/16) fold in — no
+items are owned yet to measure; presumed an additive percent on the class unitRate.
+
+Conveyor heavy-defense check (2026-10-07, after 109/110/111 reached 18/17/18):
+Photon Cannon unlocked; 1593 (73=10) -> 260/s, 1695 (73=5) -> 110/s, matching
+`2·L·k(L)`. Conveyor upgrades (14 Light +0.6, 15 Average +0.5, 16 Heavy +0.4 %/level)
+are **added to the total conveyor output percent** — the same percent sum as the
+monthly premium / cashshop `+x%` bonuses (owner-confirmed).
+
+---
+
+## 8. NEXT SESSION — combat bonus model: per-weapon techs + card-verified bonuses
+
+Owner-confirmed and verified against the live cards and real combat reports
+(2026-10-07). This **changes the combat stat model** in `internal/game/combat.go`.
+
+### What the card shows (`page=information&id=<code>`)
+- A unit has **several weapon components**, each `Type baseAttack`:
+  225 Galleon = `Laser 10 000 + Ion 10 000`; 216 Black Moon = `Laser 20 250 +
+  Gravitational 114 750`; 228 Black Wanderer = `Laser 225 000 + Ion 450 000 +
+  Plasma 300 000 + Gravitational 525 000`. Total base attack = the sum (matches
+  `unit_stats.go`: 216=135 000, 228=1 500 000).
+- Each weapon row's `+bonus` tooltip names its source: `Laser technology` /
+  `Ionic technology` / `Plasma technology` / `Gravitational technology` (specific
+  research), plus the Arsenal weapon upgrade when activated (e.g. `+75`).
+- The hull row tooltip is `Upgrade guns` = the **Arsenal armor upgrade** for the
+  unit's armor class (acc1 has **Medium armor +1 %**, hence `2450 +24` etc.).
+- The card = `base + specific-research + arsenal` **only**; it does **not** show
+  the general Weapons/Shield/Armour techs.
+
+### What live combat actually does (from `data/combat/*.report.json`)
+`real-big-acc1-acc2.report.json` (techs 109/110/111=15, 120=17, 121=15, 122=12):
+
+| unit | weapon | report fp | derivation |
+|---|---|---|---|
+| 204 Light Fighter | Standard | 82 | `50 · 1.64` |
+| 205 Heavy Fighter | Standard | 246 | `150 · 1.64` |
+| 206 Cruiser | Ion | 853 | `400 · 1.64 · 1.30` |
+| 207 Battleship | Laser | 1538 | `700 · 1.64 · 1.34` |
+| 215 Battle Cruiser | Laser | 3077 | `1400 · 1.64 · 1.34` |
+
+`1.64 = 1 + TechBonus(109=15)/100`; `1.30 = 1 + 2%·121(15)`; `1.34 = 1 + 2%·120(17)`.
+
+### Formula to implement
+```
+weaponTech:  laser/ion/plasma = 2 * level(120/121/122)
+             gravitational    = 4 * level(199)
+             standard         = 0
+component_w = base_w * (1 + (weaponTech_w + arsenalWeapon_w)/100)
+attack      = sum(component_w) * (1 + TechBonus(109)/100)
+hull        = base * (1 + (TechBonus(111) + arsenalArmor)/100)
+shield      = base * (1 + (TechBonus(110) + arsenalShield)/100)
+```
+The general tech multiplies (compounds) the per-component weapon result; the
+Arsenal term is additive inside the component percent (owner-confirmed).
+
+### Work
+1. `Combatant`: add the specific weapon tech levels (e.g. `WeaponTechs map[int]int`
+   keyed 120/121/122/199, or named fields). Loader reads `user_technologies`.
+2. `buildSide`: iterate `unitClasses[code].Weapons` (already generated) and sum
+   per-component attack with each weapon's tech + arsenal percent; keep Standard
+   as general-tech-only.
+3. Hull/shield: fold `arsenalArmor`/`arsenalShield` (from `account_upgrades`) into
+   the same additive percent as `TechBonus(111)`/`TechBonus(110)`.
+4. `CombatSeed`: include the new weapon-tech inputs.
+5. Tests: replay `data/combat/real-big-acc1-acc2.report.json` and assert the derived
+   firepower (82/246/853/1538/3077); keep a `unitStats.Attack == Σ base_w` check.
+6. Resolver (`resolveAttack`) and any sim must load and pass the weapon techs.
+
+### Card tooling (already added this session)
+`parseInfoCard` now returns `weapons:[{type,attack,bonuses}]` + armor/shield/engine
+bonuses; `httpbot card|c`ards` fetch live; `card-dataset-from-har.mjs` extracts from
+a saved HAR; `unit-classes-dataset.mjs` regenerates the fixture with
+`Weapon` (primary) + `Weapons []WeaponClass`.
+

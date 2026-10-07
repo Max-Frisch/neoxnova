@@ -22,27 +22,25 @@ type UpgradeDef struct {
 	Key      string
 	Name     string
 	Group    string // weapon | armor | shield | engine | conveyor | production
-	Class    string // light | medium | heavy | ""
+	Class    string // catalog class key; see unit_classes.go for the card mapping
 	PerLevel float64
 }
 
-// UpgradeClasses maps each class to the upgrade codes that carry it. Used by the
-// tiered drop pools below.
 var (
 	upgradeByCode = buildUpgrades([]UpgradeDef{
-		{Code: 1, Name: "Laser weapons", Group: "weapon", Class: "light", PerLevel: 0.75},
-		{Code: 2, Name: "Ion cannon", Group: "weapon", Class: "medium", PerLevel: 0.75},
-		{Code: 3, Name: "Plasma gun", Group: "weapon", Class: "heavy", PerLevel: 0.75},
-		{Code: 4, Name: "Gravitational gun", Group: "weapon", Class: "heavy", PerLevel: 0.75},
+		{Code: 1, Name: "Laser weapons", Group: "weapon", Class: "laser", PerLevel: 0.75},
+		{Code: 2, Name: "Ion cannon", Group: "weapon", Class: "ion", PerLevel: 0.75},
+		{Code: 3, Name: "Plasma gun", Group: "weapon", Class: "plasma", PerLevel: 0.75},
+		{Code: 4, Name: "Gravitational gun", Group: "weapon", Class: "gravitational", PerLevel: 0.75},
 		{Code: 5, Name: "Light armor", Group: "armor", Class: "light", PerLevel: 0.6},
 		{Code: 6, Name: "Medium armor", Group: "armor", Class: "medium", PerLevel: 0.5},
 		{Code: 7, Name: "Heavy armor", Group: "armor", Class: "heavy", PerLevel: 0.4},
 		{Code: 8, Name: "Light shields", Group: "shield", Class: "light", PerLevel: 0.6},
 		{Code: 9, Name: "Medium shields", Group: "shield", Class: "medium", PerLevel: 0.5},
 		{Code: 10, Name: "Heavy shields", Group: "shield", Class: "heavy", PerLevel: 0.4},
-		{Code: 11, Key: "combustion", Name: "Jet engine", Group: "engine", Class: "light", PerLevel: 0.6},
-		{Code: 12, Name: "Impulse engine", Group: "engine", Class: "medium", PerLevel: 0.5},
-		{Code: 13, Name: "Hyperspace engine", Group: "engine", Class: "heavy", PerLevel: 0.4},
+		{Code: 11, Key: "combustion", Name: "Jet engine", Group: "engine", Class: "combustion", PerLevel: 0.6},
+		{Code: 12, Name: "Impulse engine", Group: "engine", Class: "impulse", PerLevel: 0.5},
+		{Code: 13, Name: "Hyperspace engine", Group: "engine", Class: "hyperspace", PerLevel: 0.4},
 		{Code: 14, Name: "Light conveyor", Group: "conveyor", Class: "light", PerLevel: 0.6},
 		{Code: 15, Name: "Average conveyor", Group: "conveyor", Class: "medium", PerLevel: 0.5},
 		{Code: 16, Name: "Heavy conveyor", Group: "conveyor", Class: "heavy", PerLevel: 0.4},
@@ -78,6 +76,18 @@ func UpgradeByCode(code int) (UpgradeDef, bool) {
 	d, ok := Upgrades[code]
 	return d, ok
 }
+
+// upgradeCodeByClass indexes the catalog by "group/class" so a unit's declared
+// card class (see unit_classes.go) resolves to the upgrade that applies to it.
+var upgradeCodeByClass = func() map[string]int {
+	m := make(map[string]int, len(Upgrades))
+	for _, d := range Upgrades {
+		if d.Class != "" {
+			m[d.Group+"/"+d.Class] = d.Code
+		}
+	}
+	return m
+}()
 
 // Activation chances (manual "Важно").
 const (

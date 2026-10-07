@@ -49,10 +49,15 @@ var unitDrive = map[string]string{
 	"227": "118", "228": "118",
 }
 
+// engineUpgradeByDrive maps a drive tech code to its Arsenal engine upgrade
+// code (11 combustion, 12 impulse, 13 hyperspace).
+var engineUpgradeByDrive = map[string]int{"115": 11, "117": 12, "118": 13}
+
 // FleetMaxSpeed returns the fleet's limiting speed: the slowest ship's base
-// speed boosted by its drive technology (+10% per level). Defaults to 10000 when
-// no known ship is present.
-func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int) int {
+// speed boosted by its drive technology (+10% per level) plus the matching
+// Arsenal engine upgrade (additive percent). upgrades may be nil. Defaults to
+// 10000 when no known ship is present.
+func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int, upgrades map[int]float64) int {
 	levels := map[string]int{"115": combustion, "117": impulse, "118": hyperspace}
 	slowest := 0
 	for code, n := range units {
@@ -63,7 +68,9 @@ func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int) 
 		if base <= 0 {
 			continue
 		}
-		speed := int(math.Round(float64(base) * (1.0 + 0.1*float64(levels[unitDrive[code]]))))
+		drive := unitDrive[code]
+		pct := 0.1*float64(levels[drive]) + upgrades[engineUpgradeByDrive[drive]]/100.0
+		speed := int(math.Round(float64(base) * (1.0 + pct)))
 		if slowest == 0 || speed < slowest {
 			slowest = speed
 		}

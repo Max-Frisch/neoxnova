@@ -93,6 +93,53 @@ export function parseInfo(html) {
   return { name, stats, description: text.slice(0, 1200) };
 }
 
+// Parse an information&id=X unit card. A unit can list SEVERAL weapon rows
+// (each with its own base attack), so `weapons` is captured in full; the other
+// slots are a labelled header row followed by one data row:
+//   Weapon type / Attack Power   -> weapons: [{type, attack}, ...]
+//   Structural armor             -> [armorClass, hull]
+//   Shields                      -> [shieldClass, shield]
+//   Engine / Base speed          -> [engineClass, speed]
+// The stat cells carry inline bonus tooltips (e.g. "225.000 +117.000"), so only
+// the leading numeric token is read. All values are the unit's BASE stats.
+export function parseInfoCard(html) {
+  const body = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+  // Cells are split per row so an unclosed final cell (the engine speed cell is
+  // missing its </td> on the live cards) still runs to the end of its own row.
+  const rows = [...body.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map((m) =>
+    [...m[1].matchAll(/<(?:th|td)[^>]*>([\s\S]*?)(?:<\/(?:th|td)>|$)/gi)].map((c) => c[1]));
+  const leadNum = (s) => { const m = /(-?[\d][\d.,]*)/.exec(stripTags(s)); return m ? num(m[1]) : 0; };
+  // Inline bonuses are spans like: <span data-tooltip-content="Laser technology">+117.000</span>
+  const bonuses = (raw) => [...String(raw).matchAll(/data-tooltip-content="([^"]*)"[^>]*>\s*([+-]?[\d.,]+)/gi)]
+    .map((m) => ({ source: stripTags(m[1]), amount: num(m[2].replace(/[+-]/g, '')) }));
+
+  const out = { weapons: [] };
+  let mode = null;
+  for (const cells of rows) {
+    const first = stripTags(cells[0] || '');
+    const label = first.toLowerCase();
+    if (label === 'weapon type') { mode = 'weapon'; continue; }
+    if (label === 'structural armor') { mode = 'armor'; continue; }
+    if (label === 'shields') { mode = 'shield'; continue; }
+    if (label === 'engine') { mode = 'engine'; continue; }
+    if (label === 'fuel used(deuterium)') { mode = null; out.fuel = leadNum(cells[1] || ''); continue; }
+    if (label === 'cargo capacity') { mode = null; out.cargo = leadNum(cells[1] || ''); continue; }
+    if (label.includes('shots per round')) { mode = null; continue; }
+
+    if (mode === 'weapon') {
+      if (first) out.weapons.push({ type: first, attack: leadNum(cells[1] || ''), bonuses: bonuses(cells[1] || '') });
+    } else if (mode === 'armor') { out.armorClass = first; out.hull = leadNum(cells[1] || ''); out.armorBonuses = bonuses(cells[1] || ''); mode = null; }
+    else if (mode === 'shield') { out.shieldClass = first; out.shield = leadNum(cells[1] || ''); out.shieldBonuses = bonuses(cells[1] || ''); mode = null; }
+    else if (mode === 'engine') { out.engineClass = first; out.speed = leadNum(cells[1] || ''); out.engineBonuses = bonuses(cells[1] || ''); mode = null; }
+  }
+  out.attack = out.weapons.reduce((s, w) => s + w.attack, 0);
+  if (out.weapons.length) out.weaponType = out.weapons[0].type;
+  const nameM = /<div id="content">[\s\S]*?<th[^>]*>\s*([^<]+?)\s*<\/th>/i.exec(body)
+    || /<title>([\s\S]*?)<\/title>/i.exec(html);
+  out.name = nameM ? stripTags(nameM[1]).replace(/\s*-\s*Niburu.*$/, '').trim() : '';
+  return out;
+}
+
 // Parse the active construction queue rows: [{ name, level }].
 export function parseQueue(html) {
   const out = [];

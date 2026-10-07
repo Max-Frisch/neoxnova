@@ -19,11 +19,59 @@ func incomeForLevel(base, level float64) float64 {
 	return base * level * math.Pow(1.1, level)
 }
 
+// Production upgrade codes (Arsenal types 17/18/19).
+const (
+	upgradeMetalProduction     = 17
+	upgradeCrystalProduction   = 18
+	upgradeDeuteriumProduction = 19
+)
+
+// ProductionBonus is an account's Arsenal production bonus in percent for each
+// resource. The zero value adds nothing.
+type ProductionBonus struct {
+	Metal     float64
+	Crystal   float64
+	Deuterium float64
+}
+
+// ProductionBonusFor extracts the production upgrade percentages (17/18/19)
+// from an account's Arsenal upgrade map (code -> accumulated percent).
+func ProductionBonusFor(upgrades map[int]float64) ProductionBonus {
+	b := ProductionBonus{
+		Metal:     upgrades[upgradeMetalProduction],
+		Crystal:   upgrades[upgradeCrystalProduction],
+		Deuterium: upgrades[upgradeDeuteriumProduction],
+	}
+	if b.Metal < 0 {
+		b.Metal = 0
+	}
+	if b.Crystal < 0 {
+		b.Crystal = 0
+	}
+	if b.Deuterium < 0 {
+		b.Deuterium = 0
+	}
+	return b
+}
+
+// IsProductionUpgrade reports whether an Arsenal code affects resource
+// production and therefore requires the cached production columns to be
+// recomputed when it changes.
+func IsProductionUpgrade(code int) bool {
+	switch code {
+	case upgradeMetalProduction, upgradeCrystalProduction, upgradeDeuteriumProduction:
+		return true
+	default:
+		return false
+	}
+}
+
 // RecomputeProduction derives hourly production, energy draw and energy output
 // from a celestial's structure levels. resourceSpeed is the universe's resource
-// production multiplier (e.g. 10000 on niburuspace.com). When energy demand
-// exceeds supply, all production is scaled down proportionally.
-func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64, satCount int) Economy {
+// production multiplier (e.g. 10000 on niburuspace.com). bonus is the owner's
+// account-wide Arsenal production bonus. When energy demand exceeds supply, all
+// production is scaled down proportionally.
+func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64, satCount int, bonus ProductionBonus) Economy {
 	lvl := func(code string) float64 { return float64(levels[code]) }
 
 	if resourceSpeed <= 0 {
@@ -38,6 +86,11 @@ func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float
 		tempFactor = 0
 	}
 	deut := deutBase * tempFactor * resourceSpeed
+
+	// Arsenal production upgrades: additive percentage on the matching resource.
+	metal *= 1.0 + bonus.Metal/100.0
+	crystal *= 1.0 + bonus.Crystal/100.0
+	deut *= 1.0 + bonus.Deuterium/100.0
 
 	energyUsed := incomeForLevel(10, lvl("metal_mine")) +
 		incomeForLevel(10, lvl("crystal_mine")) +
