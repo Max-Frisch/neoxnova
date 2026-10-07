@@ -79,20 +79,20 @@ while true; do
   # persist detected slot count so the builder sizes the round to match
   ACC="$ACC" SLOTS="$SLOTS" node -e 'const p="data/farm-state-"+process.env.ACC+".json",f=require("fs"),s=JSON.parse(f.readFileSync(p,"utf8"));if(s.slots!==Number(process.env.SLOTS)){s.slots=Number(process.env.SLOTS);f.writeFileSync(p,JSON.stringify(s,null,2));}' 2>/dev/null
 
-  FREE=$((SLOTS - ACTIVE))
-  if [ "$FREE" -le 0 ]; then sleep "$EVERY"; continue; fi
-
   # refresh main ships (also feeds farm-plan sent); skip the cycle if the refresh
   # failed so an order is never sized from stale counts.
   "${NODE[@]}" httpbot.mjs levels --cp "$MAIN_CP" --out "data/farm-main-${ACC}.json" >/dev/null 2>&1
   if ! levels_fresh 90; then echo "[$(date +%T)] main levels refresh stale/failed; wait"; sleep "$EVERY"; continue; fi
 
-  # Grow S toward the WHOLE-fleet capacity every cycle. `--active` counts the fleets
-  # currently flying (reconstructed from expedition-runs), so S rises as fast as the
-  # shipyards add ships and no faster than the fleet actually holds. `st.S` ratchets
-  # up, so combat losses are rebuilt instead of shrinking the plan.
+  # Grow S toward the WHOLE-fleet capacity EVERY cycle — even when every slot is busy
+  # (FREE==0), so a full house never freezes growth. `--active` counts the fleets
+  # currently flying (reconstructed from expedition-runs); S rises only as fast as the
+  # fleet actually holds, and `st.S` ratchets so combat losses are rebuilt.
   "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent --active "$ACTIVE"
   S=$(state_get S); BR=$(state_get br)
+
+  FREE=$((SLOTS - ACTIVE))
+  if [ "$FREE" -le 0 ]; then sleep "$EVERY"; continue; fi
 
   N=$(afford "$S" "$BR" "$FREE"); case "$N" in ''|*[!0-9]*) N=0;; esac
   if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (S=$S); wait"; sleep "$EVERY"; continue; fi
