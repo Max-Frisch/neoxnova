@@ -16,8 +16,13 @@ LOG="data/farm-build-${ACC}.log"
 exec >>"$LOG" 2>&1
 
 NODE=(node --max-old-space-size=96)
-BATCH="${EXPLORER_UNIT_BATCH:-3000}"
-EVERY="${FARM_BUILD_EVERY_S:-300}"
+# Moderate unit batch: resolve (`want = min(batch, target-have)`) refills the
+# shipyard queue as soon as each batch drains, so we only need it big enough to
+# cover one refill gap, not the whole goal. Override with EXPLORER_UNIT_BATCH.
+BATCH="${EXPLORER_UNIT_BATCH:-8000}"
+# Short loop interval: resolve paces itself (it blocks while units build), so a
+# long sleep just leaves the shipyard idle between passes. Keep it tight.
+EVERY="${FARM_BUILD_EVERY_S:-60}"
 CFG="plans/farm-sites.json"
 
 read_cfg() { CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC][process.argv[1]]))" "$1"; }
