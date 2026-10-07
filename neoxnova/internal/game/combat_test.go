@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -153,14 +154,16 @@ func TestBuildSideAppliesUpgrades(t *testing.T) {
 		t.Fatalf("upgraded hull = %d, want 8120", ct.hull)
 	}
 
-	// Tech + upgrade share one percent sum: TechBonus(10)=30, +50% = +80%.
+	// The Arsenal weapon percent is additive with the SPECIFIC weapon tech, and
+	// the general Weapons tech then compounds the component sum:
+	// 700 * (1 + 0.50) * 1.30 = 1365 (not 700*1.80).
 	mixed, _ := buildSide(Combatant{
 		Units:    map[string]int64{"207": 1},
 		Techs:    CombatTechs{Weapons: 10},
 		Upgrades: map[int]float64{1: 50},
 	})
-	if got := mixed.instances[0].def.attack; got != 1260 { // 700 * 1.80, not 700*1.3*1.5
-		t.Fatalf("tech+upgrade attack = %d, want 1260 (additive)", got)
+	if got := mixed.instances[0].def.attack; got != 1365 { // 700 * 1.50 * 1.30
+		t.Fatalf("tech+upgrade attack = %d, want 1365 (general tech compounds)", got)
 	}
 
 	// A Standard-weapon unit (Light Fighter 204) ignores the laser upgrade.
@@ -168,6 +171,156 @@ func TestBuildSideAppliesUpgrades(t *testing.T) {
 	if got := std.instances[0].def.attack; got != 50 {
 		t.Fatalf("standard weapon attack = %d, want 50 (unaffected)", got)
 	}
+}
+
+// TestUnitStatsAttackEqualsWeaponSum locks the card invariant: a unit's base
+// attack equals the sum of the base attacks of its weapon components. If a card
+// ever disagrees, buildSide's per-component derivation would silently diverge.
+func TestUnitStatsAttackEqualsWeaponSum(t *testing.T) {
+	checked := 0
+	for code, classes := range unitClasses {
+		if len(classes.Weapons) == 0 {
+			continue
+		}
+		stats, ok := unitStats[code]
+		if !ok {
+			continue // card extracted but no captured base stats (e.g. 221-224)
+		}
+		sum := 0
+		for _, w := range classes.Weapons {
+			sum += w.Attack
+		}
+		if stats.Attack != sum {
+			t.Errorf("%s: card weapon sum %d != base attack %d", code, sum, stats.Attack)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("no units checked")
+	}
+}
+
+// TestDerivedAttackReproducesLiveReport replays the per-unit firepower recorded
+// in tools/explorer/data/combat/real-big-acc1-acc2.report.json (round 1). The
+// techs come from the sibling .input.json capture.
+func TestDerivedAttackReproducesLiveReport(t *testing.T) {
+	// Attacker: 109/110/111=15, 120=17, 121=15, 122=12.
+	atk := Combatant{Techs: CombatTechs{Weapons: 15, Laser: 17, Ion: 15, Plasma: 12}}
+	atkCases := []struct {
+		code string
+		want int
+	}{
+		{"204", 82},   // Standard 50 * 1.64
+		{"205", 246},  // Standard 150 * 1.64
+		{"206", 853},  // Ion 400 * 1.30 * 1.64
+		{"207", 1538}, // Laser 700 * 1.34 * 1.64
+		{"215", 3077}, // Laser 1400 * 1.34 * 1.64
+	}
+	for _, tc := range atkCases {
+		if got := DerivedAttack(unitStats[tc.code].Attack, unitClasses[tc.code], atk); got != tc.want {
+			t.Errorf("attacker %s attack = %d, want %d", tc.code, got, tc.want)
+		}
+	}
+
+	// Defender: 120=14, 121=7, 122=7.
+	def := Combatant{Techs: CombatTechs{Weapons: 15, Laser: 14, Ion: 7, Plasma: 7}}
+	defCases := []struct {
+		code string
+		want int
+	}{
+		{"206", 748},  // Ion 400 * 1.14 * 1.64
+		{"207", 1469}, // Laser 700 * 1.28 * 1.64
+		{"401", 131},  // Standard 80 * 1.64
+		{"402", 210},  // Laser 100 * 1.28 * 1.64
+		{"403", 525},  // Laser 250 * 1.28 * 1.64
+	}
+	for _, tc := range defCases {
+		if got := DerivedAttack(unitStats[tc.code].Attack, unitClasses[tc.code], def); got != tc.want {
+			t.Errorf("defender %s attack = %d, want %d", tc.code, got, tc.want)
+		}
+	}
+}
+
+// TestDerivedAttackMultiComponentWeapon checks a two-component unit (Black Moon
+// 216: Laser 20 250 + Gravitational 114 750). Laser tech 10 (+20%) and Graviton
+// research 5 (+20%) each apply to their own component; the sum is then scaled
+// by the general Weapons tech 10: 162 000 * 1.30 = 210 600.
+func TestDerivedAttackMultiComponentWeapon(t *testing.T) {
+	got := DerivedAttack(135000, unitClasses["216"], Combatant{
+		Techs: CombatTechs{Weapons: 10, Laser: 10, Graviton: 5},
+	})
+	if got != 210600 {
+		t.Fatalf("Black Moon attack = %d, want 210600", got)
+	}
+}
+
+// TestReplayBigBattleReport, when the gitignored live capture is present, derives
+// every unit's attack/shield/hull and compares it with the server's own round-1
+// report. It skips on a clean checkout (tools/explorer/data is ignored).
+func TestReplayBigBattleReport(t *testing.T) {
+	base := filepath.Join("..", "..", "tools", "explorer", "data", "combat")
+	inRaw, err := os.ReadFile(filepath.Join(base, "real-big-acc1-acc2.input.json"))
+	if err != nil {
+		t.Skipf("live capture not available: %v", err)
+	}
+	repRaw, err := os.ReadFile(filepath.Join(base, "real-big-acc1-acc2.report.json"))
+	if err != nil {
+		t.Skipf("live capture not available: %v", err)
+	}
+	var in struct {
+		Attacker map[string]float64 `json:"attacker"`
+		Defender map[string]float64 `json:"defender"`
+	}
+	if err := json.Unmarshal(inRaw, &in); err != nil {
+		t.Fatalf("parse input: %v", err)
+	}
+	var rep struct {
+		Rounds []struct {
+			Attacker []reportUnit `json:"attacker"`
+			Defender []reportUnit `json:"defender"`
+		} `json:"rounds"`
+	}
+	if err := json.Unmarshal(repRaw, &rep); err != nil {
+		t.Fatalf("parse report: %v", err)
+	}
+	if len(rep.Rounds) == 0 {
+		t.Fatal("report has no rounds")
+	}
+	techsFrom := func(m map[string]float64) CombatTechs {
+		return CombatTechs{
+			Weapons: int(m["109"]), Shield: int(m["110"]), Armour: int(m["111"]),
+			Laser: int(m["120"]), Ion: int(m["121"]), Plasma: int(m["122"]), Graviton: int(m["199"]),
+		}
+	}
+	check := func(name string, units []reportUnit, techs CombatTechs) {
+		for _, u := range units {
+			stats, ok := unitStats[strconv.Itoa(u.Code)]
+			if !ok {
+				continue
+			}
+			classes := unitClasses[strconv.Itoa(u.Code)]
+			c := Combatant{Techs: techs}
+			if got := DerivedAttack(stats.Attack, classes, c); got != u.Firepower {
+				t.Errorf("%s %d firepower = %d, report %d", name, u.Code, got, u.Firepower)
+			}
+			if got := DerivedStatBonus(stats.Shield, techs.Shield, 0); got != u.Shield {
+				t.Errorf("%s %d shield = %d, report %d", name, u.Code, got, u.Shield)
+			}
+			if got := DerivedStatBonus(stats.Hull, techs.Armour, 0); got != u.Armour {
+				t.Errorf("%s %d armour = %d, report %d", name, u.Code, got, u.Armour)
+			}
+		}
+	}
+	r := rep.Rounds[0]
+	check("attacker", r.Attacker, techsFrom(in.Attacker))
+	check("defender", r.Defender, techsFrom(in.Defender))
+}
+
+type reportUnit struct {
+	Code      int `json:"code"`
+	Firepower int `json:"firepower"`
+	Shield    int `json:"shield"`
+	Armour    int `json:"armour"`
 }
 
 // TestCombatSeedReproducible proves a simulator can reproduce a real battle:
@@ -257,6 +410,14 @@ func toCombatant(m map[string]float64) Combatant {
 			c.Techs.Shield = int(v)
 		case "111":
 			c.Techs.Armour = int(v)
+		case "120":
+			c.Techs.Laser = int(v)
+		case "121":
+			c.Techs.Ion = int(v)
+		case "122":
+			c.Techs.Plasma = int(v)
+		case "199":
+			c.Techs.Graviton = int(v)
 		default:
 			if len(code) == 3 && (code[0] == '2' || code[0] == '4') && v > 0 {
 				c.Units[code] += v

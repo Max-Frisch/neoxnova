@@ -976,7 +976,10 @@ func loadPlanetUnits(ctx context.Context, tx *sql.Tx, table, codeColumn string, 
 func loadCombatTechs(ctx context.Context, tx *sql.Tx, userID int64) (game.CombatTechs, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT tech_code, level FROM user_technologies
-		WHERE user_id = $1 AND tech_code IN ('weapons_tech', 'shielding_tech', 'armour_tech')
+		WHERE user_id = $1 AND tech_code IN (
+			'weapons_tech', 'shielding_tech', 'armour_tech',
+			'laser_tech', 'ion_tech', 'plasma_tech', 'graviton_research'
+		)
 	`, userID)
 	if err != nil {
 		return game.CombatTechs{}, err
@@ -996,6 +999,14 @@ func loadCombatTechs(ctx context.Context, tx *sql.Tx, userID int64) (game.Combat
 			t.Shield = level
 		case "armour_tech":
 			t.Armour = level
+		case "laser_tech":
+			t.Laser = level
+		case "ion_tech":
+			t.Ion = level
+		case "plasma_tech":
+			t.Plasma = level
+		case "graviton_research":
+			t.Graviton = level
 		}
 	}
 	return t, rows.Err()

@@ -275,7 +275,14 @@ monthly premium / cashshop `+x%` bonuses (owner-confirmed).
 
 ---
 
-## 8. NEXT SESSION — combat bonus model: per-weapon techs + card-verified bonuses
+## 8. Combat bonus model: per-weapon techs + card-verified bonuses
+
+> **DONE 2026-10-07.** Implemented in `internal/game/combat.go`: `DerivedAttack` sums a unit's
+> card weapon components, each taking its specific research + Arsenal weapon percent additively,
+> then scales the sum by the general Weapons tech; hull/shield fold the Arsenal armor/shield into
+> the same percent as 111/110. `CombatTechs` gained `Laser/Ion/Plasma/Graviton`, `loadCombatTechs`
+> reads 120/121/122/199, and `CombatSeed` includes them. Tests replay the report values below and
+> lock the `Σ base_w` invariant. The six-step work list is retained as the record of what shipped.
 
 Owner-confirmed and verified against the live cards and real combat reports
 (2026-10-07). This **changes the combat stat model** in `internal/game/combat.go`.

@@ -24,7 +24,9 @@ func CombatSeed(attacker, defender Combatant) int64 {
 		for _, k := range codes {
 			fmt.Fprintf(h, "u%s=%d;", k, c.Units[k])
 		}
-		fmt.Fprintf(h, "t%d,%d,%d;", c.Techs.Weapons, c.Techs.Shield, c.Techs.Armour)
+		fmt.Fprintf(h, "t%d,%d,%d,%d,%d,%d,%d;",
+			c.Techs.Weapons, c.Techs.Shield, c.Techs.Armour,
+			c.Techs.Laser, c.Techs.Ion, c.Techs.Plasma, c.Techs.Graviton)
 		skills := make([]string, 0, len(c.Academy))
 		for k := range c.Academy {
 			skills = append(skills, k)
@@ -69,11 +71,37 @@ const MaxCombatRounds = 8
 // never spin forever.
 const maxRapidFireShots = 10000
 
-// Techs are the three empire-wide combat technologies (codes 109/110/111).
+// CombatTechs are an empire's combat technologies. Weapons/Shield/Armour are
+// the general technologies (codes 109/110/111). Laser/Ion/Plasma/Graviton are
+// the specific weapon research (codes 120/121/122/199) — each only boosts a
+// unit's weapon components of the matching Arsenal class (see buildSide).
 type CombatTechs struct {
 	Weapons int
 	Shield  int
 	Armour  int
+
+	Laser    int // 120 Laser technology: +2%/level to laser weapons
+	Ion      int // 121 Ion technology: +2%/level to ion weapons
+	Plasma   int // 122 Plasma technology: +2%/level to plasma weapons
+	Graviton int // 199 Graviton research: +4%/level to gravitational weapons
+}
+
+// weaponTechPct is the specific-research bonus (in percent) a weapon Arsenal
+// class receives from its own technology. Graviton research is twice as strong
+// per level as the other weapon technologies; standard weapons get nothing.
+func (t CombatTechs) weaponTechPct(class string) float64 {
+	switch class {
+	case "laser":
+		return 2 * float64(t.Laser)
+	case "ion":
+		return 2 * float64(t.Ion)
+	case "plasma":
+		return 2 * float64(t.Plasma)
+	case "gravitational":
+		return 4 * float64(t.Graviton)
+	default:
+		return 0
+	}
 }
 
 // Combatant is one side of a battle: unit counts plus its combat modifiers.
@@ -162,6 +190,30 @@ func DerivedStat(base, techLevel int) int {
 // sum so they never compound: round(base*(1+(tech+extra)/100)).
 func DerivedStatBonus(base, techLevel int, extraPct float64) int {
 	return int(math.Round(float64(base) * (1.0 + (float64(TechBonus(techLevel))+extraPct)/100.0)))
+}
+
+// DerivedAttack computes a unit's attack from the weapon components on its
+// information card. Each component's base attack takes its specific weapon
+// research (Laser/Ion/Plasma +2%/level, Graviton +4%/level, Standard 0) plus
+// the Arsenal weapon upgrade for that class, added into ONE percent sum per
+// component; the component attacks are then summed and the total is scaled by
+// the general Weapons technology, which compounds the result.
+//
+//	component = base * (1 + (weaponTech + arsenalWeapon)/100)
+//	attack    = sum(component) * (1 + TechBonus(109)/100)
+//
+// Units with no carded weapon components (cargo ships, some defenses) fall back
+// to the single base attack with the general technology only.
+func DerivedAttack(baseAttack int, classes UnitClass, c Combatant) int {
+	if len(classes.Weapons) == 0 {
+		return DerivedStat(baseAttack, c.Techs.Weapons)
+	}
+	var sum float64
+	for _, w := range classes.Weapons {
+		pct := c.Techs.weaponTechPct(w.Class) + c.upgradePct(UpgradeCodeForClass("weapon", w.Class))
+		sum += float64(w.Attack) * (1.0 + pct/100.0)
+	}
+	return int(math.Round(sum * (1.0 + float64(TechBonus(c.Techs.Weapons))/100.0)))
 }
 
 // MoonChance is the classic OGame formula: min(20, (M+C)/100000) percent. The
@@ -272,7 +324,7 @@ func buildSide(c Combatant) (*combatSide, SideReport) {
 		classes := unitClasses[code]
 		ct := &combatType{
 			code:   code,
-			attack: DerivedStatBonus(stats.Attack, c.Techs.Weapons, c.upgradePct(UpgradeCodeForClass("weapon", classes.Weapon))),
+			attack: DerivedAttack(stats.Attack, classes, c),
 			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))),
 			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))),
 			isShip: isShipCode(code),

@@ -54,14 +54,13 @@
    (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7: fleet `unitRate·L`, defense `·k(L)`,
    k=10+⌊(L+2)/4⌋); the upgrade multiplier itself is unverified (no items owned);
    (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`.
-1d. **Combat bonus model — per-weapon techs (NEXT SESSION)** — verified vs live cards +
-   `data/combat/*.report.json`: units have MULTIPLE weapon components (`unit_classes.go`
-   `Weapons []WeaponClass`, already generated); real firepower =
-   `Σ base_w·(1+(weaponTech_w+arsenalWeapon)/100)` then `× (1+TechBonus(109)/100)`, where
-   `weaponTech` = 2%·Laser/Ion/Plasma tech (120/121/122), 4%·Graviton (199), 0 for Standard;
-   hull/shield add arsenal armor/shield into the same percent as 111/110. The card omits the
-   general techs. Refactor `combat.go` `buildSide` + `Combatant`/loaders; replay
-   `real-big-acc1-acc2.report.json` (82/246/853/1538/3077). Details: ARSENAL doc §8.
+1d. **Combat bonus model — per-weapon techs** — DONE 2026-10-07. `combat.go` `DerivedAttack`
+   walks each unit's card weapon components: per component `base·(1+(weaponTech+arsenalWeapon)/100)`
+   with `weaponTech` = 2%·Laser/Ion/Plasma (120/121/122), 4%·Graviton (199), 0 Standard; the sum is
+   then `× (1+TechBonus(109)/100)`. Hull/shield keep arsenal armor/shield additive with 111/110.
+   `CombatTechs` carries Laser/Ion/Plasma/Graviton, `loadCombatTechs` reads 120/121/122/199, seed
+   includes them. Tests replay `real-big-acc1-acc2.report.json` (82/246/853/1538/3077) + the
+   `unitStats.Attack == Σ base_w` invariant. Details: ARSENAL doc §8.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
    defenders (currently only espionage).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
@@ -71,6 +70,11 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **combat per-weapon techs (item 1d)** — `combat.go` `DerivedAttack` sums a unit's
+  card weapon components (specific research + arsenal weapon additive per component; general
+  Weapons tech 109 compounds the sum); `CombatTechs` gains Laser/Ion/Plasma/Graviton
+  (120/121/122/199), `loadCombatTechs` + `CombatSeed` updated. New tests replay the live
+  `real-big-acc1-acc2` report firepower/shield/hull and lock the `Σ base_w` invariant.
 - 2026-10-07: **card + conveyor live findings** — `parseInfoCard` now captures every weapon
   component + bonus tooltips; fixture/`unit_classes.go` regenerated with `Weapons []WeaponClass`
   (HAR extractor added). Conveyor 71/72/73 throughput curve measured incl. Photon Cannon
