@@ -153,6 +153,13 @@
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
-- Moon spawn chance: owner testing manually (deferred).
+- **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
+  numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
+  cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.
 - Crystal is the fleet bottleneck: mine imbalance (metal mine ≫ crystal) + HC's 5:1 demand; sites stay
   crystal-poor. Manual mine/trader work only — automation must NOT build mines.
+
+## Next session (pick one)
+- **Moons item 4 continuation**: moon build/overview API (Moon base → fields), or `DESTROY_MOON`.
+- **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
+- **Expedition resolver (item 1)** still blocked on the enemy formula (item 1b).
