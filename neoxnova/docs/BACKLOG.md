@@ -2,7 +2,8 @@
 
 ## Live state
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
-- **Both rolling farms ONLINE (2026-10-07 ~01:54Z).** acc1 local (build+send+harvest), acc2 VM.
+- **Both rolling farms ONLINE (2026-10-07 ~01:54Z).** acc1 local (build+send+harvest+bonus),
+  acc2 VM (build+send+harvest+bonus).
   Fires `time=1 speed=10` (7 arms) whenever `phase=ready` **and** 0 real `(A)` exps. S grows via
   `farm-plan sent`: `S = max(42000, min(floor(BB/7), floor(HC/35)))` (cap = scarcest component).
   Latest: acc1 cycle=1 S 42 000→**83 204** (BB cap); acc2 cycle=3 S 72 189→**98 314** (HC cap).
