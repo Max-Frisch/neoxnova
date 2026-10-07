@@ -527,6 +527,10 @@ func (e *EventEngine) stationShips(ctx context.Context, tx *sql.Tx, celestialID,
 // celestial's defenders, then persists losses, debris, defense repair and (on an
 // attacker win) the loot carried home by the survivors. Pure resolution lives in
 // internal/game/combat.go; this function is only the persistence/edge layer.
+// moonRollSalt decorrelates the moon-creation RNG from the combat RNG while
+// keeping the result deterministic for a given battle seed.
+const moonRollSalt = int64(0x6d6f6f6e) // "moon"
+
 func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, attackerID, targetID int64) error {
 	if err := e.accrueResources(ctx, tx, targetID); err != nil {
 		return err
@@ -535,14 +539,17 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 	var (
 		defOwner                  sql.NullInt64
 		universeID                string
+		targetType                string
 		galaxy, system, position  int
+		tempMin, tempMax          int
 		metal, crystal, deuterium int64
 	)
 	if err := tx.QueryRowContext(ctx, `
-		SELECT user_id, universe_id::text, galaxy, system, position,
-		       metal::bigint, crystal::bigint, deuterium::bigint
+		SELECT user_id, universe_id::text, object_type::text, galaxy, system, position,
+		       temp_min, temp_max, metal::bigint, crystal::bigint, deuterium::bigint
 		FROM celestial_objects WHERE id = $1 FOR UPDATE
-	`, targetID).Scan(&defOwner, &universeID, &galaxy, &system, &position, &metal, &crystal, &deuterium); err != nil {
+	`, targetID).Scan(&defOwner, &universeID, &targetType, &galaxy, &system, &position,
+		&tempMin, &tempMax, &metal, &crystal, &deuterium); err != nil {
 		return err
 	}
 
@@ -587,7 +594,41 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 
 	attacker := game.Combatant{Units: atkShips, Techs: atkTechs, Academy: atkAcademy, Upgrades: atkUpgrades}
 	defender := game.Combatant{Units: mergeCounts(defShips, defDefs), Techs: defTechs, Academy: defAcademy, Upgrades: defUpgrades}
-	res := game.Resolve(attacker, defender, game.CombatSeed(attacker, defender))
+	seed := game.CombatSeed(attacker, defender)
+	res := game.Resolve(attacker, defender, seed)
+
+	// Moon creation: only a planet can spawn a moon, and only a player-owned one.
+	// The chance comes from the debris this battle made (game.MoonChance); the
+	// roll is seeded so a retried event resolves identically. A moon already at
+	// the coordinates wins the unique conflict and is left untouched.
+	if targetType == "PLANET" && defOwner.Valid && res.MoonChance > 0 {
+		if created, dia := game.MoonCreation(res.MoonChance, seed^moonRollSalt); created {
+			var moonID int64
+			err := tx.QueryRowContext(ctx, `
+				INSERT INTO celestial_objects
+					(universe_id, user_id, name, object_type, galaxy, system, position,
+					 diameter_km, fields_used, fields_max, temp_min, temp_max,
+					 metal, crystal, deuterium,
+					 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
+					 energy_used, energy_max)
+				VALUES ($1,$2,'Moon','MOON',$3,$4,$5,$6,0,0,$7,$8,
+					0,0,0, 0,0,0, 0,0)
+				ON CONFLICT (universe_id, galaxy, system, position, object_type) DO NOTHING
+				RETURNING id
+			`, universeID, defOwner.Int64, galaxy, system, position, dia, tempMin, tempMax).Scan(&moonID)
+			switch {
+			case err == nil:
+				res.MoonCreated = true
+				res.MoonDiameterKm = dia
+				log.Printf("[MOON] Created moon #%d at [%d:%d:%d] diameter %d km (chance %d%%, fleet #%d)",
+					moonID, galaxy, system, position, dia, res.MoonChance, fleetID)
+			case errors.Is(err, sql.ErrNoRows):
+				// A moon already exists there; the battle spawns no second one.
+			default:
+				return err
+			}
+		}
+	}
 
 	// Persist a player-readable report (full per-round detail as JSONB).
 	if reportJSON, mErr := json.Marshal(res); mErr == nil {

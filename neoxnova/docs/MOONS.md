@@ -107,9 +107,15 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
 
 ## Implementation
 
-- `internal/game/moon.go`: `MoonDiameterKm`, `MoonFieldsMax`, `MoonFields`,
-  `PhalanxRange`, `JumpgateCooldown`, `MoonDestruction`,
+- `internal/game/moon.go`: `MoonDiameterKm`, `MoonCreation`, `MoonFieldsMax`,
+  `MoonFields`, `PhalanxRange`, `JumpgateCooldown`, `MoonDestruction`,
   `MoonBaseDestructionReduction`, `MoonStructure`/`MoonOnlyStructureByID`.
   Creation chance is `combat.go:MoonChance`. All tested.
-- Remaining: creation on attack resolve, destruction mission, jumpgate, phalanx,
-  moon build/overview API. Tracked in `docs/BACKLOG.md` item 4.
+- **Creation wired** (`engine/event_engine.go:resolveAttack`): an ATTACK on a
+  player-owned `PLANET` rolls `game.MoonCreation(res.MoonChance, seed)` after the
+  battle; on success it inserts a `MOON` at the same coordinates (0 fields, no
+  production, cold/inherited temp) with `ON CONFLICT DO NOTHING` (one moon per
+  planet). The result is recorded on `CombatResult.MoonCreated`/`MoonDiameterKm`
+  (in the report JSON).
+- Remaining: `DESTROY_MOON` mission, Jumpgate, Phalanx, moon build/overview API,
+  and `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.

@@ -151,6 +151,11 @@ type CombatResult struct {
 	DebrisMetal   int64
 	DebrisCrystal int64
 	MoonChance    int // percent, 0..20 (reference server caps at 20)
+	// MoonCreated/MoonDiameterKm are set by the attack resolver when the debris
+	// spawned a moon at the target planet (game.MoonCreation). They are carried
+	// into the persisted report JSON.
+	MoonCreated    bool
+	MoonDiameterKm int
 }
 
 func lossDelta(prev, cur map[string]int64) map[string]int64 {

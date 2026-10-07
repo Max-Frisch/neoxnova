@@ -76,14 +76,21 @@
    creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
    `(d/1000)²`), `PhalanxRange` (L²−1), `JumpgateCooldown` (1h >>L), `MoonDestruction`
    (`(100−√S)·√D`) + Moon-base reduction (3%/2 levels), and the moon catalog (`moon_base` 41,
-   `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). Details + open questions:
-   `docs/MOONS.md`. REMAINING: creation on attack resolve, `DESTROY_MOON` wiring (≥10,000 km
-   immunity), Jumpgate + Phalanx impl, moon build/overview API + engine (resolveAttack on a MOON).
+   `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). **Creation wired**
+   (`resolveAttack` rolls `MoonCreation(res.MoonChance, seed)` on a player planet; inserts a MOON at
+   the coords with `ON CONFLICT DO NOTHING`, recorded in the report). Details + open questions:
+   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), Jumpgate + Phalanx impl,
+   moon build/overview API + `resolveAttack` on a MOON target.
    **Need:** a 2nd moon to measure the Jumpgate cooldown/eligibility.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **moon creation wired (item 4)** — `resolveAttack` rolls
+  `game.MoonCreation(res.MoonChance, CombatSeed^salt)` when an ATTACK lands on a player-owned
+  planet; a success inserts a `MOON` at the same coordinates (0 fields/production, inherited temp,
+  `ON CONFLICT DO NOTHING`) and stamps `CombatResult.MoonCreated/MoonDiameterKm` into the report.
+  `MoonCreation` + diameter-cap added and tested.
 - 2026-10-07: **moon capture + catalog (item 4)** — captured acc1's moon live (`cp=1725`):
   building levels/costs, fields 62/63, and the `page=information` cards for 41/42/43.
   `game/moon.go` gained `MoonFieldsMax` (3 fields/level, base 0), `PhalanxRange` (L²−1),

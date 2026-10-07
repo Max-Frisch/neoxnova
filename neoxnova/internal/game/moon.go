@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -27,6 +28,9 @@ func MoonDiameterKm(chancePct, roll int) int {
 	if chancePct < 1 {
 		chancePct = 1
 	}
+	if chancePct > 20 {
+		chancePct = 20 // the creation chance is capped at 20%
+	}
 	if roll < 10 {
 		roll = 10
 	}
@@ -34,6 +38,22 @@ func MoonDiameterKm(chancePct, roll int) int {
 		roll = 20
 	}
 	return int(math.Floor(math.Sqrt(float64(roll+3*chancePct)) * 1000.0))
+}
+
+// MoonCreation rolls whether an attack at a planet spawns a moon, given the
+// creation chance (percent) and a deterministic seed. It returns the creation
+// flag and the rolled diameter (0 when none). The chance roll and the diameter
+// x-roll are drawn in a fixed order, so a retried event resolves identically.
+func MoonCreation(chancePct int, seed int64) (bool, int) {
+	if chancePct <= 0 {
+		return false, 0
+	}
+	rng := rand.New(rand.NewSource(seed))
+	if rng.Intn(100) >= chancePct {
+		return false, 0
+	}
+	x := 10 + rng.Intn(11) // 10..20
+	return true, MoonDiameterKm(chancePct, x)
 }
 
 // MoonFieldsMax is a moon's field capacity granted by the Moon base: the live

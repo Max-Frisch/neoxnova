@@ -45,6 +45,37 @@ func TestMoonFieldsMax(t *testing.T) {
 	}
 }
 
+func TestMoonCreation(t *testing.T) {
+	// Zero chance never creates.
+	if created, dia := MoonCreation(0, 12345); created || dia != 0 {
+		t.Fatalf("chance 0 created=%v dia=%d, want false/0", created, dia)
+	}
+	// 100% always creates, with a diameter in the 20% band (8,366..8,944 km).
+	for seed := int64(0); seed < 50; seed++ {
+		created, dia := MoonCreation(100, seed)
+		if !created {
+			t.Fatalf("chance 100 seed %d did not create", seed)
+		}
+		if dia < 8366 || dia > 8944 {
+			t.Fatalf("chance 100 seed %d dia=%d out of [8366,8944]", seed, dia)
+		}
+	}
+	// Deterministic for a given seed.
+	c1, d1 := MoonCreation(20, 999)
+	c2, d2 := MoonCreation(20, 999)
+	if c1 != c2 || d1 != d2 {
+		t.Fatalf("MoonCreation not deterministic: (%v,%d) vs (%v,%d)", c1, d1, c2, d2)
+	}
+	// A low chance yields a valid diameter whenever it does create.
+	for seed := int64(0); seed < 200; seed++ {
+		if created, dia := MoonCreation(5, seed); created {
+			if dia < MoonDiameterKm(5, 10) || dia > MoonDiameterKm(5, 20) {
+				t.Fatalf("chance 5 seed %d dia=%d out of range", seed, dia)
+			}
+		}
+	}
+}
+
 func TestPhalanxRange(t *testing.T) {
 	cases := map[int]int{0: 0, 1: 0, 2: 3, 5: 24, 10: 99}
 	for level, want := range cases {
