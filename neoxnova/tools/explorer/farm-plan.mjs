@@ -17,10 +17,9 @@ const PLANS = path.join(__dirname, 'plans');
 const DATA = path.join(__dirname, 'data');
 
 const DEFAULT_S = 42000;
-// One of each small ship per fleet. All ships except the Spy Probe (210) can be
-// sent; the set is rejected with "Not all ships are available." only when one of
-// them is short on the planet (e.g. Light Cargo 202 before it has been built).
-const SMALL = { '202': 7, '204': 7, '205': 7, '206': 7 };
+// One of each small ship per fleet (all ships except Spy Probe 210 can be sent;
+// the set is rejected only when one is short on the planet). The total count
+// scales with the number of expedition slots (fleets per rotation) — see `slots`.
 
 const arg = (name, def) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : def; };
 const acc = arg('--acc');
@@ -44,6 +43,10 @@ st.cycle = st.cycle || 0;
 st.S = st.S || DEFAULT_S;
 st.phase = st.phase || 'build';
 st.br = brOf(st.S);
+// Fleets per rotation = expedition slots. acc2 has 8, acc1 upgrades later; the
+// send loop writes the live-detected value to st.slots, cfg.slots is the fallback.
+const slots = Math.max(1, Number(st.slots || cfg.slots || 7));
+const small = { '202': slots, '204': slots, '205': slots, '206': slots };
 
 const mainFile = path.join(DATA, `farm-main-${acc}.json`);
 const have = { bb: 0, hc: 0, br: 0, small: false };
@@ -52,7 +55,7 @@ if (fs.existsSync(mainFile)) {
   have.bb = Number(s['207']) || 0;
   have.hc = Number(s['203']) || 0;
   have.br = Number(s['219']) || 0;
-  have.small = Object.keys(SMALL).every((c) => (Number(s[c]) || 0) >= SMALL[c]);
+  have.small = Object.keys(small).every((c) => (Number(s[c]) || 0) >= small[c]);
 }
 
 if (mode === 'show') {
@@ -61,9 +64,9 @@ if (mode === 'show') {
 }
 
 if (mode === 'starter') {
-  // One-off bootstrap goal: the FULL 7-fleet set on a single (resource-rich)
+  // One-off bootstrap goal: the FULL set on a single (resource-rich)
   // planet, before handing over to the distributed rolling daemons.
-  const ships = { '207': 7 * st.S, '203': 35 * st.S, '219': 7 * st.br, ...SMALL };
+  const ships = { '207': slots * st.S, '203': 5 * slots * st.S, '219': slots * st.br, ...small };
   fs.writeFileSync(path.join(PLANS, `farm-${acc}-starter.json`), JSON.stringify({ ships }, null, 2) + '\n');
   console.log(`[farm-plan] ${acc} starter S=${st.S} br=${st.br} -> BB=${ships['207']} HC=${ships['203']} BR=${ships['219']}`);
   process.exit(0);
@@ -73,7 +76,7 @@ if (mode === 'sent') {
   // Called immediately BEFORE firing; main still holds the pre-send total.
   // Cap S by the scarcest fleet component (BB:HC = 1:5) so a bloated stockpile
   // of one ship cannot balloon S beyond what the other can actually field.
-  st.S = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / 7), Math.floor(have.hc / 35)));
+  st.S = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / slots), Math.floor(have.hc / (5 * slots))));
   st.br = brOf(st.S);
   st.cycle += 1;
   st.phase = 'build';
@@ -84,10 +87,14 @@ if (mode === 'sent') {
 }
 
 // plan mode: decide readiness, then emit the two goal files + state.
-const needBB = 7 * st.S, needHC = 35 * st.S, needBR = 7 * st.br;
-if (st.phase === 'build' && have.bb >= needBB && have.hc >= needHC && have.br >= needBR && have.small) {
+const needBB = slots * st.S, needHC = 5 * slots * st.S, needBR = slots * st.br;
+const full = have.bb >= needBB && have.hc >= needHC && have.br >= needBR && have.small;
+if (st.phase === 'build' && full) {
   st.phase = 'ready';
   console.log(`[farm-plan] ${acc} READY cycle=${st.cycle} bb=${have.bb}/${needBB} hc=${have.hc}/${needHC} br=${have.br}/${needBR} small=${have.small}`);
+} else if (st.phase === 'ready' && !full) {
+  // ships drawn down again (send/top-up) -> resume building
+  st.phase = 'build';
 }
 
 const share = (total) => Math.ceil(total / n);
@@ -96,7 +103,7 @@ const bbShare = share(needBB), hcShare = share(needHC);
 // colonies cannot supply their share, which deadlocked the ready gate. Keep the
 // whole BR need on the crystal-rich main; sites build BB/HC only.
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': needBR, ...SMALL } }, null, 2) + '\n');
+  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': needBR, ...small } }, null, 2) + '\n');
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`),
   JSON.stringify({ ships: { '207': bbShare, '203': hcShare } }, null, 2) + '\n');
 writeState(st);
