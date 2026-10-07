@@ -104,8 +104,13 @@ const bbShare = share(needBB), hcShare = share(needHC);
 // whole BR need on the crystal-rich main; sites build BB/HC only.
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`),
   JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': needBR, ...small } }, null, 2) + '\n');
+// Optional per-site building goals (e.g. balance crystal mine to the metal-mine
+// level, bump Light conveyor for HC batch rate). resolve queues buildings before
+// units each step, so with a crystal lump the mine is secured ahead of ships.
+const sitePlan = { ships: { '207': bbShare, '203': hcShare } };
+if (cfg.mineGoals) sitePlan.buildings = cfg.mineGoals;
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare } }, null, 2) + '\n');
+  JSON.stringify(sitePlan, null, 2) + '\n');
 writeState(st);
 console.log(`[farm-plan] ${acc} plan cycle=${st.cycle} S=${st.S} phase=${st.phase} br=${st.br} ` +
   `have BB=${have.bb} HC=${have.hc} BR=${have.br} -> main BB=${bbShare} HC=${hcShare} BR=${needBR}; ` +
