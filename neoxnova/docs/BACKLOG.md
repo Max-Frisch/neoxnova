@@ -71,19 +71,24 @@
    `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
    maps missions to live labels. Colours are provisional pending a live incoming sample.
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
-4. **Moons** — PARTIAL 2026-10-07. Live: acc1 moon `cp=1725` @ `3:125:12`, diameter 8,426 km,
-   created by combat at 20% (2500 Battle Recyclers; cap needs only ~2M debris). Formulas locked in
-   `game/moon.go` (`MoonDiameterKm` = standard, matches 8,426; `MoonDestruction` = `(100-√S)·√D`,
-   provisional; `MoonFields`), creation chance already `combat.go:MoonChance`. Details + open
-   questions: `docs/MOONS.md`. REMAINING: moon building catalog (41/42/43 + which planet
-   buildings are moon-legal), area of fields (server: 0 + `Moon base` grants fields, not classic
-   `(d/1000)²`), creation on attack resolve, `DESTROY_MOON` (Battle Fortress 214) with the
-   ≥10,000 km immunity, Jumpgate (needs a 2nd moon), Phalanx Sensor, and moon views/engine wiring.
-   **Need:** a live capture of `page=buildings&cp=1725` and a 2nd moon for the jumpgate.
+4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
+   created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
+   creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
+   `(d/1000)²`), `PhalanxRange` (L²−1), `JumpgateCooldown` (1h >>L), `MoonDestruction`
+   (`(100−√S)·√D`) + Moon-base reduction (3%/2 levels), and the moon catalog (`moon_base` 41,
+   `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). Details + open questions:
+   `docs/MOONS.md`. REMAINING: creation on attack resolve, `DESTROY_MOON` wiring (≥10,000 km
+   immunity), Jumpgate + Phalanx impl, moon build/overview API + engine (resolveAttack on a MOON).
+   **Need:** a 2nd moon to measure the Jumpgate cooldown/eligibility.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **moon capture + catalog (item 4)** — captured acc1's moon live (`cp=1725`):
+  building levels/costs, fields 62/63, and the `page=information` cards for 41/42/43.
+  `game/moon.go` gained `MoonFieldsMax` (3 fields/level, base 0), `PhalanxRange` (L²−1),
+  `JumpgateCooldown`, `MoonBaseDestructionReduction` (3%/2 levels) and the moon structure
+  catalog (41/42/43 + moon-legal planet buildings). `docs/MOONS.md` updated.
 - 2026-10-07: **moon formulas (item 4, partial)** — `internal/game/moon.go` +
   `docs/MOONS.md`: standard creation chance (`combat.go:MoonChance`), diameter
   `floor(√(x+3p)·1000)` (verified 8,426 km at x=11/p=20), classic fields, and

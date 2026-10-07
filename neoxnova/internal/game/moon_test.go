@@ -1,6 +1,9 @@
 package game
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestMoonDiameterKm(t *testing.T) {
 	cases := []struct {
@@ -29,6 +32,72 @@ func TestMoonFields(t *testing.T) {
 	}
 	if got := MoonFields(0); got != 0 {
 		t.Fatalf("MoonFields(0) = %d, want 0", got)
+	}
+}
+
+func TestMoonFieldsMax(t *testing.T) {
+	// Live moon: Moon base 20 -> 60 fields (+3 premium = 63 observed on the page).
+	if got := MoonFieldsMax(20); got != 60 {
+		t.Fatalf("MoonFieldsMax(20) = %d, want 60", got)
+	}
+	if got := MoonFieldsMax(0); got != 0 {
+		t.Fatalf("MoonFieldsMax(0) = %d, want 0 (fresh moon)", got)
+	}
+}
+
+func TestPhalanxRange(t *testing.T) {
+	cases := map[int]int{0: 0, 1: 0, 2: 3, 5: 24, 10: 99}
+	for level, want := range cases {
+		if got := PhalanxRange(level); got != want {
+			t.Fatalf("PhalanxRange(%d) = %d, want %d", level, got, want)
+		}
+	}
+}
+
+func TestJumpgateCooldown(t *testing.T) {
+	cases := map[int]time.Duration{0: time.Hour, 1: 30 * time.Minute, 2: 15 * time.Minute, 3: 450 * time.Second}
+	for level, want := range cases {
+		if got := JumpgateCooldown(level); got != want {
+			t.Fatalf("JumpgateCooldown(%d) = %v, want %v", level, got, want)
+		}
+	}
+}
+
+func TestMoonBaseDestructionReduction(t *testing.T) {
+	cases := map[int]float64{0: 0, 1: 0, 2: 0.03, 3: 0.03, 20: 0.30}
+	for level, want := range cases {
+		if got := MoonBaseDestructionReduction(level); got != want {
+			t.Fatalf("MoonBaseDestructionReduction(%d) = %v, want %v", level, got, want)
+		}
+	}
+}
+
+func TestMoonStructures(t *testing.T) {
+	mb, ok := MoonStructure("moon_base")
+	if !ok || mb.ID != 41 || mb.BaseCost != (Cost{Metal: 20000, Crystal: 40000, Deuterium: 20000}) {
+		t.Fatalf("moon_base = %+v ok=%v", mb, ok)
+	}
+	px, ok := MoonStructure("phalanx_sensor")
+	if !ok || px.ID != 42 || px.Requires["moon_base"] != 1 {
+		t.Fatalf("phalanx_sensor = %+v ok=%v", px, ok)
+	}
+	jg, ok := MoonStructure("jumpgate")
+	if !ok || jg.ID != 43 || jg.BaseCost.Metal != 2000000 || jg.Requires["shipyard"] != 1 {
+		t.Fatalf("jumpgate = %+v ok=%v", jg, ok)
+	}
+	// A moon-legal planet building reuses its planet definition.
+	rf, ok := MoonStructure("robotics_factory")
+	if !ok || rf.ID != 14 {
+		t.Fatalf("robotics_factory on moon = %+v ok=%v", rf, ok)
+	}
+	// Mines / power / silo / unknown are not moon-legal.
+	for _, code := range []string{"metal_mine", "solar_plant", "missile_silo", "nope"} {
+		if _, ok := MoonStructure(code); ok {
+			t.Fatalf("%q should not be moon-legal", code)
+		}
+	}
+	if d, ok := MoonOnlyStructureByID(43); !ok || d.Code != "jumpgate" {
+		t.Fatalf("MoonOnlyStructureByID(43) = %+v ok=%v", d, ok)
 	}
 }
 
