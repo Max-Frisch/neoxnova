@@ -49,14 +49,51 @@ const slots = Math.max(1, Number(st.slots || cfg.slots || 7));
 const small = { '202': slots, '204': slots, '205': slots, '206': slots };
 
 const mainFile = path.join(DATA, `farm-main-${acc}.json`);
-const have = { bb: 0, hc: 0, br: 0, small: false };
-if (fs.existsSync(mainFile)) {
-  const s = (JSON.parse(fs.readFileSync(mainFile, 'utf8')).ships) || {};
-  have.bb = Number(s['207']) || 0;
-  have.hc = Number(s['203']) || 0;
-  have.br = Number(s['219']) || 0;
-  have.small = Object.keys(small).every((c) => (Number(s[c]) || 0) >= small[c]);
-}
+const runsPath = path.join(DATA, 'expedition-runs.json');
+const parseShipsCsv = (s) => {
+  const o = {};
+  for (const p of String(s || '').split(',')) { const [c, v] = p.split(':'); if (c) o[c] = (o[c] || 0) + (Number(v) || 0); }
+  return o;
+};
+const readShips = (file) => {
+  if (!fs.existsSync(file)) return {};
+  return (JSON.parse(fs.readFileSync(file, 'utf8')).ships) || {};
+};
+const mainShips = readShips(mainFile);
+const num = (m, c) => Number(m[c]) || 0;
+
+// Account-wide BB/HC/BR = main + every build site + the fleets currently flying.
+// The production gate and targets MUST use the whole account, not just main: the
+// main-only view is a partial snapshot (most ships are in flight / on colonies),
+// which let HC balloon on acc1 and left BB idle on acc2.
+const tally = (active) => {
+  const main = { bb: num(mainShips, '207'), hc: num(mainShips, '203'), br: num(mainShips, '219') };
+  const sitesTot = { bb: 0, hc: 0, br: 0 };
+  for (const cp of sites) {
+    if (String(cp) === String(cfg.mainCp)) continue;
+    const s = readShips(path.join(DATA, `farm-site-${acc}-${cp}.json`));
+    sitesTot.bb += num(s, '207'); sitesTot.hc += num(s, '203'); sitesTot.br += num(s, '219');
+  }
+  const inf = { bb: 0, hc: 0, br: 0 };
+  if (active > 0 && fs.existsSync(runsPath)) {
+    const fleets = [];
+    for (const r of JSON.parse(fs.readFileSync(runsPath, 'utf8'))) {
+      const s = parseShipsCsv(r.ships);
+      for (let i = 0; i < (Number(r.num) || 1); i++) fleets.push(s);
+    }
+    for (const s of fleets.slice(-active)) { inf.bb += num(s, '207'); inf.hc += num(s, '203'); inf.br += num(s, '219'); }
+  }
+  return {
+    bb: main.bb + sitesTot.bb + inf.bb,
+    hc: main.hc + sitesTot.hc + inf.hc,
+    br: main.br + sitesTot.br + inf.br,
+    // Small ships launch from main, so the "one of each" check stays main-only.
+    small: Object.keys(small).every((c) => num(mainShips, c) >= small[c]),
+    parts: { main, sites: sitesTot, inflight: inf },
+  };
+};
+
+let have = tally(Number(st.active) || 0);
 
 if (mode === 'show') {
   console.log(JSON.stringify({ ...st, have }, null, 2));
@@ -80,42 +117,19 @@ if (mode === 'sent') {
   // so combat losses are rebuilt toward the high-water mark instead of shrinking the
   // plan; only the fleet growing raises it. No conservative per-planet cap.
   const active = Math.max(0, Number(arg('--active', 0)) || 0);
-  const parseShipsCsv = (s) => {
-    const o = {};
-    for (const p of String(s || '').split(',')) { const [c, v] = p.split(':'); if (c) o[c] = (o[c] || 0) + (Number(v) || 0); }
-    return o;
-  };
-  const siteShips = { bb: 0, hc: 0 };
-  for (const cp of sites) {
-    if (String(cp) === String(cfg.mainCp)) continue;
-    const f = path.join(DATA, `farm-site-${acc}-${cp}.json`);
-    if (!fs.existsSync(f)) continue;
-    const s = (JSON.parse(fs.readFileSync(f, 'utf8')).ships) || {};
-    siteShips.bb += Number(s['207']) || 0;
-    siteShips.hc += Number(s['203']) || 0;
-  }
-  const inFlight = { bb: 0, hc: 0 };
-  const runsPath = path.join(DATA, 'expedition-runs.json');
-  if (active > 0 && fs.existsSync(runsPath)) {
-    const fleets = [];
-    for (const r of JSON.parse(fs.readFileSync(runsPath, 'utf8'))) {
-      const s = parseShipsCsv(r.ships);
-      for (let i = 0; i < (Number(r.num) || 1); i++) fleets.push(s);
-    }
-    for (const s of fleets.slice(-active)) { inFlight.bb += Number(s['207']) || 0; inFlight.hc += Number(s['203']) || 0; }
-  }
-  const totalBB = have.bb + siteShips.bb + inFlight.bb;
-  const totalHC = have.hc + siteShips.hc + inFlight.hc;
-  const capS = Math.max(DEFAULT_S, Math.min(Math.floor(totalBB / slots), Math.floor(totalHC / (5 * slots))));
+  have = tally(active);
+  const capS = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / slots), Math.floor(have.hc / (5 * slots))));
   const grew = capS > st.S;
   st.S = Math.max(st.S, capS);
   st.br = brOf(st.S);
   if (grew) st.cycle += 1;
   st.phase = 'build';
+  st.active = active;
   st.lastSendAt = new Date().toISOString();
   writeState(st);
-  console.log(`[farm-plan] ${acc} grow: S=${st.S} (cap=${capS}) Fleet BB=${totalBB} HC=${totalHC} ` +
-    `[main ${have.bb}/${have.hc} sites ${siteShips.bb}/${siteShips.hc} inflight ${inFlight.bb}/${inFlight.hc} active=${active}] br=${st.br}`);
+  const p = have.parts;
+  console.log(`[farm-plan] ${acc} grow: S=${st.S} (cap=${capS}) Fleet BB=${have.bb} HC=${have.hc} ` +
+    `[main ${p.main.bb}/${p.main.hc} sites ${p.sites.bb}/${p.sites.hc} inflight ${p.inflight.bb}/${p.inflight.hc} active=${active}] br=${st.br}`);
   process.exit(0);
 }
 
@@ -136,14 +150,17 @@ if (st.phase === 'build' && full) {
 }
 
 const share = (total) => Math.ceil(total / n);
-// Adaptive BB: the fleet needs HC:BB = 5:1 and HC is the crystal-gated bottleneck,
-// so while the main actually holds less than 5*BB HC, queue ZERO new BB — send all
-// output to HC. BB production resumes automatically once the ratio is restored.
-// (cfg.pauseBB forces it off regardless; cfg.forceBB forces it on.)
+// Symmetric ratio gate over the WHOLE account: the fleet needs HC:BB = 5:1, so
+// build ONLY the deficient type until the ratio is restored — HC-only while
+// HC < 5*BB, BB-only while HC > 5*BB, both when balanced. Previously only the
+// HC-short side was gated, so the (cheaper) HC always kept building and ballooned
+// while BB idled. (cfg.pauseBB/pauseHC force one off; cfg.forceBB/forceHC on.)
 const bbDeficitMultiplier = 5;
-const hcShort = have.hc < bbDeficitMultiplier * have.bb;
+const hcShort = have.hc < bbDeficitMultiplier * have.bb; // need more HC
+const bbShort = have.hc > bbDeficitMultiplier * have.bb; // need more BB
 const buildBB = cfg.forceBB || (!cfg.pauseBB && !hcShort);
-const bbShare = buildBB ? share(needBB) : 0, hcShare = share(needHC);
+const buildHC = cfg.forceHC || (!cfg.pauseHC && !bbShort);
+const bbShare = buildBB ? share(needBB) : 0, hcShare = buildHC ? share(needHC) : 0;
 // BB/HC are spread across sites; BR is crystal-heavy and the (crystal-poor)
 // colonies cannot supply their share, which deadlocked the ready gate. Keep the
 // whole BR need on the crystal-rich main; sites build BB/HC only.
@@ -153,6 +170,7 @@ fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`),
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`),
   JSON.stringify({ ships: { '207': bbShare, '203': hcShare } }, null, 2) + '\n');
 writeState(st);
+const gate = `${buildBB ? 'BB' : ''}${buildHC ? 'HC' : ''}` || 'none';
 console.log(`[farm-plan] ${acc} plan cycle=${st.cycle} S=${st.S} phase=${st.phase} br=${st.br} ` +
-  `have BB=${have.bb} HC=${have.hc} BR=${have.br} -> main BB=${bbShare} HC=${hcShare} BR=${needBR}; ` +
-  `site BB=${bbShare} HC=${hcShare} (${n} sites)`);
+  `have BB=${have.bb} HC=${have.hc} BR=${have.br} ratio=${(have.bb ? (have.hc / have.bb).toFixed(2) : 'inf')} gate=${gate} -> ` +
+  `main BB=${bbShare} HC=${hcShare} BR=${needBR}; site BB=${bbShare} HC=${hcShare} (${n} sites)`);

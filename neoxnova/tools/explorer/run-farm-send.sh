@@ -76,8 +76,9 @@ while true; do
   # the fallback when the page doesn't report one).
   SLOTS=$CONFIG_SLOTS
   if [ "${DETECTED:-0}" -ge 1 ] 2>/dev/null; then SLOTS=$DETECTED; fi
-  # persist detected slot count so the builder sizes the round to match
-  ACC="$ACC" SLOTS="$SLOTS" node -e 'const p="data/farm-state-"+process.env.ACC+".json",f=require("fs"),s=JSON.parse(f.readFileSync(p,"utf8"));if(s.slots!==Number(process.env.SLOTS)){s.slots=Number(process.env.SLOTS);f.writeFileSync(p,JSON.stringify(s,null,2));}' 2>/dev/null
+  # persist detected slot count + active fleets so the planner sizes the round and
+  # reconstructs the in-flight ships (account-wide ratio gate) from the same view.
+  ACC="$ACC" SLOTS="$SLOTS" ACTIVE="$ACTIVE" node -e 'const p="data/farm-state-"+process.env.ACC+".json",f=require("fs"),s=JSON.parse(f.readFileSync(p,"utf8"));let ch=false;if(s.slots!==Number(process.env.SLOTS)){s.slots=Number(process.env.SLOTS);ch=true;}if(s.active!==Number(process.env.ACTIVE)){s.active=Number(process.env.ACTIVE);ch=true;}if(ch)f.writeFileSync(p,JSON.stringify(s,null,2));' 2>/dev/null
 
   # refresh main ships (also feeds farm-plan sent); skip the cycle if the refresh
   # failed so an order is never sized from stale counts.

@@ -13,7 +13,9 @@
   outage, 2026-10-07); restart with `run-farm.ps1 start`, check `run-farm.ps1 status` + log mtimes.
 - **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** Shipyard = `Building: N per second`
   (`perSec` in `parse.mjs`); `resolve` sizes each order to `EXPLORER_UNIT_SECONDS`(90 s) and re-submits
-  ~2.5 s after completion. **Adaptive BB:** zero BB while main HC < 5×BB.
+  ~2.5 s after completion. **Symmetric ratio gate (account-wide):** the plan sums main + sites +
+  in-flight (`st.active`) and builds ONLY the deficient type — HC-only while HC < 5·BB, BB-only while
+  HC > 5·BB, both when balanced. (Was main-only and HC-biased, so HC ballooned while BB idled.)
 - **Expo send (`run-farm-send.sh`, 30 s):** slots = LIVE `expeditionSlots` (config fallback; acc1/acc2
   = 9). `active` = `/Expedition/` rows **not `/Hostail/`** (a real fleet flips A→R with `fleetID:null`
   on return). acc1 carries **6 permanent Hostail ghosts** — `used` double-counts them; ignore.
@@ -52,6 +54,9 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **farm ratio gate made symmetric + account-wide** (`farm-plan.mjs`): the plan now tallies
+  main+sites+in-flight (`st.active`, persisted by the send loop) and builds only the deficient type, so
+  the 5:1 HC:BB ratio converges instead of one type piling up idle; plan log shows `ratio`/`gate`.
 - 2026-10-07: **Arsenal/Market Go model** — `internal/game/arsenal.go` (19-upgrade catalog, tiers,
   activation), migration `0011_arsenal.sql`, `store.ArsenalStore` (activate/list/buy/remove/expire),
   `/api/v1/arsenal` + `/api/v1/market` handlers (incl. `market/mine`+`market/remove`), engine lot
