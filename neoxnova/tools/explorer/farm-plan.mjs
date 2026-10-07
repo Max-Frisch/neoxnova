@@ -98,7 +98,9 @@ if (st.phase === 'build' && full) {
 }
 
 const share = (total) => Math.ceil(total / n);
-const bbShare = share(needBB), hcShare = share(needHC);
+// pauseBB: fleet is BB-heavy vs the 5:1 HC need (HC is crystal-gated) — stop all
+// new BB so metal+crystal go to HC until the ratio recovers.
+const bbShare = cfg.pauseBB ? 0 : share(needBB), hcShare = share(needHC);
 // BB/HC are spread across sites; BR is crystal-heavy and the (crystal-poor)
 // colonies cannot supply their share, which deadlocked the ready gate. Keep the
 // whole BR need on the crystal-rich main; sites build BB/HC only.

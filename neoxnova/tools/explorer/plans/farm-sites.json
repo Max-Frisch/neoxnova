@@ -10,6 +10,7 @@
     "mainCoords": "2:188:16",
     "slots": 8,
     "sites": ["1598", "1672", "1673", "1674"],
-    "mineGoals": { "2": 44, "71": 10 }
+    "mineGoals": { "2": 44, "71": 10 },
+    "pauseBB": true
   }
 }
