@@ -19,9 +19,13 @@
   `pauseBB` override. acc2 was 1.75M BB vs 274k HC (needs 5:1) → S was HC-capped, BB idle.
 - **`httpbot trade <buy> <code:amt,...>`:** resource trader, value ratio 1:2:4, **250 DM per
   call → only BIG lump trades (billions)**. Site plan feeds crystal mine via resolve.
-- **Known limit:** one login/session → build daemon visits planets **sequentially**, so only one
-  shipyard builds at a time; others idle between turns. Next: round-robin with persisted per-planet
-  pending (keep every shipyard's order alive with one session) or per-site daemons (watch login thrash).
+- **Parallel build (`6f24227`):** server allows concurrent sessions per account, so run **one
+  persistent `httpbot worker <cp> <plan>` per ship-building planet** — all shipyards build at once.
+  Session is reused across processes via `data/session-<user>.json` (login once; relogin only when a
+  request proves logout). `run-farm-build.sh` is now **planner + pooler only**; workers launched by
+  `run-farm-worker.sh <acc> <cp> main|site`. Live: acc2 4 workers (`1598 @288/s`, `1672/1673 @216/s`,
+  `1674 @192/s`); acc1 3 site workers `@192/s` (main idle — target met). Check `tmux ls` (VM) /
+  `run-farm-worker` procs (acc1).
 - **Farm bug fixed `eb79f39`,`9fcbcab`:** acc2 sat `phase=build` 8 h+ — the ready gate required
   main `BR >= 7*br=2023` but BR collapsed to 294 post-send and crystal-poor colonies owned the BR
   share, so `resolve` never rebuilt it (BB/HC over-built to 2.0M/3.4M meanwhile). Fix: **main carries
