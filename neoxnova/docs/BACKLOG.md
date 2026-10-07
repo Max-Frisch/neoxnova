@@ -2,16 +2,18 @@
 
 ## Live state
 - Stack: `docker compose` (`neoxnova_postgres`, `neoxnova_redis`); run `go`/`make` from `neoxnova/`.
-- **Both rolling farms ONLINE (2026-10-07 ~01:54Z).** acc1 local (build+send+harvest+bonus),
-  acc2 VM (build+send+harvest+bonus).
-  Fires `time=1 speed=10` (7 arms) whenever `phase=ready` **and** 0 real `(A)` exps. S grows via
-  `farm-plan sent`: `S = max(42000, min(floor(BB/7), floor(HC/35)))` (cap = scarcest component).
-  Latest: acc1 cycle=1 S 42 000→**83 204** (BB cap); acc2 cycle=3 S 72 189→**98 314** (HC cap).
+- **Both rolling farms ONLINE (2026-10-07).** acc1 local (build+send+harvest+bonus), acc2 VM.
+  **Slot-aware top-up** (`run-farm-send.sh` loop 30 s): `slots = min(cfg, expeditionSlots)`
+  (**acc2 = 8 now**, acc1 = 7→8 auto-detected), `active` = real exps (any `/Expedition/` row
+  not `/Hostail/` — the `(A)`/`(R)` letter is NOT the ghost test; a real fleet flips A→R with
+  `fleetID:null` on return). Fires `n = min(free, affordable)` fleets so freed slots never idle;
+  `farm-plan sent` grows S once per full rotation: `S = max(42000, min(⌊BB/slots⌋, ⌊HC/(5·slots)⌋))`.
+  Latest: acc2 cycle=4 S 98 314→61 764 (scaled to HC in flight) → recovered as ships landed.
+- **Build tuning `9fcbcab`:** `EXPLORER_UNIT_BATCH=8000`, build loop 60 s (was 300 s/3000).
 - **Farm bug fixed `eb79f39`,`9fcbcab`:** acc2 sat `phase=build` 8 h+ — the ready gate required
   main `BR >= 7*br=2023` but BR collapsed to 294 post-send and crystal-poor colonies owned the BR
   share, so `resolve` never rebuilt it (BB/HC over-built to 2.0M/3.4M meanwhile). Fix: **main carries
-  the whole BR need**, sites build BB/HC only. Also: build batch 3000→**8000** and loop sleep
-  300→**60 s** (no huge batches, no shipyard idle). Deploy = commit→push→VM `reset --hard`.
+  the whole BR need**, sites build BB/HC only. Deploy = commit→push→VM `reset --hard`.
 - acc1 (local, Bratwurst `3:125:12`): espionage L21; colony builders stopped (caps); **moon present**
   (<10 000 km). Host back on this session.
 - acc2 (VM `azure-bot`, TheBob `2:188:16`): colony builders `colo-1687/88/89/96` running, `1697/98` done.

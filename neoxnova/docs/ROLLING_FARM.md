@@ -78,12 +78,15 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 - `fleet <g:s:p> <mission> <code:count,…> [speed] [--dry] [--cp id]`
   (`httpbot.mjs:671`). Mission **4 = deploy**. Target must be a real celestial.
 - `exp-state` (`httpbot.mjs:771`) prints JSON `{expeditionSlots, used, fleets}`.
-  The cap is **7 on both accounts**, but the counter is **not enforced** (live
-  2026-10-06: fired at `7/7` → `8/7` → `9/7`). acc1 carries **6 permanent
-  `cmd=2` ghosts** — rows `"Expedition at Hostail sector (R)"` with `fleetID:
-  null` that never land. **Real cmd=1 sends are `"Expedition (A)"` and have a
-  fleetID.** The send daemon counts only `(A)` rows, so the ghosts can't stall
-  it. (The `used` counter includes ghosts — ignore it; don't gate on `used`.)
+  **Slots are per-account and now 8** (acc2 since 2026-10-07; acc1 upgrades
+  shortly after) — the daemons auto-detect `expeditionSlots` and clamp to
+  `plans/farm-sites.json` `slots`. **Do not key off the `(A)`/`(R)` letter.**
+  A real cmd=1 fleet appears as `"Expedition (A)"` while outbound and flips to
+  `"Expedition (R)"` (with `fleetID: null`) on its return leg — both are real.
+  The only true ghosts are acc1's **6 permanent `"Expedition at Hostail sector
+  (R)"`** rows that never land. So: **active = rows matching `/Expedition/i` but
+  NOT `/Hostail/i`**; free = slots − active. (The `used` counter double-counts
+  the Hostail ghosts and isn't enforced — ignore it.)
 - `levels --cp <id> --out <file>` writes `{buildings, research, ships, defenses,
   resources}`; `ships["207"]` = BB count, `buildings["21"]` = shipyard level.
 - `resolve --goals <file> --cp <id> --steps N`; `EXPLORER_UNIT_BATCH=<n>` caps
@@ -108,14 +111,16 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
    with `<n>` = live counts from that colony's `levels`.
 5. Write state; sleep 300 s.
 
-### Send — `run-farm-send.sh <acc>` (loop ~60 s)
-1. `node httpbot.mjs exp-state` → count **real** outgoing expeditions
-   (`mission` matches `Expedition (A)`); ignore the `cmd=2` `(R)` ghosts.
-2. If no real expedition is active (`(A)` count == 0) **and** state phase is
-   `ready`: `node httpbot.mjs expedition "207:S,203:5S,219:BR,202:1,204:1,205:1,206:1" 7 1 10`.
-   (Don't gate on the `used` counter — it includes ghosts.)
-3. Sleep 60 s; fast/delay returns are staggered, re-fire when the round is home.
-4. Guard total fleet slots: 7 expo + pooling ≤ **25** total movements.
+### Send — `run-farm-send.sh <acc>` (loop ~30 s, **top-up**)
+1. `node httpbot.mjs exp-state` → `slots` = min(config, `expeditionSlots`),
+   `active` = rows matching `/Expedition/i` & not `/Hostail/i`, `free = slots − active`.
+2. Refresh main ships (`levels`); `n = min(free, ⌊BB/S⌋, ⌊HC/(5S)⌋, ⌊BR/br⌋, small)`.
+3. When `active==0` (whole rotation home) first let S grow (farm-plan `sent`),
+   then re-read S/BR. Fire `n` fleets:
+   `node httpbot.mjs expedition "207:S,203:5S,219:BR,202:1,204:1,205:1,206:1" n 1 10`.
+   Firing `n` (not always `slots`) keeps every freed slot busy without waiting for
+   a full round; `sent` only runs once per full rotation so the cycle can't inflate.
+4. Sleep 30 s; repeat. Guard total fleet slots: expo + pooling ≤ cap.
 
 ### State machine (`data/farm-state-<acc>.json`)
 ```json
