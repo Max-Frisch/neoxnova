@@ -9,7 +9,19 @@
   `fleetID:null` on return). Fires `n = min(free, affordable)` fleets so freed slots never idle;
   `farm-plan sent` grows S once per full rotation: `S = max(42000, min(⌊BB/slots⌋, ⌊HC/(5·slots)⌋))`.
   Latest: acc2 cycle=4 S 98 314→61 764 (scaled to HC in flight) → recovered as ships landed.
-- **Build tuning `9fcbcab`:** `EXPLORER_UNIT_BATCH=8000`, build loop 60 s (was 300 s/3000).
+- **Ship production model:** shipyard is a **`Building: N per second` factory** (per-ship
+  Duration rounds to `00h 00m 00s` = continuous rate, e.g. HC `288/s`). `parse.mjs` now reads
+  `perSec`; `httpbot resolve` sizes each order to `EXPLORER_UNIT_SECONDS` of throughput (~90 s)
+  and re-submits ~2.5 s after it completes — no fixed 30/60 s poll gap. Also stopped the
+  unit `[!] clearing stale pending` re-order (was double-queuing batches → overbuild).
+- **Adaptive BB:** `farm-plan` queues **zero BB whenever main HC < 5×BB** (HC is the crystal-gated
+  bottleneck); resumes automatically. `plans/farm-sites.json`: `mineGoals` {2:44, 71:10},
+  `pauseBB` override. acc2 was 1.75M BB vs 274k HC (needs 5:1) → S was HC-capped, BB idle.
+- **`httpbot trade <buy> <code:amt,...>`:** resource trader, value ratio 1:2:4, **250 DM per
+  call → only BIG lump trades (billions)**. Site plan feeds crystal mine via resolve.
+- **Known limit:** one login/session → build daemon visits planets **sequentially**, so only one
+  shipyard builds at a time; others idle between turns. Next: round-robin with persisted per-planet
+  pending (keep every shipyard's order alive with one session) or per-site daemons (watch login thrash).
 - **Farm bug fixed `eb79f39`,`9fcbcab`:** acc2 sat `phase=build` 8 h+ — the ready gate required
   main `BR >= 7*br=2023` but BR collapsed to 294 post-send and crystal-poor colonies owned the BR
   share, so `resolve` never rebuilt it (BB/HC over-built to 2.0M/3.4M meanwhile). Fix: **main carries
