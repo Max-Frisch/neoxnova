@@ -67,15 +67,10 @@ levels_fresh() {
     }catch(e){process.exit(1);}'
 }
 
-GROWN=0   # has S been grown for the current rotation?
 while true; do
   STATS=$(exp_active)
   read -r ACTIVE DETECTED TOTAL <<<"$STATS"
   if [ "$ACTIVE" = "ERR" ]; then echo "[$(date +%T)] exp-state unreadable; wait"; sleep "$EVERY"; continue; fi
-
-  # A real fleet out means we have left the "all home" state: allow the NEXT full
-  # rotation to grow S again.
-  [ "$ACTIVE" -gt 0 ] && GROWN=0
 
   # Follow the live slot count so every available slot is kept busy (config is only
   # the fallback when the page doesn't report one).
@@ -92,16 +87,12 @@ while true; do
   "${NODE[@]}" httpbot.mjs levels --cp "$MAIN_CP" --out "data/farm-main-${ACC}.json" >/dev/null 2>&1
   if ! levels_fresh 90; then echo "[$(date +%T)] main levels refresh stale/failed; wait"; sleep "$EVERY"; continue; fi
 
+  # Grow S toward the WHOLE-fleet capacity every cycle. `--active` counts the fleets
+  # currently flying (reconstructed from expedition-runs), so S rises as fast as the
+  # shipyards add ships and no faster than the fleet actually holds. `st.S` ratchets
+  # up, so combat losses are rebuilt instead of shrinking the plan.
+  "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent --active "$ACTIVE"
   S=$(state_get S); BR=$(state_get br)
-
-  # Grow S exactly once per full rotation. `sent` recomputes S from the PRE-send
-  # total, so calling it again after firing (the new fleet not listed yet -> active
-  # still 0) would inflate S. GROWN pins it to one call until fleets are seen out.
-  if [ "$ACTIVE" -eq 0 ] && [ "$GROWN" -eq 0 ]; then
-    "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent
-    GROWN=1
-    S=$(state_get S); BR=$(state_get br)
-  fi
 
   N=$(afford "$S" "$BR" "$FREE"); case "$N" in ''|*[!0-9]*) N=0;; esac
   if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (S=$S); wait"; sleep "$EVERY"; continue; fi
@@ -110,8 +101,8 @@ while true; do
   echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} :: $SET"
   "${NODE[@]}" httpbot.mjs expedition "$SET" "$N" 1 10
 
-  # Confirm the send registered. If it did not, the next cycle retries with the
-  # SAME S (GROWN still set; the fresh-levels check blocks an over-sized retry).
+  # Confirm the send registered; if it did not, the next cycle retries (the fresh
+  # `levels` guard blocks an order sized from stale counts).
   sleep 8
   CHK=$(exp_active | cut -d' ' -f1)
   if [ "$CHK" = "ERR" ] || [ "${CHK:-0}" -lt 1 ] 2>/dev/null; then

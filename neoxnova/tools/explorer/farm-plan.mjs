@@ -73,21 +73,59 @@ if (mode === 'starter') {
 }
 
 if (mode === 'sent') {
-  // Called immediately BEFORE firing; main still holds the pre-send total.
-  // Cap S by the scarcest fleet component (BB:HC = 1:5) so a bloated stockpile
-  // of one ship cannot balloon S beyond what the other can actually field.
-  st.S = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / slots), Math.floor(have.hc / (5 * slots))));
+  // GROW: S is bounded only by the size of the WHOLE fleet, so it rises as fast as
+  // the shipyards add ships. We sum every ship the account owns — main + all build
+  // sites + the fleets currently flying (`--active N`, reconstructed from the most
+  // recent expedition-runs) — then S = fleet / slots. `st.S` ratchets up (monotonic)
+  // so combat losses are rebuilt toward the high-water mark instead of shrinking the
+  // plan; only the fleet growing raises it. No conservative per-planet cap.
+  const active = Math.max(0, Number(arg('--active', 0)) || 0);
+  const parseShipsCsv = (s) => {
+    const o = {};
+    for (const p of String(s || '').split(',')) { const [c, v] = p.split(':'); if (c) o[c] = (o[c] || 0) + (Number(v) || 0); }
+    return o;
+  };
+  const siteShips = { bb: 0, hc: 0 };
+  for (const cp of sites) {
+    if (String(cp) === String(cfg.mainCp)) continue;
+    const f = path.join(DATA, `farm-site-${acc}-${cp}.json`);
+    if (!fs.existsSync(f)) continue;
+    const s = (JSON.parse(fs.readFileSync(f, 'utf8')).ships) || {};
+    siteShips.bb += Number(s['207']) || 0;
+    siteShips.hc += Number(s['203']) || 0;
+  }
+  const inFlight = { bb: 0, hc: 0 };
+  const runsPath = path.join(DATA, 'expedition-runs.json');
+  if (active > 0 && fs.existsSync(runsPath)) {
+    const fleets = [];
+    for (const r of JSON.parse(fs.readFileSync(runsPath, 'utf8'))) {
+      const s = parseShipsCsv(r.ships);
+      for (let i = 0; i < (Number(r.num) || 1); i++) fleets.push(s);
+    }
+    for (const s of fleets.slice(-active)) { inFlight.bb += Number(s['207']) || 0; inFlight.hc += Number(s['203']) || 0; }
+  }
+  const totalBB = have.bb + siteShips.bb + inFlight.bb;
+  const totalHC = have.hc + siteShips.hc + inFlight.hc;
+  const capS = Math.max(DEFAULT_S, Math.min(Math.floor(totalBB / slots), Math.floor(totalHC / (5 * slots))));
+  const grew = capS > st.S;
+  st.S = Math.max(st.S, capS);
   st.br = brOf(st.S);
-  st.cycle += 1;
+  if (grew) st.cycle += 1;
   st.phase = 'build';
   st.lastSendAt = new Date().toISOString();
   writeState(st);
-  console.log(`[farm-plan] ${acc} sent: cycle=${st.cycle} S=${st.S} br=${st.br} (haveBB=${have.bb})`);
+  console.log(`[farm-plan] ${acc} grow: S=${st.S} (cap=${capS}) Fleet BB=${totalBB} HC=${totalHC} ` +
+    `[main ${have.bb}/${have.hc} sites ${siteShips.bb}/${siteShips.hc} inflight ${inFlight.bb}/${inFlight.hc} active=${active}] br=${st.br}`);
   process.exit(0);
 }
 
-// plan mode: decide readiness, then emit the two goal files + state.
-const needBB = slots * st.S, needHC = 5 * slots * st.S, needBR = slots * st.br;
+// plan mode: emit the build goals. Targets are `st.S * grow` so they always sit
+// ABOVE the current fleet — the shipyards never finish the goal and keep producing
+// flat out, so real growth is limited by build throughput (all sites), not by a cap.
+// `grow` is just headroom; raise it if a shipyard ever idles waiting for the goal.
+const grow = Math.max(1, Number(cfg.growth || 3));
+const targetS = Math.ceil(st.S * grow);
+const needBB = slots * targetS, needHC = 5 * slots * targetS, needBR = slots * st.br;
 const full = have.bb >= needBB && have.hc >= needHC && have.br >= needBR && have.small;
 if (st.phase === 'build' && full) {
   st.phase = 'ready';

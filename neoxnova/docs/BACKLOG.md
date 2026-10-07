@@ -18,13 +18,18 @@
   `EXPLORER_UNIT_SECONDS`(90 s) of throughput and re-submits ~2.5 s after it completes (no poll gap).
   **Adaptive BB:** queue **zero BB while main HC < 5×BB** (HC is the bottleneck); resumes automatically.
 - **Expo send (`run-farm-send.sh`, 30 s):** slots = the **LIVE `expeditionSlots`** (config is only a
-  fallback; 2026-10-07: acc1 = 6, **acc2 = 9** after a bonus), so every slot the account has is kept
-  busy. `active` = `/Expedition/` rows **not `/Hostail/`** (the `(A)`/`(R)` letter is NOT the ghost
-  test — a real fleet flips A→R with `fleetID:null` on return). Fires `n = min(free, affordable)`;
-  `farm-plan sent` grows `S = max(42000, min(⌊BB/slots⌋, ⌊HC/(5·slots)⌋))`. acc1 carries **6 permanent
-  Hostail ghosts** — `used` double-counts them; ignore. **Race fixed 2026-10-07:** a `GROWN` guard
-  grows S at most once per rotation and the loop skips a cycle when the main-`levels` refresh is stale,
-  so a just-fired fleet not yet listed (active==0) can no longer re-run `sent` and inflate S/over-fire.
+  fallback; 2026-10-07: **acc1 = 9, acc2 = 9**), so every slot is kept busy. `active` = `/Expedition/`
+  rows **not `/Hostail/`** (the `(A)`/`(R)` letter is NOT the ghost test — a real fleet flips A→R with
+  `fleetID:null` on return). Fires `n = min(free, affordable)`. acc1 carries **6 permanent Hostail
+  ghosts** — `used` double-counts them; ignore.
+- **S growth = build-capacity-limited (2026-10-07 — replaced the full-rotation `have/slots` rule).**
+  The loop runs `farm-plan sent --active N` every cycle: `farm-plan` sums the WHOLE fleet — main + all
+  site files + the N in-flight fleets (reconstructed from the last N `expedition-runs.json` sends) —
+  then `S = ⌊fleet/slots⌋` (capped by BB and 5·HC) and **ratchets** (`max(prev, cap)`), so combat
+  losses are rebuilt toward the high-water rather than shrinking the plan. Build targets are
+  `S · growth` (`growth`=3 in `farm-sites.json`) so the goal always sits ABOVE the current fleet and
+  every shipyard builds flat out — throughput (all sites), not a target, is the only limit. The loop
+  skips a cycle when the main `levels` refresh is stale (never sizes orders from stale counts).
 - **Worker stall fix 2026-10-07 (colonies "not building"):** `httpbot worker` remembered an in-memory
   pending unit as `have+want` and only cleared it when `have` reached it. The pooler draining a colony
   (`BB+HC+BR ≥ FARM_POOL_MIN`) drops `have`, so the expectation was never met → that worker stalled
@@ -32,15 +37,16 @@
   (drained) or the ETA deadline passes, so the worker re-submits instead of deadlocking.
 - **`httpbot trade <buy> <code:amt,...>`:** trader, value 1:2:4 (deut→crystal = 1:2), **250 DM/call →
   only BIG lump trades (billions)**.
-- acc1 Bratwurst `3:125:12` (local; moon present). acc2 TheBob `2:188:16` (VM).
+- acc1 Bratwurst `3:125:12` (local; moon present); sites = main `1593` + `1655/1656/1657`
+  (`3:125:9-11`) + `1690/1692/1693` (`3:124:9-11`). acc2 TheBob `2:188:16` (VM); sites = `1598` +
+  `1672/1673/1674` (`2:188:10-11` + `2:187:9`).
 - Set = `207:S,203:5S,219:round(S/250)` + 1 each `202/204/205/206` (no Spy Probe `210`; errors at slot 21).
 
 ## Open backlog (ordered; one item per session)
-0. **EXPAND BUILD SITES (next session — biggest win).** Use every shipyard: acc1 should be **main +
-   6 colonies** (`3:125:9-12` + `3:124:*`); acc2 **main + 5** (`2:188:9-11` + `2:187:9-11`). Do
-   `httpbot.mjs planets` recon on both, fill `plans/farm-sites.json` `sites`, launch one
-   `run-farm-worker.sh` per new site (mind shipyard level + resources). Watch total process count and
-   request rate. Verify all shipyards build simultaneously.
+0. **EXPAND BUILD SITES.** **acc1 DONE** — 7 sites (main `1593` + `1655/1656/1657` `3:125:9-11` +
+   `1690/1692/1693` `3:124:9-11`; all shipyard 16). **acc2 TODO** — expand to main + 5
+   (`2:188:10-11` + `2:187:9-11`; currently `1598` + `1672/1673/1674`): `httpbot.mjs planets` recon,
+   add cps to `plans/farm-sites.json`, launch one `run-farm-worker.sh` per new site, verify.
 1. **Expedition resolver (Go)** — model `MissionExpedition` in `internal/engine`: outcome roll, loot,
    points-scaled enemy. BLOCKERS: enemy formula unknown; `cmd=2` leaks ghost fleets (avoid). Notes:
    `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
@@ -60,6 +66,9 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: acc1 expanded to 7 build sites (added `1690/1692/1693` `3:124:9-11`); S growth reworked
+  to be build-capacity-limited (whole fleet incl. in-flight, monotonic ratchet, `growth` headroom so
+  shipyard throughput is the only limit).
 - 2026-10-07: fixed colony build deadlock (worker pending-unit cleared on pool-drain/deadline) and made
   the send loop follow the live slot count (used all 9 acc2 slots); deployed to the VM and restarted
   acc2 send+workers.
