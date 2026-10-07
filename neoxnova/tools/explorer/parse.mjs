@@ -45,7 +45,7 @@ export function parseBuildPage(html) {
     const dm = /Duration:\s*<span>([^<]+)<\/span>/.exec(ch);
     // Shipyard "factory" rate: "Building: 288 per second". Per-ship Duration is
     // rounded to 0 (instant), so this rate is the real throughput.
-    const rm = /Building:\s*([\d.,]+)\s*per second/i.exec(ch);
+    const rm = /Building:\s*(?:<span>\s*)?([\d.,]+)\s*per second/i.exec(ch);
     const hasBuild = /name="cmd"\s+value="insert"/.test(ch) || /name="cmd" value="insert"/.test(ch);
     items.push({ code, name, level, cost, durationSec: dm ? parseDurationSec(dm[1]) : 0, perSec: rm ? num(rm[1]) : 0, locked, hasBuild });
   }
