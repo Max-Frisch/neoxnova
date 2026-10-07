@@ -39,14 +39,16 @@ afford() {
 }
 
 while true; do
-  # only real cmd=1 sends are `Expedition (A)`; `(R)` ghosts (fleetID null) are ignored
+  # Active = any real expedition row (outbound `(A)` OR returning `(R)`). The only
+  # things to exclude are acc1's permanent ghosts: "Expedition at Hostail sector (R)"
+  # (fleetID null, never land). Counting both legs stops mid-return re-fires.
   STATS=$("${NODE[@]}" httpbot.mjs exp-state 2>/dev/null | ACC="$ACC" node -e '
     let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
       const i=d.indexOf("{"),j=d.lastIndexOf("}");
       if(i<0||j<0){process.stdout.write("ERR 0 0");return;}
       const st=JSON.parse(d.slice(i,j+1));
       const det=st.expeditionSlots?Number(st.expeditionSlots):0;
-      const active=(st.fleets||[]).filter(f=>/Expedition\s*\(A\)/i.test(f.mission)).length;
+      const active=(st.fleets||[]).filter(f=>/Expedition/i.test(f.mission)&&!/Hostail/i.test(f.mission)).length;
       process.stdout.write(active+" "+det+" "+(st.fleets||[]).length);
     });')
   read -r ACTIVE DETECTED TOTAL <<<"$STATS"
