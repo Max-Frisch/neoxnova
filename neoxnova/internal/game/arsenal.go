@@ -130,11 +130,14 @@ func ArsenalTierMinPoints(tier int) int64 {
 // finds were entry tier at ~7.7k–10.9k points).
 const ArsenalDropChance = 0.10
 
-// lightPool/mediumPool/heavyPool mirror the Hostail Barbarian/Pirate/Alien race
-// drops. Generic conveyors/production upgrades are available from tier 1 on.
+// lightPool/mediumPool/heavyPool are the upgrade sets a drop can draw from by
+// fleet-point tier. Owner-confirmed (2026-10-07): the tier gates the TYPE POOL
+// only, never the drop chance — the chance stays a flat ArsenalDropChance.
+// Tier 1 (>=5k) yields light, tier 2 (>=50k) light+medium, tier 3 (>=250k)
+// light+medium+heavy. Generic conveyors/production are available from tier 1 on.
 //
-// PROVISIONAL: whether a tier gates the *type pool* or the *drop chance* (or
-// both) is unconfirmed — see docs/ARSENAL_UPGRADES_IMPLEMENTATION.md §2.2/§5.
+// 250k is in practice unreachable on the farm's expedition flights (a combat
+// encounter AND a win at that size is too rare), so heavy drops stay theoretical.
 var (
 	lightPool  = []int{1, 2, 5, 8, 11}
 	mediumPool = []int{3, 6, 9, 12}

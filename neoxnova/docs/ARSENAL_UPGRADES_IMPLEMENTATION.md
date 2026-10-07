@@ -133,8 +133,11 @@ matches exactly.
 - Regular expedition (`cmd=1`) combat encounters drop a drawing (live: **≈10 % of combat
   wins**; all four drops so far were **entry tier**, at ~7.7k–10.9k fleet points).
 - **Tier gates (authoritative for our model): 5 000 / 50 000 / 250 000 fleet points.**
-  Ignore the 75 000 figure. Decide/confirm whether the tier selects the *type pool* or the
-  *drop chance* (the manual's Barbarian/Pirate/Alien Hostail split may be the race variant).
+  Ignore the 75 000 figure. **Confirmed 2026-10-07:** the tier gates the **type pool only**,
+  **not** the drop chance (the chance stays a flat ≈10 % of combat wins). Tier 1 (≥5k) →
+  light upgrades; tier 2 (≥50k) → light + medium; tier 3 (≥250k) → light + medium + heavy.
+  250k is effectively unreachable on the farm (a combat encounter *and* a win at that size is
+  too rare), so heavy drops remain theoretical.
 - Hostail (`cmd=2`) is buggy (ghost fleets) — **do not** implement its path yet.
 
 ---
@@ -179,7 +182,8 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 - Enumerate every `greid` by owning one of each upgrade, then fill §2's `greid` column.
 
 ## 5. Open questions / risks
-- Confirm **5k/50k/250k** semantics (type pool vs chance vs both) with a controlled sample.
+- ~~Confirm **5k/50k/250k** semantics (type pool vs chance vs both).~~ **Resolved 2026-10-07:**
+  the tier gates the type pool (light → light+medium → light+medium+heavy); the drop chance is flat.
 - Reconcile the per-level numbers with `ARSENAL_LIVE_2026-10-06.md` (manual vs live bracket).
 - `greid` keys for all 19 upgrades (only `combustion` known).
 - Failure roll result shape (does the item get consumed on failure? manual implies the value
@@ -265,13 +269,17 @@ main light L15 -> 360/s, 5040/s; heavy L1 -> 2/s fleet and 20/s defense (Photon
 Cannon, owner-measured L1–4 = 20/44/66/88, matching `2L·k(L)`).
 
 **Still unmodelled:** how the Arsenal conveyor upgrades (14/15/16) fold in — no
-items are owned yet to measure; presumed an additive percent on the class unitRate.
+items are owned yet to live-verify the output. Mechanism owner-confirmed (below):
+an additive percent on the total conveyor output.
 
 Conveyor heavy-defense check (2026-10-07, after 109/110/111 reached 18/17/18):
 Photon Cannon unlocked; 1593 (73=10) -> 260/s, 1695 (73=5) -> 110/s, matching
 `2·L·k(L)`. Conveyor upgrades (14 Light +0.6, 15 Average +0.5, 16 Heavy +0.4 %/level)
 are **added to the total conveyor output percent** — the same percent sum as the
-monthly premium / cashshop `+x%` bonuses (owner-confirmed).
+monthly premium / cashshop `+x%` bonuses (owner-confirmed). It is a running sum:
+one Average activation = +0.5 %, ten = +5 %; the rate is `base × (1 + total/100)`
+(e.g. 200/s with +0.5 % → 201/s). The magnitude is still unverified live (no items
+owned), but the accumulation semantics are confirmed.
 
 ---
 

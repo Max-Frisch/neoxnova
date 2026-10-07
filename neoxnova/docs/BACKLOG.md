@@ -44,15 +44,18 @@
    store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
    ~10%-of-combat-win drop into the expedition resolver (item 1) via
-   `game.DropPool`/`AddUpgradeItems`; (b) confirm tier gates the type
-   pool vs the drop chance; (c) **apply bonuses to production/combat** — DONE 2026-10-07:
+   `game.DropPool`/`AddUpgradeItems`; (b) tier gates the type pool ONLY (confirmed
+   2026-10-07: ≥5k light, ≥50k light+medium, ≥250k light+medium+heavy; drop chance stays flat);
+   (c) **apply bonuses to production/combat** — DONE 2026-10-07:
    `internal/game/unit_classes.go` (from live cards, fixture `testdata/niburus_unit_classes.json`,
    `httpbot card`/`cards`), weapon/armor/shield folded additively into the tech bonus
    (`DerivedStatBonus`), production 17/18/19 into `RecomputeProduction`, engine 11/12/13 into
    `FleetMaxSpeed`; resolver/`RecomputeCelestial`/`Dispatch` load `account_upgrades` and activation
    recomputes planets. OPEN: conveyor 14–16 — building 71/72/73 effect now measured
    (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7: fleet `unitRate·L`, defense `·k(L)`,
-   k=10+⌊(L+2)/4⌋); the upgrade multiplier itself is unverified (no items owned);
+   k=10+⌊(L+2)/4⌋); the upgrade folds in as a running additive percent on the total conveyor output
+   (one Average +0.5%, ten = +5%) — semantics owner-confirmed 2026-10-07, only the live magnitude
+   unverified (no items owned);
    (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`.
 1d. **Combat bonus model — per-weapon techs** — DONE 2026-10-07. `combat.go` `DerivedAttack`
    walks each unit's card weapon components: per component `base·(1+(weaponTech+arsenalWeapon)/100)`
