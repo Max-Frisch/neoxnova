@@ -325,8 +325,15 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       const html = unitHtml(u.scope);
       if (!unitAvail(html, u.code)) continue;
       const have = unitVal(html, u.code);
-      const exp = pendU.get(u.code);
-      if (exp !== undefined) { if (have >= exp) pendU.delete(u.code); else continue; }
+      const p = pendU.get(u.code);
+      if (p !== undefined) {
+        // Done when the order lands; stale when the planet was DRAINED (the pooler
+        // moved the ships to main, so `have` drops below the submit baseline) or the
+        // deadline passed without the total arriving (POST silently rejected).
+        // Dropping it lets the next pass re-order instead of stalling forever.
+        if (have >= p.exp || have < p.base || Date.now() > p.until) pendU.delete(u.code);
+        else continue;
+      }
       if (have >= u.target) continue;
       const it = (u.scope === 'fleet' ? S.byCode : D.byCode)[Number(u.code)];
       const rate = it ? (it.perSec || 0) : 0;
@@ -496,7 +503,11 @@ async function cmdResolve(goalsPath, steps, cpArg) {
       const q = u.scope === 'fleet' ? 'page=shipyard&mode=fleet' : 'page=shipyard&mode=defense';
       await delay();
       await postForm(q + cpq, { [`fmenge[${u.code}]`]: u.want });
-      pendU.set(u.code, u.have + u.want);
+      // Store the submit baseline + expected total + a deadline. If the count later
+      // drops below `base` (ships pooled away) or `until` passes under `exp`, the
+      // pending entry is discarded instead of blocking that unit forever.
+      const etaMs = u.rate > 0 ? Math.ceil((u.want / u.rate) * 1000) : 300000;
+      pendU.set(u.code, { base: u.have, exp: u.have + u.want, until: Date.now() + etaMs + 120000 });
       console.log(`[+] ${u.scope} ${u.want}x code ${u.code} (have ${u.have}/${u.target}${u.rate ? ` @${u.rate}/s` : ''})`);
       // Time the next pass to just after this order finishes (instead of a fixed
       // short poll), so the shipyard never drains between batches.

@@ -10,15 +10,26 @@
   shipyards build **in parallel** (server allows concurrent sessions; session reused via
   `data/session-<user>.json`, relogin only when a request proves logout). acc1 = local detached bash;
   acc2 = VM tmux (`farm-acc2` + `farmw-acc2-{1598,1672,1673,1674}`, plus `farmsend-acc2`,`expharv-acc2`,`bonus-acc2`).
+- **acc1 loop durability (2026-10-07):** the local build+send loops are detached bash children and
+  **died ~13:01** (their parent shell closed) while workers/harvest/bonus survived, so no expeditions
+  fired for ~2 h. Restarted with `run-farm.ps1 start`; `run-farm.ps1 status` + log mtimes are the check.
 - **Ship building is SHIP-ONLY; mines/conveyors are handled MANUALLY** (removed from automation). Shipyard
   is a `Building: N per second` factory (`perSec` in `parse.mjs`); `resolve` sizes each order to
   `EXPLORER_UNIT_SECONDS`(90 s) of throughput and re-submits ~2.5 s after it completes (no poll gap).
   **Adaptive BB:** queue **zero BB while main HC < 5×BB** (HC is the bottleneck); resumes automatically.
-- **Expo send (`run-farm-send.sh`, 30 s):** `slots = min(cfg 8, expeditionSlots)` **auto-adapts**
-  (**acc1 = 6 now** — temp bonus expired; acc2 = 8). `active` = `/Expedition/` rows **not `/Hostail/`**
-  (the `(A)`/`(R)` letter is NOT the ghost test — a real fleet flips A→R with `fleetID:null` on return).
-  Fires `n = min(free, affordable)`; `farm-plan sent` grows `S = max(42000, min(⌊BB/slots⌋, ⌊HC/(5·slots)⌋))`.
-  acc1 carries **6 permanent Hostail ghosts** — `used` double-counts them; ignore.
+- **Expo send (`run-farm-send.sh`, 30 s):** slots = the **LIVE `expeditionSlots`** (config is only a
+  fallback; 2026-10-07: acc1 = 6, **acc2 = 9** after a bonus), so every slot the account has is kept
+  busy. `active` = `/Expedition/` rows **not `/Hostail/`** (the `(A)`/`(R)` letter is NOT the ghost
+  test — a real fleet flips A→R with `fleetID:null` on return). Fires `n = min(free, affordable)`;
+  `farm-plan sent` grows `S = max(42000, min(⌊BB/slots⌋, ⌊HC/(5·slots)⌋))`. acc1 carries **6 permanent
+  Hostail ghosts** — `used` double-counts them; ignore. **Race fixed 2026-10-07:** a `GROWN` guard
+  grows S at most once per rotation and the loop skips a cycle when the main-`levels` refresh is stale,
+  so a just-fired fleet not yet listed (active==0) can no longer re-run `sent` and inflate S/over-fire.
+- **Worker stall fix 2026-10-07 (colonies "not building"):** `httpbot worker` remembered an in-memory
+  pending unit as `have+want` and only cleared it when `have` reached it. The pooler draining a colony
+  (`BB+HC+BR ≥ FARM_POOL_MIN`) drops `have`, so the expectation was never met → that worker stalled
+  forever ("queues busy"). Now the pending stores `{base,exp,until}` and is dropped when `have < base`
+  (drained) or the ETA deadline passes, so the worker re-submits instead of deadlocking.
 - **`httpbot trade <buy> <code:amt,...>`:** trader, value 1:2:4 (deut→crystal = 1:2), **250 DM/call →
   only BIG lump trades (billions)**.
 - acc1 Bratwurst `3:125:12` (local; moon present). acc2 TheBob `2:188:16` (VM).
@@ -35,8 +46,11 @@
    `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
 1b. **Expedition enemy formula** — behavior >503 pts still unmeasured (rounds 4+5 rolled 0 combats);
    next: fire more big arms. Table in `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6.
-1c. **Arsenal upgrades (Go model)** — catalog + drop rules in `docs/ARSENAL_LIVE_2026-10-06.md`; needs
-   the fleet-point threshold semantics confirmed live (doc 75k vs user's 5k/50k/250k tiers).
+1c. **Arsenal upgrades (Go model)** — catalog + drop rules in `docs/ARSENAL_LIVE_2026-10-06.md`.
+   **Resolved 2026-10-07:** the documented 75k fleet-point gate is NOT what delivers our finds — 4
+   upgrade drawings (Jet engine ×2, Light armor, Laser weapons) dropped from ~7.7k–10.9k-pt fleets,
+   ~10 % of combat wins, all from combat encounters. Remaining: activation/catalog rules + whether
+   drop tier scales with fleet points (needs medium/heavy drops to appear).
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
    defenders (currently only espionage via its reports endpoint).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
@@ -46,6 +60,12 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: fixed colony build deadlock (worker pending-unit cleared on pool-drain/deadline) and made
+  the send loop follow the live slot count (used all 9 acc2 slots); deployed to the VM and restarted
+  acc2 send+workers.
+- 2026-10-07: acc1 build+send restarted after a ~2 h outage (loops died with their parent shell);
+  send-loop S-inflation/over-fire race fixed (`GROWN` guard + stale-`levels` skip); cross-account
+  expedition/Arsenal snapshot — upgrades drop far below the doc's 75k gate (see `ARSENAL_LIVE`).
 - Parallel per-planet workers + session reuse; rate-aware unit batching; adaptive BB gating; `trade`
   command; slot auto-detect; (A)/(R) ghost-test fix — `6f24227`..`1de7ae0`.
 - Rolling farm live (build+send+harvest+bonus) on both accounts; BR-gate deadlock fixed — `eb79f39`.

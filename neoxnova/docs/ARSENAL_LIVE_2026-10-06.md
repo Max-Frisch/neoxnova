@@ -32,6 +32,8 @@ Armor/shield class lock = fleet **and** defense of that class (light/medium/heav
 1. **Expedition "Бесконечные дали" (Infinite distances)** = the normal panel (`cmd=1`):
    can find **any** upgrade. Gate: **minimum 75,000 fleet points** on the expedition
    (`1 point = 1,000,000 resources`, deuterium excluded ⇒ 75,000 pts ≈ 75 B metal+crystal).
+   *The manual states this, but live finds happen far below it — see the live
+   correction at the bottom of this file.*
    Pirates encounter chance 13.3 %, and 10 % chance to find an upgrade after winning.
 2. **Hostail sector** (`cmd=2`, `pve=`) — race-specific loot:
 
@@ -53,3 +55,29 @@ Armor/shield class lock = fleet **and** defense of that class (light/medium/heav
   cannot find upgrades — matrices remain valid only for the enemy-formula question.
 - Hostail (`cmd=2`) is exactly the ghost-fleet-bugging path (`docs/EXPEDITIONS_LIVE_2026-10-06.md` §4),
   and it is the only route to tier-targeted upgrades; a future test must weigh that bug.
+
+## Live correction (2026-10-07) — the 75,000-pt gate does **not** gate these finds
+
+The rolling farm has produced **4 upgrade drawings while flying fleets far under the
+"75,000 fleet points" the manual states** (fleet points ≈ `0.1244 · S`, where
+`pts = 0.058·S + 0.012·5S + 1.6·S/250`):
+
+| acc | fleet S | ≈ fleet points | upgrade found | source encounter |
+|---|---:|---:|---|---|
+| acc1 | 87 331 | ≈ 10 900 | **Jet engine** (light) | "ancient battlefield" |
+| acc2 | 61 764 | ≈ 7 700 | **Light armor** (light) | pirate trap (combat) |
+| acc2 | 61 764 | ≈ 7 700 | **Laser weapons** | Moa Tikarr duel (combat) |
+| acc2 | 61 764 | ≈ 7 700 | **Jet engine** (light) | pirate trap (combat) |
+
+- **Drop rate ≈ 10 % of combat wins** (4 upgrades / 36 wins, both accounts) — matches
+  the manual's "10 % after winning" figure.
+- Drops come from the **combat encounters** (pirate trap / Moa Tikarr / ancient
+  battlefield), not from a 75 000-pt exploration roll. At ~7.7k–10.9k pts we are at
+  ~1/7 of the alleged gate, so **75 000 must not be modelled as a hard requirement**;
+  the user's lower-tier (≈5k) intuition fits better. Still unknown: whether the tier
+  of the drop scales with fleet points.
+- All four finds are **entry-tier** (Jet engine ×2, Light armor, Laser weapons) — no
+  medium/heavy yet.
+
+Implication for backlog 1c: the *find* path is already exercised; the open work is the
+activation/catalog rules and the tier-vs-points relationship, not reaching 75k.

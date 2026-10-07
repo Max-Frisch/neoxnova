@@ -156,3 +156,36 @@ Small sample; still nothing like vanilla 1/9.
 
 Still open: does the ~0.7 ratio hold / shift at ≥5,000 pts (Arsenal gate), and
 what sets the small-fleet floor.
+
+## 7. Rolling-farm campaign snapshot (2026-10-07, both accounts)
+
+Two accounts run the fixed expedition set continuously (acc1 local, acc2 VM).
+Command: `httpbot.mjs expedition "207:S,203:5S,219:round(S/250),202:1,204:1,205:1,206:1"`.
+At the snapshot S = 87 331 (acc1, ≈10.9k pts) and S = 61 764 (acc2, ≈7.7k pts) —
+i.e. **well above the 500-pt arms in §6** and still climbing.
+
+| | acc1 | acc2 |
+|---|---:|---:|
+| outcome messages | 338 | 370 |
+| return / nothing | 165 / 9 | 182 / 12 |
+| ships found | 44 | 51 |
+| resources found | 38 | 36 |
+| dark matter found | 28 | 30 (incl. 13 "alien" DM) |
+| delay / fast-return | 18 / 6 | 18 / 6 |
+| combat | 19 | 16 |
+| **black hole** | **0** | **5** |
+
+Fight reports (`exp-report`): acc1 **14 W / 11 L / 10 D** (35), acc2 **22 W / 8 L / 7 D**
+(37); debris collected ≈ 46.5 B (acc1) and 51.3 B (acc2) metal+crystal.
+
+Black-hole rate now: acc1 0/338 & acc2 5/370 ⇒ combined **5 / 708 ≈ 0.7 %**. Still
+nothing like vanilla `mt_rand(1,9)` (11 %); keep the 1/9 figure out of any model.
+
+Arsenal: **4 upgrade drawings found** at these sub-75k fleet sizes — see
+`docs/ARSENAL_LIVE_2026-10-06.md` "Live correction (2026-10-07)". This is strong live
+evidence the documented 75 000-pt gate is not what delivers our finds.
+
+Open for the resolver (backlog 1b/1): the harvested reports are now large-fleet
+(~8k–11k pts) and can extend the §6 enemy-points-ratio table past 503 pts; the enemy
+template/composition still needs a controlled diff. Our set is fixed, so enemy size
+is the only variable left.
