@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# run-farm-build.sh - rolling farm build+pool loop (one account per host).
+# run-farm-build.sh - rolling farm PLANNER + POOLER (one account per host).
 #
 #   bash run-farm-build.sh acc1     # Windows (via run-farm.ps1)
 #   bash run-farm-build.sh acc2     # VM (tmux farm-acc2)
 #
-# Each cycle: refresh main levels -> farm-plan.mjs -> if phase=build, resolve each
-# site's goal, then bundle-pool each colony's BB/HC/BR to main (mission 4=deploy).
-# Self-logs to data/farm-build-<acc>.log. Tunables: FARM_BUILD_EVERY_S (300).
+# Ship building itself is done by one persistent per-planet worker
+# (`httpbot.mjs worker <cp> <plan>`; see run-farm-worker.sh) so all shipyards
+# build in parallel. This loop only: refreshes main levels -> farm-plan.mjs
+# (writes the per-planet goal files) -> pools each colony's ships to main.
+# Self-logs to data/farm-build-<acc>.log. Tunable: FARM_BUILD_EVERY_S (30).
 set -uo pipefail
 cd "$(dirname "$0")"
 
@@ -16,18 +18,7 @@ LOG="data/farm-build-${ACC}.log"
 exec >>"$LOG" 2>&1
 
 NODE=(node --max-old-space-size=96)
-# Moderate unit batch: resolve (`want = min(batch, target-have)`) refills the
-# shipyard queue as soon as each batch drains, so we only need it big enough to
-# cover one refill gap, not the whole goal. Override with EXPLORER_UNIT_BATCH.
-BATCH="${EXPLORER_UNIT_BATCH:-8000}"
-# Rate-aware batching: size each unit order to ~FARM_UNIT_SECONDS of the
-# shipyard's "Building: N per second" throughput and let resolve re-submit just
-# after it completes (EXPLORER_UNIT_SECONDS in httpbot). Per-planet resolve is
-# capped by FARM_RESOLVE_STEPS batches.
-UNIT_SECONDS="${FARM_UNIT_SECONDS:-90}"
-RESOLVE_STEPS="${FARM_RESOLVE_STEPS:-4}"
-# Loop interval is a floor only — resolve itself now paces to the build rate.
-EVERY="${FARM_BUILD_EVERY_S:-15}"
+EVERY="${FARM_BUILD_EVERY_S:-30}"
 CFG="plans/farm-sites.json"
 
 read_cfg() { CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC][process.argv[1]]))" "$1"; }
@@ -35,28 +26,20 @@ MAIN_CP="$(read_cfg mainCp)"
 MAIN_COORDS="$(read_cfg mainCoords)"
 
 mapfile -t SITES < <(CFG="$CFG" ACC="$ACC" node -e "JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC].sites.forEach(s=>console.log(s))")
-echo "[$(date +%T)] farm-build ${ACC} start: main=${MAIN_CP} ${MAIN_COORDS} sites=${SITES[*]}"
+echo "[$(date +%T)] farm-planner ${ACC} start: main=${MAIN_CP} ${MAIN_COORDS} sites=${SITES[*]}"
 
 while true; do
-  echo "[$(date +%T)] build cycle"
+  echo "[$(date +%T)] planner cycle"
   "${NODE[@]}" httpbot.mjs levels --cp "$MAIN_CP" --out "data/farm-main-${ACC}.json"
   "${NODE[@]}" farm-plan.mjs --acc "$ACC" plan
-
-  PHASE=$(ACC="$ACC" node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('data/farm-state-'+process.env.ACC+'.json','utf8')).phase)")
-  if [ "$PHASE" = "build" ]; then
-    EXPLORER_UNIT_BATCH="$BATCH" EXPLORER_UNIT_SECONDS="$UNIT_SECONDS" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-main.json" --cp "$MAIN_CP" --steps "$RESOLVE_STEPS"
-    for cp in "${SITES[@]}"; do
-      [ "$cp" = "$MAIN_CP" ] && continue
-      EXPLORER_UNIT_BATCH="$BATCH" EXPLORER_UNIT_SECONDS="$UNIT_SECONDS" "${NODE[@]}" httpbot.mjs resolve --goals "plans/farm-${ACC}-site.json" --cp "$cp" --steps "$RESOLVE_STEPS"
-      "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
-      POOL=$(ACC="$ACC" CP="$cp" node -e "const s=(JSON.parse(require('fs').readFileSync('data/farm-site-'+process.env.ACC+'-'+process.env.CP+'.json','utf8')).ships)||{};const b=+s['207']||0,h=+s['203']||0,r=+s['219']||0;if(b||h||r)process.stdout.write('207:'+b+',203:'+h+',219:'+r)")
-      if [ -n "$POOL" ]; then
-        "${NODE[@]}" httpbot.mjs fleet "$MAIN_COORDS" 4 "$POOL" 10 --cp "$cp"
-        echo "[$(date +%T)] pooled $cp -> $MAIN_COORDS : $POOL"
-      fi
-    done
-  else
-    echo "[$(date +%T)] phase=$PHASE; awaiting send"
-  fi
+  for cp in "${SITES[@]}"; do
+    [ "$cp" = "$MAIN_CP" ] && continue
+    "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
+    POOL=$(ACC="$ACC" CP="$cp" node -e "const s=(JSON.parse(require('fs').readFileSync('data/farm-site-'+process.env.ACC+'-'+process.env.CP+'.json','utf8')).ships)||{};const b=+s['207']||0,h=+s['203']||0,r=+s['219']||0;if(b||h||r)process.stdout.write('207:'+b+',203:'+h+',219:'+r)")
+    if [ -n "$POOL" ]; then
+      "${NODE[@]}" httpbot.mjs fleet "$MAIN_COORDS" 4 "$POOL" 10 --cp "$cp"
+      echo "[$(date +%T)] pooled $cp -> $MAIN_COORDS : $POOL"
+    fi
+  done
   sleep "$EVERY"
 done

@@ -48,6 +48,14 @@ function storeCookies(res) {
   }
 }
 
+// Persist the session cookie so restarted processes (and concurrent per-planet
+// workers for the same account) reuse one login instead of re-authenticating
+// every invocation. Auto-relogin happens only when a request proves we're out.
+let sessionReady = false;
+const SESSION_FILE = env.EXPLORER_SESSION_FILE || path.join(DATA_DIR, `session-${String(USER).replace(/[^\w.-]/g, '_')}.json`);
+function loadSession() { try { const j = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')); for (const [k, v] of Object.entries(j)) jar.set(k, v); } catch {} }
+function saveSession() { try { fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true }); fs.writeFileSync(SESSION_FILE, JSON.stringify(Object.fromEntries(jar))); } catch {} }
+
 async function raw(url, opts = {}) {
   const headers = { 'User-Agent': UA, 'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8' };
   if (jar.size) headers.Cookie = cookieHeader();
@@ -72,7 +80,17 @@ async function getUrl(url, depth = 0) {
 const pageUrl = (q) => `${BASE}/game/game.php?${q}`;
 const getPage = (q) => getUrl(pageUrl(q));
 
-async function login() {
+async function login(force = false) {
+  if (sessionReady && !force) return;
+  // Reuse a persisted session when possible (no login POST).
+  if (!force && jar.size === 0) loadSession();
+  if (!force && jar.size) {
+    try {
+      const g = await getUrl(`${BASE}/game.php`);
+      const html = await g.text();
+      if (/game\.php/.test(g.url) || /page=overview|current_metal/.test(html)) { sessionReady = true; return html; }
+    } catch {}
+  }
   await getUrl(`${BASE}/`);
   await delay();
   const url = `${BASE}/index.php?page=login&mode=send&username=${encodeURIComponent(USER)}&password=${encodeURIComponent(PASS)}&remember=1`;
@@ -84,6 +102,8 @@ async function login() {
   const g = await getUrl(`${BASE}/game.php`);
   const html = await g.text();
   if (!/game\.php/.test(g.url) && !/page=overview|current_metal/.test(html)) throw new Error('not logged in');
+  sessionReady = true;
+  saveSession();
   return html;
 }
 
@@ -117,6 +137,8 @@ function unitsFromHtml(html) {
 async function scope(query) {
   const res = await getPage(query);
   const html = await res.text();
+  // A logged-out page has no build boxes; flag it so the worker re-authenticates.
+  if (!/class="build_box/.test(html) && !/Lack of energy|Free energy/.test(html)) { sessionReady = false; throw new Error('not logged in'); }
   const items = parseBuildPage(html);
   const levels = {}, nameToCode = {};
   for (const it of items) { levels[it.code] = it.level; nameToCode[it.name] = it.code; }
@@ -484,6 +506,28 @@ async function cmdResolve(goalsPath, steps, cpArg) {
     stalls = 0;
   }
   console.log('[+] resolve done');
+}
+
+// Persistent per-planet worker: keeps ONE session and loops resolve for a single
+// planet, so several planets build in parallel (the server allows concurrent
+// sessions). Re-logs only when a request proves the session died.
+// Usage: httpbot.mjs worker <cp> <goals.json> [--interval sec]
+async function cmdWorker(cp, goalsPath, intervalSec) {
+  if (!cp || !goalsPath) { console.error('usage: httpbot.mjs worker <cp> <goals.json> [--interval sec]'); process.exit(2); }
+  const interval = Math.max(2, Number(intervalSec || env.EXPLORER_WORKER_INTERVAL_S || 10)) * 1000;
+  console.log(`[worker] start cp=${cp} goals=${goalsPath} interval=${interval / 1000}s`);
+  for (;;) {
+    try {
+      await cmdResolve(goalsPath, Number(env.EXPLORER_WORKER_STEPS || 1000000), cp);
+    } catch (e) {
+      console.error(`[worker cp=${cp}] ${e.message}; relogin + retry in 10s`);
+      sessionReady = false;
+      try { await login(true); } catch (e2) { console.error(`[worker cp=${cp}] relogin failed: ${e2.message}`); }
+      await sleep(10000);
+      continue;
+    }
+    await sleep(interval);
+  }
 }
 
 // Read back the plan's final targets and confirm they are met. Exit 0 when every
@@ -1091,6 +1135,7 @@ try {
   else if (cmd === 'expedition') await cmdExpedition(process.argv[3], process.argv[4], process.argv[5], process.argv[6], flag('--pve'), flag('--cp'));
   else if (cmd === 'exp-state') await cmdExpState();
   else if (cmd === 'trade') await cmdTrade(process.argv[3], process.argv[4], flag('--cp'));
+  else if (cmd === 'worker') await cmdWorker(process.argv[3], process.argv[4], flag('--interval'));
   else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'exp-report') await cmdExpReports();
   else if (cmd === 'sim') await cmdSim(process.argv[3]);
@@ -1107,5 +1152,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|trade|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }
