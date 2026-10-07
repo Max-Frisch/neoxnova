@@ -71,12 +71,24 @@
    `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
    maps missions to live labels. Colours are provisional pending a live incoming sample.
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
-4. **Moons** — acc1 `3:125:12` has a moon (live; <10 000 km). Rules: ≥10 000 = indestructible; else
-   destructible by Deathstar. Scope: moonbase, moon buildings, creation (debris) + destruction.
+4. **Moons** — PARTIAL 2026-10-07. Live: acc1 moon `cp=1725` @ `3:125:12`, diameter 8,426 km,
+   created by combat at 20% (2500 Battle Recyclers; cap needs only ~2M debris). Formulas locked in
+   `game/moon.go` (`MoonDiameterKm` = standard, matches 8,426; `MoonDestruction` = `(100-√S)·√D`,
+   provisional; `MoonFields`), creation chance already `combat.go:MoonChance`. Details + open
+   questions: `docs/MOONS.md`. REMAINING: moon building catalog (41/42/43 + which planet
+   buildings are moon-legal), area of fields (server: 0 + `Moon base` grants fields, not classic
+   `(d/1000)²`), creation on attack resolve, `DESTROY_MOON` (Battle Fortress 214) with the
+   ≥10,000 km immunity, Jumpgate (needs a 2nd moon), Phalanx Sensor, and moon views/engine wiring.
+   **Need:** a live capture of `page=buildings&cp=1725` and a 2nd moon for the jumpgate.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-07: **moon formulas (item 4, partial)** — `internal/game/moon.go` +
+  `docs/MOONS.md`: standard creation chance (`combat.go:MoonChance`), diameter
+  `floor(√(x+3p)·1000)` (verified 8,426 km at x=11/p=20), classic fields, and
+  destruction `(100-√S)·√D` with the ≥10,000 km immunity. Captured the acc1 moon
+  (`cp=1725`, 8,426 km) and the server's field/building rules + open questions.
 - 2026-10-07: **incoming-fleet view (item 2)** — `FleetStore.IncomingFleets` (owner-checked,
   OUTBOUND fleets targeting a celestial), `models.IncomingFleet`, `game.MissionDisplayFor`
   (live labels + colour + hostile flag), handler + route
@@ -125,7 +137,7 @@
 `docs/ROLLING_FARM.md` · `docs/EXPLORER.md` · `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` ·
 `docs/BALANCE_DATA_NEEDED.md` · `docs/COMBAT_FINDINGS.md` / `COMBAT_MODEL.md` / `COMBAT_TEST_PLAN.md` ·
 `docs/ESPIONAGE_LIVE_2026-10-06.md` · `docs/EXPEDITIONS_LIVE_2026-10-06.md` ·
-`docs/ARSENAL_LIVE_2026-10-06.md` · `docs/AUTO_BUILD_DESIGN.md`.
+`docs/ARSENAL_LIVE_2026-10-06.md` · `docs/AUTO_BUILD_DESIGN.md` · `docs/MOONS.md`.
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
