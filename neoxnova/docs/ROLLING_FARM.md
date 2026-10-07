@@ -96,6 +96,11 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 
 ## Daemons
 
+> **2026-10-07 update — read `BACKLOG.md` "Live state" first.** Ship building is now **one persistent
+> `httpbot worker` per planet** (`run-farm-worker.sh <acc> <cp> main|site`); `run-farm-build.sh` is a
+> **planner + pooler only** (no resolve). Mines/conveyors are manual. The sections below describe the
+> older single-daemon design and are kept for history.
+
 ### Build — `run-farm-build.sh <acc>` (tight loop, ~60 s)
 1. `node httpbot.mjs levels --cp <main> --out data/farm-main-<acc>.json`.
 2. `node farm-plan.mjs --acc <acc>` → recompute S, write
