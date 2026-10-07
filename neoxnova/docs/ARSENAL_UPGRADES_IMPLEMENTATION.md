@@ -185,3 +185,35 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 - Failure roll result shape (does the item get consumed on failure? manual implies the value
   drops — verify whether the scroll is lost).
 - Anti-cheat / rate limits on activation and market posts.
+
+## 6. NEXT SESSION — apply upgrade bonuses to combat/production (owner-confirmed)
+
+Owner clarified the effect semantics (2026-10-07): each upgrade is an **additive
+percentage bonus**, scoped by unit **class**. E.g. "Laser weapons +0.75" adds
++0.75 % damage to every ship/defense whose card declares a **laser** weapon;
+likewise ion/plasma/gravitational weapons (types 1–4), light/medium/heavy **armor**
+hull (5–7), light/medium/heavy **shields** (8–10), light/medium/heavy **engines**
+speed (11–13), conveyors (14–16) and resource production (17–19). It is additive
+to the existing total: combined multiplier = `1 + (tech + academy + upgrade)/100`
+(i.e. add the upgrade percent into the same sum as the tech bonus, don't compound).
+
+**Blocker / source of truth = the live unit cards.** The repo has base
+attack/shield/hull (`internal/game/unit_stats.go`, from `niburus_combat.json`) but
+**no weapon/armor/shield/engine class per unit**. The card dialog is
+`game.php?page=information&id=<code>` (`Dialog.info(ID)`, see `_base.js`); the
+HARs already contain requests for ids `202..228` and `401..419` (techs 1xx too).
+Next session:
+1. Add `httpbot.mjs card <code>` (or a HAR/`page=information` parser) to fetch the
+   info card for every ship (202–228) and defense (401–419) and extract the
+   **weapon type / armour class / shield class / engine class** fields.
+2. Persist the mapping (new `internal/game/unit_classes.go`, mirroring
+   `unit_stats.go`) — keep it data-driven, not hand-guessed.
+3. Wire into combat: `buildSide` in `internal/game/combat.go` — pass the owning
+   account's `account_upgrades` levels, add the class bonus into the same additive
+   percent as `TechBonus` before `DerivedStat`.
+4. Production: `RecomputeProduction` in `internal/game/economy.go` gets the
+   metal/crystal/deuterium production upgrades (17–19); conveyors (14–16) feed the
+   conveyor buildings (71/72/73). Engine upgrades affect fleet speed (note: fleet
+   speed is currently hardcoded `15.0` in `internal/game/game_math.go`).
+5. Loader: the engine/attack resolver must read the owner's `account_upgrades`
+   (join `users`) and pass them into `Combatant`.

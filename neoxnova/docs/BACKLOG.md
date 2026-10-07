@@ -43,8 +43,11 @@
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
    ~10%-of-combat-win drop into the expedition resolver (item 1) via
    `game.DropPool`/`AddUpgradeItems`; (b) confirm tier gates the type
-   pool vs the drop chance; (c) apply bonuses to production/combat; (d) `greid` keys for upgrades other
-   than `combustion`; (e) `httpbot arsenal|market|activate|sell` tooling.
+   pool vs the drop chance; (c) **apply bonuses to production/combat** — NEXT SESSION: pull the
+   per-unit weapon/armor/shield/engine classes from the live cards
+   (`game.php?page=information&id=<code>`, ids 202–228/401–419) into `internal/game/unit_classes.go`,
+   then add them additively into combat/economy — see `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §6;
+   (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
    defenders (currently only espionage).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
