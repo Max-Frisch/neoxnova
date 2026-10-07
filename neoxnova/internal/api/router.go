@@ -44,8 +44,10 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("GET /api/v1/arsenal", h.RequireAuth(h.ArsenalList))
 	mux.HandleFunc("POST /api/v1/arsenal/activate", h.RequireAuth(h.ArsenalActivate))
 	mux.HandleFunc("GET /api/v1/market", h.RequireAuth(h.MarketLots))
+	mux.HandleFunc("GET /api/v1/market/mine", h.RequireAuth(h.MarketMyLots))
 	mux.HandleFunc("POST /api/v1/market/list", h.RequireAuth(h.MarketListLot))
 	mux.HandleFunc("POST /api/v1/market/buy", h.RequireAuth(h.MarketBuyLot))
+	mux.HandleFunc("POST /api/v1/market/remove", h.RequireAuth(h.MarketRemoveLot))
 	mux.HandleFunc("GET /dashboard/{id}", h.RequireAuth(h.Dashboard))
 
 	secure := os.Getenv("APP_ENV") != "development"

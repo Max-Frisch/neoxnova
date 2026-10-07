@@ -80,6 +80,46 @@ func (h *Handler) MarketLots(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"lots": lots})
 }
 
+// MarketMyLots lists the caller's own live lots (GET /api/v1/market/mine).
+func (h *Handler) MarketMyLots(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	lots, err := h.Arsenal.ListOwnLots(r.Context(), userID)
+	if err != nil {
+		log.Printf("[ERROR] Failed to list own market lots for user %d: %v", userID, err)
+		writeError(w, http.StatusInternalServerError, "Failed to load auctions")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"lots": lots})
+}
+
+// MarketRemoveLot cancels one of the caller's own listings and reclaims the
+// drawings (POST /api/v1/market/remove).
+func (h *Handler) MarketRemoveLot(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	var req models.MarketBuyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.LotID <= 0 {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	switch err := h.Arsenal.RemoveLot(r.Context(), userID, req.LotID); {
+	case err == nil:
+		writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "Lot not found")
+	default:
+		log.Printf("[ERROR] Failed to remove lot %d for user %d: %v", req.LotID, userID, err)
+		writeError(w, http.StatusInternalServerError, "Failed to remove lot")
+	}
+}
+
 // MarketListLot lists drawings on the market (POST /api/v1/market/list).
 func (h *Handler) MarketListLot(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserID(r.Context())

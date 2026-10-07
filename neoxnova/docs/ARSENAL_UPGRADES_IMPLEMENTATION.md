@@ -83,6 +83,14 @@ DM / 50 000 Antimatter**; a listed lot stays **72 h** then returns.
 | `painfo(id)` | `game.php?page=market&group=Information&id=<id>` | 502×500 |
 | `PlanetLotRate(id)` | `game.php?page=market&group=planetlotrate&id=<id>` | 502×122 |
 
+### 1.5 Your Auctions (own lots) — market "Your Auctions" tab
+Confirmed from `docs/screenshots_arsenal/` (2026-10-07). The market has two tabs:
+**Market** (all live lots) and **Your Auctions** (`Current Auctions` table:
+`ID | Upgrade | Amount | Price | Remove`). "Remove" cancels the caller's own
+listing before the 72 h expiry and returns the drawings. The catalog in §2 was
+re-verified against `screenshots_arsenal/` — every name, order and bracket value
+matches exactly.
+
 ---
 
 ## 2. Upgrade catalog (live, `page=arsenal`, per-level value = the `(+Y)` bracket)
@@ -158,6 +166,7 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
    - `GET /market` → lots (`id, upgrade, amount, totalPriceAtm, buy`).
    - `POST /market {mode:BuyUpgrade, id}` → buy.
    - `POST /market {mode:sellUpgrades, type, amount, rate}` → list a lot.
+   - `GET /market/mine` + `POST /market/remove` → "Your Auctions" (cancel own lot).
    - `GET /market/lots/:id` / `planetlotrate` if needed.
 5. **Migrations** — one numbered SQL file; idempotent; add to the `migrate` target.
 

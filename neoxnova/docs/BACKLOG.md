@@ -37,8 +37,10 @@
 1b. **Expedition enemy formula** — behavior >503 pts still unmeasured (rounds 4+5 rolled 0 combats);
    next: fire more big arms. Table in `docs/EXPEDITIONS_LIVE_2026-10-06.md` §6.
 1c. **Arsenal upgrades (Go model)** — DONE 2026-10-07 (catalog, tiers 5k/50k/250k, activation rules,
-   store, market, API, lot expiry, tests). REMAINING: (a) wire the ~10%-of-combat-win drop into the
-   expedition resolver (item 1) via `game.DropPool`/`AddUpgradeItems`; (b) confirm tier gates the type
+   store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
+   `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
+   ~10%-of-combat-win drop into the expedition resolver (item 1) via
+   `game.DropPool`/`AddUpgradeItems`; (b) confirm tier gates the type
    pool vs the drop chance; (c) apply bonuses to production/combat; (d) `greid` keys for upgrades other
    than `combustion`; (e) `httpbot arsenal|market|activate|sell` tooling.
 2. **Incoming-fleet view** (transport/attack/espionage) — mission text+colour per planet for online
@@ -51,8 +53,9 @@
 
 ## Done (newest first)
 - 2026-10-07: **Arsenal/Market Go model** — `internal/game/arsenal.go` (19-upgrade catalog, tiers,
-  activation), migration `0011_arsenal.sql`, `store.ArsenalStore` (activate/list/buy/expire),
-  `/api/v1/arsenal` + `/api/v1/market` handlers, engine lot expiry, unit + DB integration tests.
+  activation), migration `0011_arsenal.sql`, `store.ArsenalStore` (activate/list/buy/remove/expire),
+  `/api/v1/arsenal` + `/api/v1/market` handlers (incl. `market/mine`+`market/remove`), engine lot
+  expiry, unit + DB integration tests; catalog confirmed against `docs/screenshots_arsenal/`.
 - 2026-10-07: wrote `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md`; acc2 expanded to 6 sites; acc1 to 7.
 - 2026-10-07: S growth reworked to build-capacity-limited (whole fleet, monotonic ratchet, headroom).
 - 2026-10-07: fixed colony build deadlock; send loop follows the live slot count; deployed to VM.

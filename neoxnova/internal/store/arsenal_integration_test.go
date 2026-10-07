@@ -156,6 +156,32 @@ func TestArsenalLifecycle(t *testing.T) {
 	if _, err := as.BuyLot(ctx, buyer, own.ID); !errors.Is(err, ErrCannotBuyOwnLot) {
 		t.Fatalf("buy own = %v, want ErrCannotBuyOwnLot", err)
 	}
+
+	// The seller's "Your Auctions" tab lists only their own lots; cancelling one
+	// reclaims the drawings, and another account cannot cancel it.
+	ownLots, err := as.ListOwnLots(ctx, buyer)
+	if err != nil {
+		t.Fatalf("list own lots: %v", err)
+	}
+	var hasOwn bool
+	for _, l := range ownLots {
+		if l.ID == own.ID {
+			hasOwn = true
+		}
+	}
+	if !hasOwn {
+		t.Fatalf("own lot %d missing from Your Auctions", own.ID)
+	}
+	if err := as.RemoveLot(ctx, seller, own.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign remove = %v, want ErrNotFound", err)
+	}
+	if err := as.RemoveLot(ctx, buyer, own.ID); err != nil {
+		t.Fatalf("remove own lot: %v", err)
+	}
+	if q := itemQty(t, db, buyer, 1); q != 2 {
+		t.Fatalf("drawings after remove = %d, want 2", q)
+	}
+
 	grant(seller, 1, 1)
 	expensive, err := as.ListUpgrade(ctx, seller, 1, 1, 100000)
 	if err != nil {
@@ -189,4 +215,18 @@ func TestArsenalLifecycle(t *testing.T) {
 	if _, err := as.ListUpgrade(ctx, seller, 1, 25, 100); !errors.Is(err, ErrInsufficientUpgrades) {
 		t.Fatalf("oversell = %v, want ErrInsufficientUpgrades", err)
 	}
+}
+
+// itemQty reads how many un-activated drawings an account holds for one upgrade.
+func itemQty(t *testing.T, db *sql.DB, accountID int64, code int) int {
+	t.Helper()
+	var qty int
+	err := db.QueryRow(`SELECT qty FROM upgrade_items WHERE account_id = $1 AND upgrade_code = $2`, accountID, code).Scan(&qty)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0
+	}
+	if err != nil {
+		t.Fatalf("read item qty: %v", err)
+	}
+	return qty
 }

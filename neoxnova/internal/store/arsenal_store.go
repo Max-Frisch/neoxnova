@@ -191,12 +191,26 @@ func (s *ArsenalStore) ListUpgrade(ctx context.Context, accountID int64, code, a
 
 // ListMarket returns every live (unexpired) lot, cheapest first.
 func (s *ArsenalStore) ListMarket(ctx context.Context) ([]models.MarketLot, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	return s.queryLots(ctx, `
 		SELECT id, upgrade_code, amount, price_atm, expires_at
 		FROM market_lots
 		WHERE expires_at > NOW()
 		ORDER BY price_atm ASC, id ASC
 	`)
+}
+
+// ListOwnLots returns an account's live lots (the "Your Auctions" tab).
+func (s *ArsenalStore) ListOwnLots(ctx context.Context, accountID int64) ([]models.MarketLot, error) {
+	return s.queryLots(ctx, `
+		SELECT id, upgrade_code, amount, price_atm, expires_at
+		FROM market_lots
+		WHERE seller_account_id = $1 AND expires_at > NOW()
+		ORDER BY id ASC
+	`, accountID)
+}
+
+func (s *ArsenalStore) queryLots(ctx context.Context, query string, args ...any) ([]models.MarketLot, error) {
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -288,6 +302,38 @@ func (s *ArsenalStore) BuyLot(ctx context.Context, buyerID, lotID int64) (models
 		lot.Upgrade = def.Name
 	}
 	return lot, nil
+}
+
+// RemoveLot cancels one of the caller's own live lots and returns its drawings.
+// Lots owned by anyone else are reported as not found (ownership concealed).
+func (s *ArsenalStore) RemoveLot(ctx context.Context, accountID, lotID int64) error {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var sellerID int64
+	var code, amount int
+	err = tx.QueryRowContext(ctx, `
+		SELECT seller_account_id, upgrade_code, amount
+		FROM market_lots WHERE id = $1 FOR UPDATE
+	`, lotID).Scan(&sellerID, &code, &amount)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return err
+	}
+	if sellerID != accountID {
+		return ErrNotFound
+	}
+	if err := addUpgradeItemsTx(ctx, tx, sellerID, code, amount); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM market_lots WHERE id = $1`, lotID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // ExpireLot returns an expired lot's drawings to the seller and deletes it. It
