@@ -41,7 +41,7 @@ func TestIncomingFleets(t *testing.T) {
 		var id int64
 		if err := db.QueryRowContext(ctx, `
 			INSERT INTO users (universe_id, username, email, password_hash)
-			VALUES ($1, $2, $2 || '@example.com', 'x')
+			VALUES ($1, $2::text, $2::text || '@example.com', 'x')
 			ON CONFLICT (universe_id, username) DO UPDATE SET email = EXCLUDED.email
 			RETURNING id
 		`, universeID, name).Scan(&id); err != nil {
@@ -78,7 +78,7 @@ func TestIncomingFleets(t *testing.T) {
 				target_galaxy, target_system, target_position, target_type,
 				start_time, arrival_time, return_time
 			) VALUES ($1,$2,$3,'OUTBOUND',$4,$5, 1,7,6,'PLANET', $6,$7,$8,'PLANET',
-				NOW() - interval '1 min', $9, $9 + interval '1 hour')
+				NOW() - interval '1 min', $9::timestamptz, $9::timestamptz + interval '1 hour')
 		`, universeID, owner, string(mission), origin, targetID, tG, tS, tP, arrival); err != nil {
 			t.Fatalf("insert %s fleet: %v", mission, err)
 		}

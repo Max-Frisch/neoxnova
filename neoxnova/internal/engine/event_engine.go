@@ -313,8 +313,19 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 		}
 
 	case "HOLDING":
+		// An expedition resolves its outcome at the end of the deep-space hold;
+		// every other holding fleet simply turns around.
+		if mission == "EXPEDITION" {
+			if err := e.resolveExpedition(ctx, tx, id, userID, holdingEndTime); err != nil {
+				log.Printf("[ERROR] Failed to resolve EXPEDITION for fleet #%d: %v", id, err)
+				return
+			}
+			break
+		}
+		// Clear holding_end_time so the timeline check (holding_end <= return_time)
+		// stays valid once arrival_time is moved onto the return leg.
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1
+			UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time, holding_end_time = NULL WHERE id = $1
 		`, id); err != nil {
 			log.Printf("[ERROR] Failed to transition fleet #%d from HOLDING to RETURNING: %v", id, err)
 			return
@@ -758,6 +769,171 @@ func (e *EventEngine) resolveRecycle(ctx context.Context, tx *sql.Tx, fleetID, t
 		WHERE id = $3
 	`, lootMetal, lootCrystal, fleetID)
 	return err
+}
+
+// rollExpedition is the pure outcome resolver, overridable in tests so the
+// persistence layer can be exercised deterministically.
+var rollExpedition = game.RollExpedition
+
+// resolveExpedition rolls the deep-space outcome for a fleet that just finished
+// its hold and persists it. The roll itself is pure (game.RollExpedition): the
+// mirrored enemy plus its single rolled W/S/A is resolved by the combat engine;
+// loot, recovered ships, Arsenal draws, return-time shifts and black holes are
+// applied to the fleet. Idempotency comes from the fleet row lock — this only
+// runs while the fleet is HOLDING and transitions it to RETURNING/RESOLVED.
+func (e *EventEngine) resolveExpedition(ctx context.Context, tx *sql.Tx, fleetID, userID int64, holdingEnd sql.NullTime) error {
+	var (
+		universeID                 string
+		targetGalaxy, targetSystem int
+		targetPosition             int
+		returnTime                 time.Time
+	)
+	if err := tx.QueryRowContext(ctx, `
+		SELECT universe_id::text, target_galaxy, target_system, target_position, return_time
+		FROM fleets WHERE id = $1
+	`, fleetID).Scan(&universeID, &targetGalaxy, &targetSystem, &targetPosition, &returnTime); err != nil {
+		return err
+	}
+
+	ships, err := loadFleetShips(ctx, tx, fleetID)
+	if err != nil {
+		return err
+	}
+	techs, err := loadCombatTechs(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+	academy, err := loadAcademy(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+	upgrades, err := store.LoadAccountUpgrades(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+
+	var holdUnix int64
+	if holdingEnd.Valid {
+		holdUnix = holdingEnd.Time.Unix()
+	}
+	seed := int64(fleetID)*1000003 ^ holdUnix
+	atk := game.Combatant{Units: ships, Techs: techs, Academy: academy, Upgrades: upgrades}
+	res := rollExpedition(atk, seed)
+
+	if res.UpgradeCode > 0 {
+		if err := store.AddUpgradeItems(ctx, tx, userID, res.UpgradeCode, 1); err != nil {
+			return err
+		}
+	}
+	if res.DarkMatter > 0 {
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET dark_matter = dark_matter + $1 WHERE id = $2`, res.DarkMatter, userID); err != nil {
+			return err
+		}
+	}
+
+	switch res.Outcome {
+	case game.ExpeditionBlackHole:
+		if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_ships WHERE fleet_id = $1`, fleetID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE fleets SET phase = 'RESOLVED', cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
+			WHERE id = $1
+		`, fleetID); err != nil {
+			return err
+		}
+		log.Printf("[EXPEDITION] Fleet #%d lost in a black hole", fleetID)
+		return nil
+
+	case game.ExpeditionCombat:
+		return e.applyExpeditionCombat(ctx, tx, fleetID, userID, res, universeID, targetGalaxy, targetSystem, targetPosition)
+	}
+
+	// Non-combat outcome: recovered ships ride home, loot fills the hold, and the
+	// fleet returns (possibly early or late).
+	for code, n := range res.Ships {
+		if n <= 0 {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO fleet_ships (fleet_id, ship_code, count) VALUES ($1, $2, $3)
+			ON CONFLICT (fleet_id, ship_code) DO UPDATE SET count = fleet_ships.count + EXCLUDED.count
+		`, fleetID, code, n); err != nil {
+			return err
+		}
+	}
+	eta := returnTime.Add(time.Duration(res.ReturnAdjustSecs) * time.Second)
+	if !eta.After(time.Now()) {
+		eta = time.Now().Add(time.Second)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE fleets
+		SET phase = 'RETURNING', arrival_time = $2, return_time = $2, holding_end_time = NULL,
+		    cargo_metal = $3, cargo_crystal = $4, cargo_deuterium = $5
+		WHERE id = $1
+	`, fleetID, eta, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium); err != nil {
+		return err
+	}
+	log.Printf("[EXPEDITION] Fleet #%d outcome=%s loot(M%d C%d D%d) ships=%d dm=%d drop=%d adjust=%ds",
+		fleetID, res.Outcome, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
+		totalCount(res.Ships), res.DarkMatter, res.UpgradeCode, res.ReturnAdjustSecs)
+	return nil
+}
+
+// applyExpeditionCombat persists the outcome of an expedition fight: the battle
+// report, the attacker's losses, the deep-space debris field and the return /
+// destruction of the fleet. The Arsenal draw (if any) was already credited.
+func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fleetID, userID int64, res game.ExpeditionResult, universeID string, galaxy, system, position int) error {
+	battle := res.Combat
+	if reportJSON, mErr := json.Marshal(battle); mErr == nil {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO combat_reports (
+				universe_id, fleet_id, attacker_id, defender_id, target_id,
+				galaxy, system, position, result, rounds,
+				debris_metal, debris_crystal, moon_chance, report
+			) VALUES ($1,$2,$3,NULL,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		`, universeID, fleetID, userID, galaxy, system, position,
+			battle.Winner, battle.Rounds, battle.DebrisMetal, battle.DebrisCrystal, battle.MoonChance, reportJSON); err != nil {
+			return err
+		}
+	} else {
+		log.Printf("[WARN] Failed to marshal expedition combat for fleet #%d: %v", fleetID, mErr)
+	}
+
+	if err := overwriteFleetShips(ctx, tx, fleetID, battle.Attacker.Remaining); err != nil {
+		return err
+	}
+
+	if battle.DebrisMetal > 0 || battle.DebrisCrystal > 0 {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO celestial_objects (universe_id, name, object_type, galaxy, system, position, metal, crystal)
+			VALUES ($1, 'Debris Field', 'DEBRIS_FIELD', $2, $3, $4, $5, $6)
+			ON CONFLICT (universe_id, galaxy, system, position, object_type)
+			DO UPDATE SET metal = celestial_objects.metal + EXCLUDED.metal,
+			              crystal = celestial_objects.crystal + EXCLUDED.crystal
+		`, universeID, galaxy, system, position, battle.DebrisMetal, battle.DebrisCrystal); err != nil {
+			return err
+		}
+	}
+
+	survivors := totalCount(battle.Attacker.Remaining)
+	if survivors == 0 {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE fleets SET phase = 'RESOLVED', cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
+			WHERE id = $1
+		`, fleetID); err != nil {
+			return err
+		}
+	} else if _, err := tx.ExecContext(ctx, `
+		UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time, holding_end_time = NULL,
+		       cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
+		WHERE id = $1
+	`, fleetID); err != nil {
+		return err
+	}
+	log.Printf("[EXPEDITION] Fleet #%d fought %s (%d rounds, winner=%s) survivors=%d drop=%d",
+		fleetID, res.NPC, battle.Rounds, battle.Winner, survivors, res.UpgradeCode)
+	return nil
 }
 
 // espionageIntel is the JSON payload stored on an espionage report. Niburu

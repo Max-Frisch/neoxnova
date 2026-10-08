@@ -77,6 +77,11 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 			return DispatchResult{}, ErrNoTarget
 		}
 	}
+	// An expedition resolves its outcome at the end of a hold window; without one
+	// the fleet would sit in deep space forever.
+	if req.Mission == models.MissionExpedition && req.HoldingHours <= 0 {
+		return DispatchResult{}, ErrExpeditionHoldRequired
+	}
 
 	// Noob protection: attacks are only allowed within a ~4:1 points ratio in
 	// either direction (learned from the reference server).

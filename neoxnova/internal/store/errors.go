@@ -18,6 +18,7 @@ var (
 	ErrInvalidQuantity        = errors.New("invalid quantity")
 	ErrNoobProtection         = errors.New("target is protected by the noob-protection points ratio")
 	ErrNoTarget               = errors.New("mission requires an existing target celestial")
+	ErrExpeditionHoldRequired = errors.New("expedition requires a holding time (1-24 hours)")
 	ErrUserExists             = errors.New("username or email already registered")
 	ErrInvalidCredentials     = errors.New("invalid username or password")
 	ErrCannotAbandonHome      = errors.New("the homeworld cannot be abandoned")

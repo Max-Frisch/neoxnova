@@ -299,3 +299,27 @@ whether that is luck or a size/speed/account effect is unresolved.
   particle-storm / life-form / disconnect flavour.
 - 1 genuine arsenal drop: *"drawing for an upgrade Jet engine"* (Oct 7 05:07),
   again below the documented 75,000-pt gate.
+
+## 9. Go resolver (implemented 2026-10-08)
+
+`internal/game/expedition.go:RollExpedition` is the pure model: a weighted
+outcome mix (PROVISIONAL — fitted to §2/§8), cargo-capped resource finds, ship
+recovery, dark matter, delay/fast ETA shifts, black holes (2 %) and the §8 enemy
+(mirror × U(0.60..0.90) + template, ONE rolled W/S/A carried on
+`Combatant.FlatBonusPct`; Aliens have the ~2.2× tail that wipes fleets).
+
+`internal/engine/event_engine.go:resolveExpedition` runs at the
+HOLDING→RETURNING transition and persists the outcome: a `combat_reports` row +
+attacker losses + deep-space debris for fights, the Arsenal draw
+(`store.AddUpgradeItems`, ~10 % on a win / ship find), dark-matter credit, the
+cargo manifest and early/late return, or `RESOLVED` on a wipe / black hole.
+Expeditions are dispatched through the normal `EXPEDITION` mission (a holding
+time is required); the buggy live `cmd=2` path is not needed server-side.
+
+Tests: `internal/game/expedition_test.go` (pure; determinism, mix, enemy
+mirror/ranges, loot cap, drop rate) and
+`internal/engine/expedition_integration_test.go` (DB; forced outcomes for
+resources/combat/black-hole persistence).
+
+Remaining: surface non-combat outcomes as messages/reports and calibrate the
+outcome mix from a larger harvest.

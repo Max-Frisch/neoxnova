@@ -59,8 +59,13 @@
 
 ## Open backlog (ordered; one item per session)
 0. **EXPAND BUILD SITES — DONE both** (acc1 7, acc2 6).
-1. **Expedition resolver (Go)** — model `MissionExpedition` in `internal/engine`: outcome roll, loot,
-   enemy. Enemy formula now known (item 1b); remaining blocker: `cmd=2` leaks ghost fleets (avoid).
+1. **Expedition resolver (Go)** — DONE 2026-10-08. `game/expedition.go`: pure `RollExpedition`
+   (weighted outcome mix, cargo-capped loot, ship finds, dark matter, delay/fast ETA shift, black
+   hole) using the item 1b enemy (mirror×0.6–0.9 + template, single rolled W/S/A via
+   `Combatant.FlatBonusPct`); resolved by the combat engine. `engine.resolveExpedition` persists it
+   at the HOLDING→RETURNING transition: combat reports, losses, deep-space debris, dark-matter
+   credit, Arsenal draw, `RESOLVED` on a wipe/black hole. `cmd=2` is never needed server-side.
+   REMAINING: outcome-message/API surfacing + live calibration of the outcome mix (PROVISIONAL).
    Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
     per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
@@ -72,7 +77,9 @@
    store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
    ~10%-of-combat-win drop into the expedition resolver (item 1) via
-   `game.DropPool`/`RollDrop`/`AddUpgradeItems`; (b) tier gates the type pool ONLY — DONE
+   `game.DropPool`/`RollDrop`/`AddUpgradeItems` — **DONE 2026-10-08** (`rollExpeditionDrop`
+   called from `RollExpedition` on a win + a ship find, credited via `store.AddUpgradeItems`);
+   (b) tier gates the type pool ONLY — DONE
    2026-10-07: exact light/medium/heavy sets in `arsenal.go` (`RollDrop` added; chance stays
    flat ~10%). ~~confirm tier gates the type pool vs the drop chance~~;
    (c) **apply bonuses to production/combat** — DONE 2026-10-07:
@@ -122,6 +129,14 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **expedition resolver (item 1) — DONE** — pure `game/expedition.go` (`RollExpedition`,
+  `FleetPoints`, enemy mirror+template+rolled W/S/A) + `engine.resolveExpedition` at the
+  HOLDING→RETURNING transition (loot, ship finds, DM credit, delay/fast ETA, combat report, losses,
+  deep-space debris, Arsenal draw, black hole) + `rollExpedition` test seam. Wired the item 1c-a
+  Arsenal drop. Fixed two latent `chk_fleet_timeline` violations (HOLDING→RETURNING now nulls
+  `holding_end_time`) and two lib/pq param-type bugs in `store/incoming_integration_test.go`.
+  Tests: `game/expedition_test.go` (pure) + `engine/expedition_integration_test.go` (DB, forced
+  outcomes). `go test ./...` green with DATABASE_URL against compose.
 - 2026-10-08: **recycler ratio cut 2:1 → 20:1** — `plans/farm-sites.json` `recyclerPoints`
   `80e6 → 800e6` (20 Frigates per Battle Recycler, both accounts) per owner's advisor; S resets on the
   comp change, loops re-read the plan each cycle.
@@ -296,4 +311,5 @@
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
   API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
-- **Expedition resolver (item 1)** — enemy formula now known (item 1b); model it in Go.
+- **Expedition outcome surfacing** — persist non-combat expedition outcomes and expose
+  reports/messages (item 1 follow-up); calibrate the PROVISIONAL outcome mix from the harvest.
