@@ -112,6 +112,21 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **fresh moon #2 sampled + field model corrected** — acc1's 2nd moon is
+  **`cp=1772`** at `2:188:9` (coexists with planet Xusyty `cp=1648`; not in `httpbot
+  planets`). Snapshot (nothing built): all moon structures 0, **fields `0 used / 3 max`**,
+  diameter 8,544 km. A fresh moon has **1 base field** + the account's `+2` premium = 3
+  (so the first Moon base can be built at once); Moon base 20 = `1+60+2 = 63`. Fixed
+  `MoonFieldsMax(L) = 1 + 3L` (+test), updated `docs/MOONS.md`; captures under
+  `data/moon2-acc1-*`.
+- 2026-10-08: **upgrade-find harvest (acc1 5, acc2 4)** — find events live in the
+  expedition category (`messcat=15`), text *"…create a drawing for an upgrade NAME (2 pc)"*;
+  every find = **2 pc**. Found incl. **Hyperspace engine on both** (acc1 msg 240880,
+  acc2 msg 241669) and heavy Grav gun/Heavy armor — but from **"ancient battlefield"
+  ship finds as well as combat**. Fleet points are ambiguous: model `(M+C)/1e6` puts the
+  drops at 101k (acc1 BB) / 162k (acc2 Frigate) — **under 250k yet heavy**; the live PHP
+  formula `(M+C)*5/1000` puts them at ~500–800M (tier 3). **`ArsenalTier` 5k/50k/250k is
+  suspect** — see `docs/ARSENAL_LIVE_2026-10-06.md` for the table.
 - 2026-10-08: **one of each sub-Frigate ship per expedition (both accounts live)** — `farm-plan.mjs`
   `small` set + `run-farm-send.sh` gate/`SET` now carry `202/204/205/206/207/211/213/215/216/225/226`
   (1/fleet; 207/215/216/225/226 already on main, 211/213 built by the worker). In-flight ship-count

@@ -81,3 +81,41 @@ The rolling farm has produced **4 upgrade drawings while flying fleets far under
 
 Implication for backlog 1c: the *find* path is already exercised; the open work is the
 activation/catalog rules and the tier-vs-points relationship, not reaching 75k.
+
+## Upgrade-find harvest (2026-10-08) — events, source outcomes, fleet sizes
+
+Find events live in the **expedition message category (`messcat=15`)** — they are
+appended to a normal outcome body: *"… the engineers were able to create a drawing
+for an upgrade **<NAME> (2 pc)**."* **Every find awards 2 pc.** (The harvest daemon
+only polls `messcat=15`+`3`; the upgrade text was not previously extracted.)
+
+| acc | msg | server time (UTC+3) | upgrade | source outcome | fleet that resolved |
+|---|---|---|---|---|---|
+| acc1 | 240268 | 01:14:15 | Heavy armor | Moa Tikarr combat (report 240267) | 207:814397 + 203:4071985 + 219:3258 |
+| acc1 | 240634 | 01:56:54 | Gravitational gun | Moa Tikarr combat (report 240633) | same giant BB fleet |
+| acc1 | 240636 | 01:56:54 | Ion cannon | Moa Tikarr combat (report 240633) | same giant BB fleet |
+| acc1 | 240880 | 02:32:46 | **Hyperspace engine** | "ancient battlefield" (ship find) | BB-era fleet (~814k BB) |
+| acc1 | 242699 | 08:24:05 | Plasma gun | "ancient battlefield" | (post-flip) |
+| acc2 | 241074 | 02:59:36 | Ion cannon | "ancient battlefield" | Frigate |
+| acc2 | 241076 | 02:59:36 | Light armor | Moa Tikarr combat | Frigate |
+| acc2 | 241449 | 04:04:10 | Laser weapons | Moa Tikarr combat | Frigate |
+| acc2 | 241669 | 06:22:03 | **Hyperspace engine** | "ancient battlefield" | 227:~3,900 + 219:~3,900 |
+
+Key observations:
+- **Drops are not only from combat wins** — two of the five acc1 finds and both
+  Hyperspace finds came from the **"ancient battlefield" ship-recovery** outcome.
+- **Fleet points, two formulas** (the model's unit is ambiguous):
+  - manual "1 pt = 1M res" ⇒ model `(M+C)/1e6`: acc1 BB fleet ≈ **101k**;
+    acc2 Frigate fleet ≈ **162k**.
+  - live PHP `data/_MissionCaseExpedition.php:42`
+    (`expeditionPoints = (M+C)*5/1000`, i.e. 1 pt ≈ 200 res): acc1 ≈ **507M**;
+    acc2 ≈ **811M**.
+- **Consequence for the tiers:** every observed **heavy** drop came from a fleet
+  that is far **under 250k** under the model's `/1e6` points but **far over** it
+  under the PHP formula. So either the Arsenal tier uses the PHP-style points (then
+  250k is trivially met), or the real heavy threshold is **≈100k, not 250k/150k**
+  (the manual's 75k gate stays suspicious but closer). **Do not trust the
+  `ArsenalTier` 5k/50k/250k constants until the live drop code is captured.**
+- Raw captures for re-parse: `data/upg/c15_*.html` (acc1), `data/upg2/*.html`
+  (acc2); the acc1/acc2 find messages were also matched 1:1 to combat reports in
+  `expedition-reports.json`.

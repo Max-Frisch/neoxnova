@@ -12,12 +12,19 @@ unblocked for a later session.
 - Created by combat at a **20 %** chance (owner flew 5 attacks of **2500 Battle
   Recyclers** `219`; the moon appeared on the 3rd/4th lost fight). 2500 is not a
   threshold — the 20 % cap needs only ~2,000,000 debris (~3 Battle Recyclers).
-- Moon #2 `2:188:9` (Xusyty), **diameter 8,544 km** (owner-observed 2026-10-08):
-  4 failed + 1 successful attempt, each **5000 Battle Recyclers** (double #1).
-  Diameter is *not* proportional to the recyclers sent: chance is capped at 20 %
-  either way, and the classic diameter `floor(√(x+3p)·1000)` only varies with the
-  random `x` (10..20) → 8,366–8,944 km. 8,544 ⇒ `x=13` (vs `x=11` for #1).
-- **Fields: 62 used / 63 max** (`Fields occupied: 62 from 63, Free: 1`).
+- Moon #2 `cp=1772` `2:188:9` (Xusyty), **diameter 8,544 km** (owner-observed
+  2026-10-08). It coexists with the planet `cp=1648` (also Xusyty, 2:188:9).
+  Created by 4 failed + 1 successful attempt, each **5000 Battle Recyclers**
+  (double #1); the moon `cp` is not listed by `httpbot planets` (planets only) —
+  grab it from the planet overview's moon link. Diameter is *not* proportional to
+  the recyclers sent: chance is capped at 20 % either way, and the classic
+  diameter `floor(√(x+3p)·1000)` only varies with the random `x` (10..20) →
+  8,366–8,944 km. 8,544 ⇒ `x=13` (vs `x=11` for #1).
+- **Moon #2 snapshot (2026-10-08, nothing built):** all moon structures 0
+  (`14/15/21/34/41/42/43/71/72/73 = 0`), 0 ships/defenses/resources, and
+  **fields `0 used / 3 max` (Free: 3)** — enough for the first Moon base.
+  Captures: `data/moon2-acc1-{levels.json,overview.html,buildings.html}`.
+- **Moon #1 fields: 62 used / 63 max** (`Fields occupied: 62 from 63, Free: 1`).
 - Buildings: `14 Robot Factory 10`, `15 Nanite 13`, `21 Shipyard 10`,
   `34 Alliance Depot 0`, `41 Moon base 20`, `42 Phalanx 0`, `43 Jumpgate 0`,
   `71 Light conveyor 9`, `72/73 = 0`.
@@ -50,16 +57,18 @@ p=20 → 8,366..8,944 km (our 8,426 = x=11). p=1 → 3,605 km. **Verified.**
 ## Fields (`game/moon.go:MoonFieldsMax`)
 
 Live Moon base info card: *"each level increases the free fields on the moon by
-3"*, *"one field occupies itself Moon Base"*. A fresh moon starts at **0**
-capacity but may still build its first Moon base.
+3"*, *"one field occupies itself Moon Base"*. A fresh moon starts at **1** base
+field (2026-10-08: the fresh moon #2 shows `0 used / 3 max` — 1 base + the
+account's `+2` premium), so its first Moon base can be built immediately.
 ```
-capacity = 3 * Moon base_level + external bonuses   (premium "+N fields on the
-                                                        moon", Planetarium DM)
+capacity = 1 + 3 * Moon base_level + external bonuses   (premium "+N fields on
+                                                          the moon", Planetarium DM)
 occupied = sum of every building level on the moon
 ```
-Live check: `3*20 = 60` + premium `+3` = **63** max, occupied `62`, free `1`. The
-classic `(diameter/1000)^2` (70 here) is **not** used by this server — kept as
-`game.MoonFields` for reference only.
+Live check: moon #2 `1 + 0 + 2 = 3` max, occupied `0`, free `3`; moon #1
+`1 + 3*20 + 2 = 63` max, occupied `62`, free `1`. The classic `(diameter/1000)^2`
+(70 here) is **not** used by this server — kept as `game.MoonFields` for
+reference only. Model: `game.MoonFieldsMax(L) = 1 + 3L` (premium external).
 
 ## Moon building catalog (`game/moon.go`)
 
