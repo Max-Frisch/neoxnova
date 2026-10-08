@@ -11,6 +11,16 @@
       "recycler": "219",
       "recyclerPoints": 800000000,
       "ramp": { "code": "227", "per": 690 }
+    },
+    "drain": {
+      "enabled": true,
+      "mainOrder": ["227", "207"],
+      "recycler": "219",
+      "recyclerPer": 20,
+      "minFleetPoints": 5000,
+      "intervalSec": 30,
+      "speed": 10,
+      "time": 1
     }
   },
   "acc2": {
