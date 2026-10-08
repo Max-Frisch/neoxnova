@@ -53,7 +53,8 @@
   `game.Combatant.FlatBonusPct`. Details `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Battleship → Frigate phase:** both accounts auto-flipped `main` to `227` once the Frigate fleet matched
   the BB fleet by points (`ramp.per`=690). Frigate is the best unlocked hull (crystal 0.25/pt vs HC 0.5,
-  build tier 20/s ⇒ ~800M pts/s vs BB 7.7M). Recycler count is point-based (≈1 per fleet-S). BB/HC fleet is
+  build tier 20/s ⇒ ~800M pts/s vs BB 7.7M). Recycler count is point-based (`recyclerPoints=800e6`
+  = **20 Frigates : 1 Battle Recycler** since 2026-10-08; was 2:1). BB/HC fleet is
   now surplus — **scrap via the black-market ship trader (50% loss) once no longer flying**.
 
 ## Open backlog (ordered; one item per session)
@@ -104,14 +105,13 @@
 4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
    created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
    creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
-   `(d/1000)²`), `PhalanxRange` (L²−1), `JumpgateCooldown` (1h >>L), `MoonDestruction`
+   `(d/1000)²`), `PhalanxRange` (L²−1), `JumpgateCooldown` (1h at L1, halved per level), `MoonDestruction`
    (`(100−√S)·√D`) + Moon-base reduction (3%/2 levels), and the moon catalog (`moon_base` 41,
    `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). **Creation wired**
    (`resolveAttack` rolls `MoonCreation(res.MoonChance, seed)` on a player planet; inserts a MOON at
    the coords with `ON CONFLICT DO NOTHING`, recorded in the report). Details + open questions:
-   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), Jumpgate jump (blocked —
-   needs a 2nd **same-galaxy** moon; `mode=sendFleet` says "no other portal" with two L2 gates in
-   galaxies 2 & 3), moon build/overview API + `resolveAttack` on a MOON target.
+   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), `httpbot` jump command
+   (model done), moon build/overview API + `resolveAttack` on a MOON target.
    **2nd moon acquired 2026-10-08**: acc1 now has `2:188:9` (diameter 8,544 km,
    5000 recyclers/attempt). **Phalanx DONE 2026-10-08**: works same-galaxy, reach `L²−1`, reveals
    any owner's fleet composition/ETA (`game.PhalanxInRange`, `parsePhalanx`, `httpbot phalanx`).
@@ -122,14 +122,21 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
-- 2026-10-08: **moon #2 tooling + Phalanx live; Jumpgate blocked** — built Phalanx L2 + Jumpgate L1/L2
+- 2026-10-08: **recycler ratio cut 2:1 → 20:1** — `plans/farm-sites.json` `recyclerPoints`
+  `80e6 → 800e6` (20 Frigates per Battle Recycler, both accounts) per owner's advisor; S resets on the
+  comp change, loops re-read the plan each cycle.
+- 2026-10-08: **Jumpgate verified working, cross-galaxy (false negative corrected)** — owner jumped
+  `2:188:9` → `3:125:12` (screenshots `docs/screenshots_jumpgate/`). The earlier "no other portal"
+  was the **current-planet race** (request ran from a gate-less planet), not a same-galaxy limit.
+  Cooldown ~30 min at L2 → `JumpgateCooldown = 1h >> (level-1)` (+test). `docs/MOONS.md` corrected.
+- 2026-10-08: **moon #2 tooling + Phalanx live; Jumpgate works** — built Phalanx L2 + Jumpgate L1/L2
   on both acc1 moons (`cp=1772` 2:188:9, `cp=1725` 3:125:12). **Phalanx works**: `page=phalanx`
   (from galaxy view, sensor moon as current planet), range `L²−1`, **same-galaxy only**, reveals any
   owner's fleet composition/points/ETA. Added `game.PhalanxInRange` (+test), `parsePhalanx`,
-  `httpbot phalanx <g:s:p> [1|3] --cp`. **Jumpgate blocked**: `page=information&mode=sendFleet`
-  returns "You dont have another portal" from both moons despite two L2 gates → almost certainly
-  same-galaxy; needs a same-galaxy moon to confirm. Gotcha: the current planet is account-global and
-  raced by the farm workers (set+act in one process). Details `docs/MOONS.md`.
+  `httpbot phalanx <g:s:p> [1|3] --cp`. **Jumpgate WORKS cross-galaxy** (owner-verified): jumped
+  `2:188:9` → `3:125:12`; the earlier "You dont have another portal" was the current-planet race
+  (the request ran from a planet with no gate). Cooldown observed ~30 min at L2 → `JumpgateCooldown`
+  reworked to `1h >> (level-1)`. Screenshots `docs/screenshots_jumpgate/`. Details `docs/MOONS.md`.
 - 2026-10-08: **weak-alien win analyzed** — `e219ad37` (10:48, msg 244369): same comp as the 10:05
   wipe but enemy W/S/A **+90 %** vs +202 % (and a *larger* mirror, 12,231 vs 11,861 Frig) → **won**,
   lost 4,963 Frig + 6,474 BR, enemy annihilated, debris M 264.2 B / C 89.8 B ⇒ ~+171 B net (1.94×).
@@ -276,8 +283,8 @@
   ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
   is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.
 - **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
-  numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
-  cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.
+  numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and the Jumpgate
+  cooldown curve beyond L2 (only 30 min @ L2 measured; works cross-galaxy). See `docs/MOONS.md`.
 - Crystal is the fleet bottleneck: mine imbalance (metal mine ≫ crystal); sites stay crystal-poor. Frigate
   was chosen partly for the lowest crystal intensity (0.25/pt). The surplus BB/HC fleet is the fastest
   crystal source — **scrap it via the black-market ship trader (50 % loss) once no longer flying.** Manual
@@ -286,6 +293,7 @@
 ## Next session (pick one)
 - **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
   (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
-- **Moons item 4 continuation**: moon build/overview API (Moon base → fields), or `DESTROY_MOON`.
+- **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
+  API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
 - **Expedition resolver (item 1)** — enemy formula now known (item 1b); model it in Go.

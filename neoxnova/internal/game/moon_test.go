@@ -87,7 +87,7 @@ func TestPhalanxRange(t *testing.T) {
 }
 
 func TestJumpgateCooldown(t *testing.T) {
-	cases := map[int]time.Duration{0: time.Hour, 1: 30 * time.Minute, 2: 15 * time.Minute, 3: 450 * time.Second}
+	cases := map[int]time.Duration{0: time.Hour, 1: time.Hour, 2: 30 * time.Minute, 3: 15 * time.Minute}
 	for level, want := range cases {
 		if got := JumpgateCooldown(level); got != want {
 			t.Fatalf("JumpgateCooldown(%d) = %v, want %v", level, got, want)

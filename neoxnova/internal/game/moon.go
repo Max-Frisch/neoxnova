@@ -107,16 +107,18 @@ func PhalanxInRange(sensorGalaxy, sensorSystem, targetGalaxy, targetSystem, leve
 }
 
 // JumpgateCooldown is the recharge between jumps. The live info card says the
-// base is at least one hour and "with each level, cooldown [is] reduced by 2
-// times". PROVISIONAL (needs a second moon to measure).
+// base is at least one hour and "with increasing levels the time is reduced".
+// Observed live 2026-10-08: a jump between two L2 gates recharged in ~30 min
+// (remaining 00h29m39s right after the jump) => the base hour is the L1 value
+// and each further level halves it. PROVISIONAL (single L2 data point).
 func JumpgateCooldown(level int) time.Duration {
-	if level < 0 {
-		level = 0
+	if level < 1 {
+		level = 1
 	}
 	if level > 12 {
 		level = 12
 	}
-	return time.Duration(3600>>uint(level)) * time.Second
+	return time.Duration(3600>>uint(level-1)) * time.Second
 }
 
 // MoonDestruction returns the percent chance to destroy a moon of diameterKm

@@ -1,9 +1,9 @@
 # Moons — live findings + formulas (item 4)
 
 Status: **partial.** Formulas + the moon building catalog are captured; creation,
-destruction, jumpgate and phalanx are not wired into the engine yet. acc1 now has
-**two** live moons (`3:125:12` + `2:188:9`), so jumpgate/phalanx testing is
-unblocked for a later session.
+destruction is not wired into the engine yet. acc1 now has **two** live moons
+(`3:125:12` + `2:188:9`); **Phalanx** (same-galaxy) and **Jumpgate** (cross-galaxy)
+are both confirmed working live and modelled.
 
 ## Live facts (acc1)
 
@@ -86,29 +86,30 @@ Moon-legal **planet** buildings (reuse their planet costs): `14 Robot Factory`,
 **Not** moon-legal: mines, power plants, Terraformer, Missile Silo (44) — the live
 moon page omits them entirely.
 
-## Jumpgate (`game/moon.go:JumpgateCooldown`) — needs a 2nd moon
+## Jumpgate (`game/moon.go:JumpgateCooldown`) — WORKS, cross-galaxy
 
-**acc1 now has a 2nd moon (`2:188:9`) → cooldown/eligibility measurable next
-session.** Live info card: instant transfer between your moons; **requires >= 2
-jumpgates**;
-**resources cannot be transported**; base recharge **>= 1 h**, *"with each level,
-cooldown [is] reduced by 2 times"* → modelled as `3600s >> level`. PROVISIONAL;
-the deuterium mention in the card is dubious (standard OGame is fuel-free).
+**Confirmed working live 2026-10-08 (owner, acc1).** UI: open the Jumpgate
+building on a moon → panel *"Use the jump portal: number of ships"* with a
+**Moon jump** field (the gate's own moon), a **Destination Moon jump** dropdown
+(the other moon) and a per-ship list + **Jump** button. Does **not** require the
+two moons to share a galaxy: the owner jumped `2:188:9` → `3:125:12` (gal 2 → 3).
+Requires **>= 2 jumpgates**; **resources cannot be transported**; the live info
+card mentions deuterium ("to achieve the jump, deuterium is required") — whether
+it is actually consumed is unverified.
 
-**Live test 2026-10-08 (acc1).** Built Jumpgate L1→L2 on both moons (`cp=1725`
-3:125:12 and `cp=1772` 2:188:9). The action endpoint exists —
-`GET/POST game.php?page=information&mode=sendFleet` returns JSON — but every
-attempt returns `{"message":"You dont have another portal to make the jump!",
-"error":true}` from **both** moons, even with both gates at L2 and the moon as
-the current planet. The two moons are in **different galaxies (2 and 3)**; since
-the Phalanx is same-galaxy (below), the jumpgate almost certainly is too. **Blocker:
-needs a 2nd same-galaxy moon to confirm** — no cross-galaxy jump. `page=jumpgate`
-itself answers "This page does not exist" (the UI form, class `jumpgate` +
-`scripts/game/gate.js`, is not served here).
-
-**Gotcha:** the "current planet" is account-global and is raced by the farm
-workers — a plain `?cp=<moon>` does not stick across processes. Set it and act
-inside one process (`data/jg*.mjs` debug scripts), or pause the workers.
+- **Cooldown (observed L2 → L2):** right after a successful jump the panel read
+  *"Next jump possible in: … (00h 29m 39s)"* → **~30 min at L2**. The card says
+  the base is *"at least an hour"* reduced with level, so base (L1) = 1 h and
+  each further level halves it → `JumpgateCooldown = 3600s >> (level-1)`.
+  PROVISIONAL (single data point). Screenshot evidence:
+  `docs/screenshots_jumpgate/` (form with src `[2:188:9]` → dst `[3:125:12]`,
+  success dialog, 30 min cooldown).
+- **Previous "blocked" result was a false negative.** `game.php?page=information&
+  mode=sendFleet` answered *"You dont have another portal to make the jump!"* — but
+  the **current planet is account-global and raced by the farm workers**, so the
+  request ran from a planet/colony with no gate. The endpoint is fine; set the moon
+  as current planet and act **inside one process** (`?cp=<moon>` alone does not
+  stick across processes), or pause the workers. Not a same-galaxy restriction.
 
 ## Phalanx Sensor (`game/moon.go:PhalanxRange`) — WORKS, same-galaxy only
 
@@ -147,10 +148,10 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
 
 1. **Destruction measurement**: Battle Fortress count vs diameter, additive vs
    multiplicative Moon-base reduction, and the >= 10,000 km rule.
-2. **Jumpgate** exact cooldown curve + eligible ships + the deuterium question.
-   Live blocker added 2026-10-08: `mode=sendFleet` says *"You dont have another
-   portal"* with two L2 gates in galaxies 2 & 3 → likely same-galaxy only; needs a
-   2nd same-galaxy moon.
+2. **Jumpgate** exact cooldown curve (only L2 ≈ 30 min measured) + eligible ships
+   + whether deuterium is consumed. ~~same-galaxy restriction~~ **RESOLVED
+   2026-10-08**: works cross-galaxy (2:188:9 → 3:125:12); the earlier
+   *"no other portal"* was the current-planet race (gate moon not selected).
 3. ~~Whether the *accumulated* debris or only the creating battle's new debris
    drives chance + diameter.~~ **RESOLVED 2026-10-08** (moon #2): only the
    creating battle's new debris; a pre-existing field does not add to the chance
@@ -169,15 +170,15 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
   `MoonBaseDestructionReduction`, `MoonStructure`/`MoonOnlyStructureByID`.
   Creation chance is `combat.go:MoonChance`. All tested.
 - **Tooling**: `parse.mjs:parsePhalanx` + `httpbot.mjs phalanx <g:s:p> [1|3]
-  [--cp <moonCp>]` perform a live scan (composition/ETA). Jumpgate live POST is
-  blocked (see above); debug scripts `data/jg*.mjs` set the current planet inside
-  one process to dodge the worker race.
+  [--cp <moonCp>]` perform a live scan (composition/ETA). No `httpbot` jump
+  command yet; a live jump must set the gate moon as the current planet and act in
+  one process to dodge the worker race (see above).
 - **Creation wired** (`engine/event_engine.go:resolveAttack`): an ATTACK on a
   player-owned `PLANET` rolls `game.MoonCreation(res.MoonChance, seed)` after the
   battle; on success it inserts a `MOON` at the same coordinates (0 fields, no
   production, cold/inherited temp) with `ON CONFLICT DO NOTHING` (one moon per
   planet). The result is recorded on `CombatResult.MoonCreated`/`MoonDiameterKm`
   (in the report JSON).
-- Remaining: `DESTROY_MOON` mission, Jumpgate jump (blocked on a same-galaxy
-  moon; model `JumpgateCooldown` exists), moon build/overview API, and
+- Remaining: `DESTROY_MOON` mission, `httpbot` jump command (model
+  `JumpgateCooldown` exists and is measured at L2), moon build/overview API, and
   `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.

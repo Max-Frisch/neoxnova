@@ -9,7 +9,7 @@
     "comp": {
       "main": "207",
       "recycler": "219",
-      "recyclerPoints": 80000000,
+      "recyclerPoints": 800000000,
       "ramp": { "code": "227", "per": 690 }
     }
   },
@@ -23,7 +23,7 @@
     "comp": {
       "main": "207",
       "recycler": "219",
-      "recyclerPoints": 80000000,
+      "recyclerPoints": 800000000,
       "ramp": { "code": "227", "per": 690 }
     }
   }
