@@ -18,10 +18,12 @@ NODE_FLAGS="--max-old-space-size=96"
 RESTART="${EXPLORER_DRAIN_RESTART_S:-30}"
 
 run_loop() {
-  local tag="$1" log="data/drain-${1}.log" sup="data/drain-${1}.supervisor.log"
+  local tag="$1" sup="data/drain-${1}.supervisor.log"
   mkdir -p data
   while true; do
-    node $NODE_FLAGS drain.mjs "$tag" >> "$log" 2>&1
+    # drain.mjs writes its own data/drain-<tag>.log; keep stdout/err separate so
+    # its console echo is not duplicated into that same file.
+    node $NODE_FLAGS drain.mjs "$tag" >> "$sup" 2>&1
     echo "[$(date +%T)] drain.mjs $tag exited; restarting in ${RESTART}s" >> "$sup"
     sleep "$RESTART"
   done
