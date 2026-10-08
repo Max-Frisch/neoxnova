@@ -208,9 +208,14 @@ else if (st.phase === 'ready' && !full) st.phase = 'build';
 
 // Cargo (217) is cheap and spread across sites; recycler (219) is crystal-heavy
 // and the crystal-poor colonies cannot supply their share, so keep the whole
-// recycler need on the crystal-rich main.
-const mainGoal = goal({ [MAIN]: mainShare, [WALL]: wallShare, [CARGO]: share(needCargo), [RECY]: needRecy, [RAMP ? RAMP.code : null]: rampShare }, true);
-const siteGoal = goal({ [MAIN]: mainShare, [WALL]: wallShare, [CARGO]: share(needCargo), [RAMP ? RAMP.code : null]: rampShare }, false);
+// recycler need on the crystal-rich main. Build the counts explicitly: after the
+// ramp flips, MAIN === RAMP.code, so a literal would let rampShare (0) clobber
+// mainShare under the shared key.
+const counts = { [MAIN]: mainShare, [CARGO]: share(needCargo) };
+if (WALL) counts[WALL] = wallShare;
+if (RAMP && RAMP.code !== MAIN) counts[RAMP.code] = rampShare;
+const mainGoal = goal({ ...counts, [RECY]: needRecy }, true);
+const siteGoal = goal(counts, false);
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`), JSON.stringify({ ships: mainGoal }, null, 2) + '\n');
 fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`), JSON.stringify({ ships: siteGoal }, null, 2) + '\n');
 writeState(st);
