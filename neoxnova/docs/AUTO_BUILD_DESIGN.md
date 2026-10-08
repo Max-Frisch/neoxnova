@@ -265,7 +265,7 @@ Notes for the implementer:
   `internal/blueprint` planner + tests, `AutoBuildStore`, engine
   advance-on-completion + sweep, admin-gated API, basic UI form.
 - **Phase 2 — scale:** templates, apply-to-all, per-planet status, dry-run
-  preview, throttling.
+  preview, throttling. **DONE 2026-10-08** (backend/API; see §15).
 - **Phase 3 — polish:** advanced gradual editor, per-planet pause, budget/
   reserve rules, audit/analytics, optional paywall gating.
 - **Phase 4 — auto-colonize (later):** colony slots (Astrophysics), Colony Ship
@@ -328,8 +328,30 @@ Phase 1b core, single planet:
   /api/v1/blueprints/account`, `GET /api/v1/blueprints`. Gated by
   `RequireAuth` + owner-or-`ADMIN`.
 
-Still open: templates/apply-to-all, UI, throttling tuning, energy-gate decision,
-and auto-colonize (Phase 4).
+Still open: UI (no frontend client in this repo), energy-gate decision, and
+auto-colonize (Phase 4).
+
+### Phase 2 — scale (implemented 2026-10-08)
+
+Backend/API only (there is no frontend in this repo; the doc's "Colony Builder"
+page needs a client that does not exist here):
+
+- **Templates** — `internal/blueprint/presets.go` `Presets()` (built-in
+  `gradual-economy` and `simple-bootstrap`, authored in Go catalog codes) +
+  `ValidateSpec`; served by `GET /api/v1/blueprints/templates`. No migration.
+- **Apply-to-all** — `POST /api/v1/blueprints/apply` (`spec` + `celestial_ids`
+  or `all:true`), capped at `maxBlueprintApply` = 100, owner/admin-gated per
+  planet, replaces the user's existing planet row in place; returns
+  `{saved,skipped,errors}`. Backed by `BlueprintStore.ListOwnedPlanets`.
+- **Per-planet status** — `GET /api/v1/blueprints/status?limit=N` (default 50,
+  max 200) returns each enabled planet's `next` action (or why idle),
+  `last_error` and `last_action_at`, merging account research.
+- **Throttling** — `sweepBlueprints` is capped at
+  `maxBlueprintAdvancesPerSweep` = 50 and `ListEnabled` orders by
+  `priority, id`, so a 40-colony account cannot spike DB load on one tick.
+- Tests: `internal/blueprint/presets_test.go` (preset validity + spec
+  validation), `internal/store/blueprint_store_integration_test.go`
+  (`ListOwnedPlanets`).
 
 ---
 

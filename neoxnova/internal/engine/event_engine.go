@@ -133,15 +133,23 @@ func (e *EventEngine) processDue(ctx context.Context, universeID string) {
 	_ = universeID
 }
 
+// maxBlueprintAdvancesPerSweep bounds how many planets one sweep may advance so
+// a large account (20–40 colonies) cannot spike DB load on a single tick.
+const maxBlueprintAdvancesPerSweep = 50
+
 // sweepBlueprints advances every enabled planet blueprint. Throttled by the
-// caller (once per ~5s) to bound DB load with many planets.
+// caller (once per ~5s) and capped per sweep to bound DB load with many planets.
+// ListEnabled orders by priority then id, so important planets go first.
 func (e *EventEngine) sweepBlueprints(ctx context.Context) {
-	refs, err := e.blueprints.ListEnabled(ctx, 200)
+	refs, err := e.blueprints.ListEnabled(ctx, maxBlueprintAdvancesPerSweep)
 	if err != nil {
 		log.Printf("[ERROR] Blueprint sweep query failed: %v", err)
 		return
 	}
-	for _, r := range refs {
+	for i, r := range refs {
+		if i >= maxBlueprintAdvancesPerSweep {
+			break
+		}
 		if r.CelestialID.Valid {
 			e.AdvanceBlueprint(ctx, r.CelestialID.Int64)
 		}

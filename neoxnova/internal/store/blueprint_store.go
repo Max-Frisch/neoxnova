@@ -121,6 +121,38 @@ func (s *BlueprintStore) CelestialOwner(ctx context.Context, celestialID int64) 
 	return owner.Int64, nil
 }
 
+// OwnedPlanet is one celestial the user owns, used by apply-to-all and status.
+type OwnedPlanet struct {
+	CelestialID int64  `json:"celestial_id"`
+	Name        string `json:"name"`
+	Galaxy      int    `json:"galaxy"`
+	System      int    `json:"system"`
+	Position    int    `json:"position"`
+}
+
+// ListOwnedPlanets returns every planet a user owns in coordinate order.
+func (s *BlueprintStore) ListOwnedPlanets(ctx context.Context, userID int64) ([]OwnedPlanet, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(name, ''), galaxy, system, position
+		FROM celestial_objects
+		WHERE user_id = $1 AND object_type = 'PLANET'
+		ORDER BY galaxy, system, position
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OwnedPlanet
+	for rows.Next() {
+		var p OwnedPlanet
+		if err := rows.Scan(&p.CelestialID, &p.Name, &p.Galaxy, &p.System, &p.Position); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // ListForUser returns every blueprint owned by a user (newest first).
 func (s *BlueprintStore) ListForUser(ctx context.Context, userID int64) ([]Blueprint, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+blueprintColumns+` FROM build_blueprints WHERE user_id = $1 ORDER BY id DESC`, userID)
@@ -226,7 +258,7 @@ func (s *BlueprintStore) ListEnabled(ctx context.Context, limit int) ([]EnabledR
 		SELECT id, celestial_id, user_id, scope
 		FROM build_blueprints
 		WHERE enabled AND celestial_id IS NOT NULL
-		ORDER BY id
+		ORDER BY priority, id
 		LIMIT $1
 	`, limit)
 	if err != nil {

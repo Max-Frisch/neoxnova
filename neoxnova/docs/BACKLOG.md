@@ -136,7 +136,12 @@
    `sweepBlueprints` catches cold starts; account-scope research is merged into each planet plan.
    API: `GET/POST/DELETE /api/v1/planets/{id}/blueprint`, `POST …/blueprint/preview`,
    `GET/POST /api/v1/blueprints/account`, `GET /api/v1/blueprints` (owner-or-ADMIN gated).
-   REMAINING: templates/apply-to-all, UI, auto-colonize, energy-gate. `docs/AUTO_BUILD_DESIGN.md`.
+   **Phase 2 (scale) DONE 2026-10-08** (backend/API only): built-in templates
+   (`internal/blueprint/presets.go` + `GET /api/v1/blueprints/templates`), apply-to-all
+   (`POST /api/v1/blueprints/apply`, `all`/`celestial_ids`, cap 100), per-planet status
+   (`GET /api/v1/blueprints/status`), sweep throttle (50/sweep, priority-ordered);
+   `ListOwnedPlanets`; preset + store tests. REMAINING: UI (no frontend in repo),
+   auto-colonize, energy-gate. `docs/AUTO_BUILD_DESIGN.md` §15.
 4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
    created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
    creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
@@ -157,6 +162,16 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **auto-builder Phase 2 (scale, backend/API)** — built-in templates
+  (`internal/blueprint/presets.go` `Presets`/`ValidateSpec`, `GET /api/v1/blueprints/templates`),
+  apply-to-all (`POST /api/v1/blueprints/apply`, `all`/`celestial_ids`, cap 100,
+  owner/admin-gated, replaces in place), per-planet status (`GET /api/v1/blueprints/status`,
+  merges account research, `next`/why-idle), and a sweep throttle (50/sweep, priority-ordered
+  `ListEnabled`); `BlueprintStore.ListOwnedPlanets`; preset/validation + store integration tests.
+  No migration (presets are code). Also closed the account-asymmetric black-hole open question
+  (owner adopted the measured **0.5 %** fatal rate; asymmetry ignored) and recorded it in
+  `docs/EXPEDITIONS_LIVE_2026-10-06.md`. `go build ./...`, `go vet ./...`,
+  `go test ./internal/blueprint/...` green.
 - 2026-10-08: **auto-builder base (item 3) + expedition outcome surfacing (item 1)** — pure
   `internal/blueprint` planner + complete `game.TechTree` prerequisite graph (back-fills all defs),
   `0014_blueprints.sql` + `store.BlueprintStore`, engine advance-on-completion + 5 s sweep,
@@ -334,10 +349,11 @@
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
-- Expedition black-hole rate is **account-asymmetric** (acc1 4, acc2 22 in the harvested logs); cause
-  unknown (luck vs size/speed). The "Moa Tikarr demands surrender" text is just the **info message for
-  a pirate/alien expedition combat**, paired 1:1 with a combat report for the same fleet/time (owner
-  confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- Expedition black-hole rate: **RESOLVED 2026-10-08** — the account-asymmetry (acc1 4, acc2 22) is
+  ignored by owner decision; the resolver ships the measured **0.5 %** fatal rate (locked). The
+  "Moa Tikarr demands surrender" text is just the **info message for a pirate/alien expedition
+  combat**, paired 1:1 with a combat report for the same fleet/time (owner confirmed 2026-10-08),
+  not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Aliens are a total-loss risk** even for a winning comp: the enemy's single rolled W/S/A can reach
   ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
   is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.
@@ -352,8 +368,8 @@
 ## Next session (pick one)
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
   API (Moon base → fields), or `DESTROY_MOON`.
-- **Auto-builder Phase 2**: templates, apply-to-all, per-planet status/UI, dry-run preview polish,
-  energy-gate decision (see `docs/AUTO_BUILD_DESIGN.md` §12).
+- **Auto-builder Phase 4 / auto-colonize** or Phase 3 polish (UI needs a client; energy-gate
+  decision). Phase 2 scale is DONE — see `docs/AUTO_BUILD_DESIGN.md` §12/§15.
 - **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
   (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
 - **Expedition live calibration** — harvest more outcomes and refine the non-locked mix weights

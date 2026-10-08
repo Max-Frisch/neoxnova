@@ -284,6 +284,9 @@ predates the Frigate flip and only holds at low enemy W/S/A rolls.
 - acc2: **19 / 493 (3.85 %)** — 19 fleets lost, clustered on Oct 7.
 Combined 21/954 ≈ 2.2 %. Still below vanilla 1/9 (11 %), but acc2 is ~9× acc1;
 whether that is luck or a size/speed/account effect is unresolved.
+**DECISION 2026-10-08 (owner):** the asymmetry is ignored — the Go resolver ships
+the measured, friendlier **0.5 %** fatal rate (`expeditionOutcomeWeights`, locked).
+No further investigation of the acc1/acc2 gap.
 
 ### Growth, loot, new outcomes
 - acc1 S grew 83,204 → **814,397** (~10× in a day); acc2 → **445,401**.
@@ -304,7 +307,7 @@ whether that is luck or a size/speed/account effect is unresolved.
 
 `internal/game/expedition.go:RollExpedition` is the pure model: a weighted
 outcome mix, cargo-capped resource finds, ship recovery, dark matter, delay/fast
-ETA shifts, black holes (2 %) and the §8 enemy (mirror × U(0.60..0.90) +
+ETA shifts, black holes (0.5 %) and the §8 enemy (mirror × U(0.60..0.90) +
 template, ONE rolled W/S/A carried on `Combatant.FlatBonusPct`; Aliens have the
 ~2.2× tail that wipes fleets).
 
