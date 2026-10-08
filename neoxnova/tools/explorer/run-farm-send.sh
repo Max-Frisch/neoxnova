@@ -118,14 +118,19 @@ while true; do
   [ -n "$C_CARGO" ] && [ "$CARGON" -gt 0 ] && SET="${SET},${C_CARGO}:${CARGON}"
   SET="${SET},${C_RECY}:${BR},202:1,204:1,205:1,206:1"
   echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} :: $SET"
-  "${NODE[@]}" httpbot.mjs expedition "$SET" "$N" 1 10
+  # One fleet per POST. A single `exp_num=N` request was unreliable (rejected /
+  # only partly applied) and left slots idle; N separate single-fleet sends land
+  # deterministically and each is logged as its own run.
+  for ((k = 0; k < N; k++)); do
+    "${NODE[@]}" httpbot.mjs expedition "$SET" 1 1 10
+  done
 
   # Confirm the send registered; if it did not, the next cycle retries (the fresh
   # `levels` guard blocks an order sized from stale counts).
   sleep 8
   CHK=$(exp_active | cut -d' ' -f1)
-  if [ "$CHK" = "ERR" ] || [ "${CHK:-0}" -lt 1 ] 2>/dev/null; then
-    echo "[$(date +%T)] send not confirmed (active=$CHK); will retry next cycle"
+  if [ "$CHK" = "ERR" ] || [ "${CHK:-0}" -le "${ACTIVE:-0}" ] 2>/dev/null; then
+    echo "[$(date +%T)] send not confirmed (active=$CHK, was $ACTIVE); will retry next cycle"
   fi
   sleep "$EVERY"
 done
