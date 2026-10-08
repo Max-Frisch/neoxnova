@@ -13,9 +13,8 @@
   outage, 2026-10-07); restart with `run-farm.ps1 start`, check `run-farm.ps1 status` + log mtimes.
 - **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** Shipyard = `Building: N per second`
   (`perSec` in `parse.mjs`); `resolve` sizes each order to `EXPLORER_UNIT_SECONDS`(90 s) and re-submits
-  ~2.5 s after completion. **Symmetric ratio gate (account-wide):** the plan sums main + sites +
-  in-flight (`st.active`) and builds ONLY the deficient type — HC-only while HC < 5·BB, BB-only while
-  HC > 5·BB, both when balanced. (Was main-only and HC-biased, so HC ballooned while BB idled.)
+  ~2.5 s after completion. **Optional ratio gate (account-wide, only when `comp.wall` is set):** the plan
+  sums main + sites + in-flight (`st.active`) and builds ONLY the deficient type. Currently OFF (wall-free meta).
   **Workers re-read the plan every resolve pass** (was once at startup → sites kept building a stale
   HC plan while `farm-plan` said `gate=BB`; restart or session-error was the only refresh).
 - **Expo send (`run-farm-send.sh`, 30 s):** slots = LIVE `expeditionSlots` (config fallback; acc1/acc2
@@ -29,9 +28,20 @@
   or the ETA passes, so a drained colony re-submits instead of deadlocking.
 - **`httpbot trade <buy> <code:amt,...>`:** value 1:2:4 (deut→crystal = 1:2), **250 DM/call → big lumps**.
 - acc1 Bratwurst `3:125:12` (moon); sites = `1593` + `1655/1656/1657` (`3:125:9-11`) +
-  `1690/1692/1693` (`3:124:9-11`). acc2 TheBob `2:188:16`; sites = `1598` + `1672/1673/1674`
-  (`2:188:10-11` + `2:187:9`). All shipyard 14–16.
-- Set = `207:S,203:5S,219:round(S/250)` + 1 each `202/204/205/206` (no Spy Probe `210`; slot 21 errors).
+  `1690/1692/1693` (`3:124:9-11`). acc2 TheBob `2:188:16`; sites = `1598` + `1672/1673/1674/1675/1676`
+  (`2:188:10-11` + `2:187:9-11`). **All shipyards upgraded to 18 (2026-10-08) → Frigate unlocked everywhere.**
+- **Expo set = `227:S,219:br` + 1 each `202/204/205/206` (no Spy Probe `210`; slot 21 errors).**
+  Composition is config-driven in `plans/farm-sites.json` `comp` (`main`/`wall`/`cargo`/`recycler`/`ramp`);
+  freighter/recycler ratios are **point-based** (`recyclerPoints`) so they survive a hull flip. `S` resets
+  to capacity whenever `comp` changes; otherwise it ratchets. The optional wall ratio-gate is OFF.
+- **Wall-free meta (2026-10-08):** the enemy mirrors our fleet ×~0.66 + a small template, so a fodder wall
+  only absorbs our own alpha strike and inflates enemy HP — sim `cmd/exposim` shows `BB+5HC` loses 12.9%/fight
+  vs **0.0%** wall-free (matches live ~1M HC/fight). Only Weapons/Shield/Armour research (109/110/111) is
+  mirrored; specific weapon techs (120/121/122/199), arsenal, academy and governors are **attacker-only**.
+- **Battleship → Frigate phase:** both accounts auto-flipped `main` to `227` once the Frigate fleet matched
+  the BB fleet by points (`ramp.per`=690). Frigate is the best unlocked hull (crystal 0.25/pt vs HC 0.5,
+  build tier 20/s ⇒ ~800M pts/s vs BB 7.7M). Recycler count is point-based (≈1 per fleet-S). BB/HC fleet is
+  now surplus — **scrap via the black-market ship trader (50% loss) once no longer flying**.
 
 ## Open backlog (ordered; one item per session)
 0. **EXPAND BUILD SITES — DONE both** (acc1 7, acc2 6).
@@ -89,6 +99,12 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **wall-free Frigate expedition comp (live, both accounts)** — `cmd/exposim` (new) swept
+  comps on the real combat engine: the mirrored enemy makes fodder a liability (`BB+5HC` 12.9%/fight vs
+  0.0% wall-free). Added Frigate (227) cost to the catalog, made `farm-plan.mjs` composition-configurable
+  (`comp{main,wall,cargo,recycler,ramp}`, point-based ratios, S reset on comp change, auto-flip main to
+  the ramp hull), generalized the send/pool scripts, upgraded every shipyard to 18, and flipped both
+  accounts to a Frigate mono-fleet (`227:S,219:br,1×small`). BB/HC fleet now surplus.
 - 2026-10-08: **expedition enemy formula resolved (item 1b)** — overnight reports (acc1 40 fights,
   acc2 42) show the enemy is the sent fleet mirrored × a per-fleet roll ~0.6–0.9 (median 0.66) plus
   a small random template; verified to S=814,397 BB. Win record flipped at scale (acc1 29W/11D/0L,
@@ -167,10 +183,14 @@
 - **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
   numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
   cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.
-- Crystal is the fleet bottleneck: mine imbalance (metal mine ≫ crystal) + HC's 5:1 demand; sites stay
-  crystal-poor. Manual mine/trader work only — automation must NOT build mines.
+- Crystal is the fleet bottleneck: mine imbalance (metal mine ≫ crystal); sites stay crystal-poor. Frigate
+  was chosen partly for the lowest crystal intensity (0.25/pt). The surplus BB/HC fleet is the fastest
+  crystal source — **scrap it via the black-market ship trader (50 % loss) once no longer flying.** Manual
+  mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
+- **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
+  (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
 - **Moons item 4 continuation**: moon build/overview API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
-- **Expedition resolver (item 1)** still blocked on the enemy formula (item 1b).
+- **Expedition resolver (item 1)** — enemy formula now known (item 1b); model it in Go.
