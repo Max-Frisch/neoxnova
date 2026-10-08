@@ -11,6 +11,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"neoxnova/internal/blueprint"
 	"neoxnova/internal/cache"
 	"neoxnova/internal/game"
 	"neoxnova/internal/store"
@@ -21,14 +22,22 @@ import (
 // multiple instances) and resolves them idempotently. Redis is an optional
 // wake-up accelerator only — correctness never depends on it.
 type EventEngine struct {
-	rdb     *redis.Client
-	db      *sql.DB
-	builds  *store.BuildStore
-	arsenal *store.ArsenalStore
+	rdb        *redis.Client
+	db         *sql.DB
+	builds     *store.BuildStore
+	arsenal    *store.ArsenalStore
+	blueprints *store.BlueprintStore
+	lastSweep  time.Time
 }
 
 func NewEventEngine(rdb *redis.Client, db *sql.DB) *EventEngine {
-	return &EventEngine{rdb: rdb, db: db, builds: store.NewBuildStore(db), arsenal: store.NewArsenalStore(db)}
+	return &EventEngine{
+		rdb:        rdb,
+		db:         db,
+		builds:     store.NewBuildStore(db),
+		arsenal:    store.NewArsenalStore(db),
+		blueprints: store.NewBlueprintStore(db),
+	}
 }
 
 // StartScheduler runs the resolution loop until the context is cancelled.
@@ -114,7 +123,107 @@ func (e *EventEngine) processDue(ctx context.Context, universeID string) {
 			log.Printf("[ERROR] Failed to expire market lot #%d: %v", id, err)
 		}
 	}
+	// Slow sweep: advance blueprints for planets that were idle at boot, whose
+	// build was cancelled, or that just became affordable. Event-driven advances
+	// also fire right after a build completes.
+	if time.Since(e.lastSweep) >= 5*time.Second {
+		e.lastSweep = time.Now()
+		e.sweepBlueprints(ctx)
+	}
 	_ = universeID
+}
+
+// sweepBlueprints advances every enabled planet blueprint. Throttled by the
+// caller (once per ~5s) to bound DB load with many planets.
+func (e *EventEngine) sweepBlueprints(ctx context.Context) {
+	refs, err := e.blueprints.ListEnabled(ctx, 200)
+	if err != nil {
+		log.Printf("[ERROR] Blueprint sweep query failed: %v", err)
+		return
+	}
+	for _, r := range refs {
+		if r.CelestialID.Valid {
+			e.AdvanceBlueprint(ctx, r.CelestialID.Int64)
+		}
+	}
+}
+
+// AdvanceBlueprint loads a planet's enabled blueprint (plus the owner's
+// account-scope research goals), asks the pure planner, and enqueues the
+// recommended actions through the normal build store. It is idempotent: a busy
+// queue or an unmet prerequisite simply yields no action.
+func (e *EventEngine) AdvanceBlueprint(ctx context.Context, celestialID int64) {
+	bp, err := e.blueprints.GetPlanet(ctx, celestialID)
+	if err != nil {
+		return // no enabled blueprint for this planet
+	}
+	if bp.PausedUntil.Valid && bp.PausedUntil.Time.After(time.Now()) {
+		return
+	}
+
+	st, err := e.blueprints.LoadState(ctx, celestialID)
+	if err != nil {
+		log.Printf("[ERROR] Blueprint state load failed for celestial %d: %v", celestialID, err)
+		return
+	}
+
+	var spec blueprint.Spec
+	if len(bp.Spec) > 0 {
+		if err := json.Unmarshal(bp.Spec, &spec); err != nil {
+			_ = e.blueprints.Touch(ctx, bp.ID, "invalid spec: "+err.Error())
+			return
+		}
+	}
+	// Account research goals are empire-wide; merge them into the planet plan.
+	if acct, err := e.blueprints.GetAccount(ctx, bp.UserID); err == nil {
+		var aspec blueprint.Spec
+		if json.Unmarshal(acct.Spec, &aspec) == nil {
+			if spec.Research == nil {
+				spec.Research = map[string]int{}
+			}
+			for code, lvl := range aspec.Research {
+				if lvl > spec.Research[code] {
+					spec.Research[code] = lvl
+				}
+			}
+		}
+	}
+	if !spec.Enabled() {
+		return
+	}
+
+	lastErr := ""
+	for _, a := range blueprint.Advance(spec, st) {
+		if err := e.enqueueBlueprintAction(ctx, celestialID, a); err != nil {
+			if errors.Is(err, store.ErrQueueBusy) {
+				continue
+			}
+			lastErr = err.Error()
+			log.Printf("[BLUEPRINT] Celestial %d action %+v failed: %v", celestialID, a, err)
+			break
+		}
+	}
+	if err := e.blueprints.Touch(ctx, bp.ID, lastErr); err != nil {
+		log.Printf("[ERROR] Blueprint touch failed for #%d: %v", bp.ID, err)
+	}
+}
+
+// enqueueBlueprintAction maps a planner action onto the existing enqueue
+// primitives (never duplicating cost/duration/prerequisite logic).
+func (e *EventEngine) enqueueBlueprintAction(ctx context.Context, celestialID int64, a blueprint.Action) error {
+	switch a.Kind {
+	case blueprint.ActionStructure:
+		_, err := e.builds.EnqueueStructure(ctx, celestialID, a.Code)
+		return err
+	case blueprint.ActionResearch:
+		_, err := e.builds.EnqueueResearch(ctx, celestialID, a.Code)
+		return err
+	case blueprint.ActionShip, blueprint.ActionDefense:
+		_, err := e.builds.EnqueueShipyard(ctx, celestialID, a.Code, a.Quantity)
+		return err
+	default:
+		return nil
+	}
 }
 
 // dueIDs collects candidate ids without locking; each resolver re-locks and
@@ -409,6 +518,7 @@ func (e *EventEngine) resolveConstruction(ctx context.Context, queueID int64) {
 		return
 	}
 	log.Printf("[EVENT RESOLVED] Construction queue #%d: %s -> level %d on celestial %d", queueID, code, targetLevel, celestialID)
+	e.AdvanceBlueprint(ctx, celestialID)
 }
 
 // resolveShipyard completes a due ship batch.
@@ -459,6 +569,7 @@ func (e *EventEngine) resolveShipyard(ctx context.Context, queueID int64) {
 		return
 	}
 	log.Printf("[EVENT RESOLVED] Shipyard queue #%d: %d x %s stationed on celestial %d", queueID, quantity, unitCode, celestialID)
+	e.AdvanceBlueprint(ctx, celestialID)
 }
 
 // resolveResearch completes a due technology.
@@ -470,15 +581,15 @@ func (e *EventEngine) resolveResearch(ctx context.Context, queueID int64) {
 	}
 	defer tx.Rollback()
 
-	var userID int64
+	var userID, celestialID int64
 	var techCode string
 	var targetLevel int
 	err = tx.QueryRowContext(ctx, `
-		SELECT user_id, tech_code, target_level
+		SELECT user_id, celestial_id, tech_code, target_level
 		FROM research_queues
 		WHERE id = $1 AND status = 'IN_PROGRESS' AND end_time <= NOW()
 		FOR UPDATE SKIP LOCKED
-	`, queueID).Scan(&userID, &techCode, &targetLevel)
+	`, queueID).Scan(&userID, &celestialID, &techCode, &targetLevel)
 	if err == sql.ErrNoRows {
 		return
 	} else if err != nil {
@@ -505,6 +616,7 @@ func (e *EventEngine) resolveResearch(ctx context.Context, queueID int64) {
 		return
 	}
 	log.Printf("[EVENT RESOLVED] Research queue #%d: %s -> level %d for user %d", queueID, techCode, targetLevel, userID)
+	e.AdvanceBlueprint(ctx, celestialID)
 }
 
 // accrueResources applies the zero-cron accumulator before crediting a deposit.
@@ -831,6 +943,7 @@ func (e *EventEngine) resolveExpedition(ctx context.Context, tx *sql.Tx, fleetID
 		}
 	}
 
+	var combatReportID int64
 	switch res.Outcome {
 	case game.ExpeditionBlackHole:
 		if _, err := tx.ExecContext(ctx, `DELETE FROM fleet_ships WHERE fleet_id = $1`, fleetID); err != nil {
@@ -843,65 +956,129 @@ func (e *EventEngine) resolveExpedition(ctx context.Context, tx *sql.Tx, fleetID
 			return err
 		}
 		log.Printf("[EXPEDITION] Fleet #%d lost in a black hole", fleetID)
-		return nil
 
 	case game.ExpeditionCombat:
-		return e.applyExpeditionCombat(ctx, tx, fleetID, userID, res, universeID, targetGalaxy, targetSystem, targetPosition)
-	}
-
-	// Non-combat outcome: recovered ships ride home, loot fills the hold, and the
-	// fleet returns (possibly early or late).
-	for code, n := range res.Ships {
-		if n <= 0 {
-			continue
-		}
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO fleet_ships (fleet_id, ship_code, count) VALUES ($1, $2, $3)
-			ON CONFLICT (fleet_id, ship_code) DO UPDATE SET count = fleet_ships.count + EXCLUDED.count
-		`, fleetID, code, n); err != nil {
+		id, err := e.applyExpeditionCombat(ctx, tx, fleetID, userID, res, universeID, targetGalaxy, targetSystem, targetPosition)
+		if err != nil {
 			return err
 		}
+		combatReportID = id
+
+	default:
+		// Non-combat outcome: recovered ships ride home, loot fills the hold, and
+		// the fleet returns (possibly early or late).
+		for code, n := range res.Ships {
+			if n <= 0 {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO fleet_ships (fleet_id, ship_code, count) VALUES ($1, $2, $3)
+				ON CONFLICT (fleet_id, ship_code) DO UPDATE SET count = fleet_ships.count + EXCLUDED.count
+			`, fleetID, code, n); err != nil {
+				return err
+			}
+		}
+		eta := returnTime.Add(time.Duration(res.ReturnAdjustSecs) * time.Second)
+		if !eta.After(time.Now()) {
+			eta = time.Now().Add(time.Second)
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE fleets
+			SET phase = 'RETURNING', arrival_time = $2, return_time = $2, holding_end_time = NULL,
+			    cargo_metal = $3, cargo_crystal = $4, cargo_deuterium = $5
+			WHERE id = $1
+		`, fleetID, eta, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium); err != nil {
+			return err
+		}
+		log.Printf("[EXPEDITION] Fleet #%d outcome=%s loot(M%d C%d D%d) ships=%d dm=%d drop=%d adjust=%ds",
+			fleetID, res.Outcome, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
+			totalCount(res.Ships), res.DarkMatter, res.UpgradeCode, res.ReturnAdjustSecs)
 	}
-	eta := returnTime.Add(time.Duration(res.ReturnAdjustSecs) * time.Second)
-	if !eta.After(time.Now()) {
-		eta = time.Now().Add(time.Second)
+
+	return e.persistExpeditionReport(ctx, tx, fleetID, userID, universeID,
+		targetGalaxy, targetSystem, targetPosition, combatReportID, res)
+}
+
+// persistExpeditionReport stores a player-facing message for every resolved
+// expedition outcome so it appears in the message inbox. It runs inside the
+// resolver's transaction, after the fleet state has been updated.
+func (e *EventEngine) persistExpeditionReport(ctx context.Context, tx *sql.Tx, fleetID, userID int64, universeID string, galaxy, system, position int, combatReportID int64, res game.ExpeditionResult) error {
+	title, message := game.ExpeditionMessage(res)
+
+	var shipsJSON []byte
+	if len(res.Ships) > 0 {
+		b, err := json.Marshal(res.Ships)
+		if err != nil {
+			return err
+		}
+		shipsJSON = b
 	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE fleets
-		SET phase = 'RETURNING', arrival_time = $2, return_time = $2, holding_end_time = NULL,
-		    cargo_metal = $3, cargo_crystal = $4, cargo_deuterium = $5
-		WHERE id = $1
-	`, fleetID, eta, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium); err != nil {
+	detail, err := json.Marshal(map[string]any{
+		"loot": map[string]int64{
+			"metal":     res.Loot.Metal,
+			"crystal":   res.Loot.Crystal,
+			"deuterium": res.Loot.Deuterium,
+		},
+		"dark_matter":        res.DarkMatter,
+		"ships":              res.Ships,
+		"upgrade_code":       res.UpgradeCode,
+		"return_adjust_secs": res.ReturnAdjustSecs,
+	})
+	if err != nil {
 		return err
 	}
-	log.Printf("[EXPEDITION] Fleet #%d outcome=%s loot(M%d C%d D%d) ships=%d dm=%d drop=%d adjust=%ds",
-		fleetID, res.Outcome, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
-		totalCount(res.Ships), res.DarkMatter, res.UpgradeCode, res.ReturnAdjustSecs)
-	return nil
+
+	var npc any
+	if res.Outcome == game.ExpeditionCombat {
+		npc = string(res.NPC)
+	}
+	var combatID any
+	if combatReportID > 0 {
+		combatID = combatReportID
+	}
+	var shipsArg any
+	if shipsJSON != nil {
+		shipsArg = shipsJSON
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO expedition_reports (
+			universe_id, fleet_id, user_id, target_galaxy, target_system, target_position,
+			outcome, npc, combat_report_id, cargo_metal, cargo_crystal, cargo_deuterium,
+			dark_matter, ships, upgrade_code, return_adjust_secs, title, message, detail
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+	`, universeID, fleetID, userID, galaxy, system, position,
+		string(res.Outcome), npc, combatID, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
+		res.DarkMatter, shipsArg, res.UpgradeCode, res.ReturnAdjustSecs, title, message, detail)
+	return err
 }
 
 // applyExpeditionCombat persists the outcome of an expedition fight: the battle
 // report, the attacker's losses, the deep-space debris field and the return /
-// destruction of the fleet. The Arsenal draw (if any) was already credited.
-func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fleetID, userID int64, res game.ExpeditionResult, universeID string, galaxy, system, position int) error {
+// destruction of the fleet. The Arsenal draw (if any) was already credited. It
+// returns the inserted combat_reports id (0 when the report could not be
+// marshalled) so the expedition message can link to it.
+func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fleetID, userID int64, res game.ExpeditionResult, universeID string, galaxy, system, position int) (int64, error) {
 	battle := res.Combat
+	var combatReportID int64
 	if reportJSON, mErr := json.Marshal(battle); mErr == nil {
-		if _, err := tx.ExecContext(ctx, `
+		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO combat_reports (
 				universe_id, fleet_id, attacker_id, defender_id, target_id,
 				galaxy, system, position, result, rounds,
 				debris_metal, debris_crystal, moon_chance, report
 			) VALUES ($1,$2,$3,NULL,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			RETURNING id
 		`, universeID, fleetID, userID, galaxy, system, position,
-			battle.Winner, battle.Rounds, battle.DebrisMetal, battle.DebrisCrystal, battle.MoonChance, reportJSON); err != nil {
-			return err
+			battle.Winner, battle.Rounds, battle.DebrisMetal, battle.DebrisCrystal, battle.MoonChance, reportJSON).Scan(&combatReportID); err != nil {
+			return 0, err
 		}
 	} else {
 		log.Printf("[WARN] Failed to marshal expedition combat for fleet #%d: %v", fleetID, mErr)
 	}
 
 	if err := overwriteFleetShips(ctx, tx, fleetID, battle.Attacker.Remaining); err != nil {
-		return err
+		return 0, err
 	}
 
 	if battle.DebrisMetal > 0 || battle.DebrisCrystal > 0 {
@@ -912,7 +1089,7 @@ func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fle
 			DO UPDATE SET metal = celestial_objects.metal + EXCLUDED.metal,
 			              crystal = celestial_objects.crystal + EXCLUDED.crystal
 		`, universeID, galaxy, system, position, battle.DebrisMetal, battle.DebrisCrystal); err != nil {
-			return err
+			return 0, err
 		}
 	}
 
@@ -922,18 +1099,18 @@ func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fle
 			UPDATE fleets SET phase = 'RESOLVED', cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
 			WHERE id = $1
 		`, fleetID); err != nil {
-			return err
+			return 0, err
 		}
 	} else if _, err := tx.ExecContext(ctx, `
 		UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time, holding_end_time = NULL,
 		       cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
 		WHERE id = $1
 	`, fleetID); err != nil {
-		return err
+		return 0, err
 	}
 	log.Printf("[EXPEDITION] Fleet #%d fought %s (%d rounds, winner=%s) survivors=%d drop=%d",
 		fleetID, res.NPC, battle.Rounds, battle.Winner, survivors, res.UpgradeCode)
-	return nil
+	return combatReportID, nil
 }
 
 // espionageIntel is the JSON payload stored on an espionage report. Niburu

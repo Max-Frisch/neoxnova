@@ -1,6 +1,6 @@
 # Auto-Build / Colony Builder — Design & Roadmap
 
-Status: proposed (design only, no code yet)
+Status: Phase 1b (core single-planet auto-build) implemented 2026-10-08 — see §15.
 Audience: future implementer (us)
 Scope: server-side, configurable "auto-build" for neoxnova, aimed at making
 accounts with 20–40 colonies manageable without a client bot.
@@ -298,6 +298,38 @@ for 20–40 colonies; Phases 1b–3 make each existing planet self-managing firs
   only for now.)
 - How many blueprint advances per sweep to stay safe at 40 planets?
 - Do we need blueprints for moons/other celestial types?
+
+---
+
+## 15. Implemented (2026-10-08)
+
+Phase 1b core, single planet:
+
+- **Prerequisite graph** — `internal/game/techtree.go` ports the live
+  `techtree-graph.json` (numeric ids mapped to catalog codes) into `TechTree`
+  and an `init()` back-fills every `Structures`/`Techs`/`Ships`/`Defenses`
+  `Requires` map, so the build store and planner share one source of truth. This
+  also fixed the stale `nanite_factory` entry (needs Computer Tech 10, not
+  Shipyard 8).
+- **Planner** — `internal/blueprint` is pure: `Spec`/`State`/`Action`,
+  `Advance` returns at most one action per free queue scope, `NextAction` adds
+  done/idle, `PendingGoals` supports the sweep. Covers prerequisite closure,
+  `order`, gradual+caps, `bumpBuilders`, energy deficit (Solar Plant or
+  Satellites), and `minReserve`.
+- **Persistence** — `migrations/0014_blueprints.sql`, `store.BlueprintStore`
+  (CRUD, `LoadState`, `ListEnabled`, `Touch`). One enabled planet blueprint per
+  celestial; one account blueprint per user (research).
+- **Engine** — `AdvanceBlueprint` runs after every construction/shipyard/
+  research completion and merges the owner's account research into the planet
+  plan; a ~5 s `sweepBlueprints` catches cold starts/cancels. Actions go through
+  the existing `Enqueue*` primitives; `ErrQueueBusy` is a no-op.
+- **API** — `GET/POST/DELETE /api/v1/planets/{id}/blueprint`,
+  `POST /api/v1/planets/{id}/blueprint/preview`, `GET/POST
+  /api/v1/blueprints/account`, `GET /api/v1/blueprints`. Gated by
+  `RequireAuth` + owner-or-`ADMIN`.
+
+Still open: templates/apply-to-all, UI, throttling tuning, energy-gate decision,
+and auto-colonize (Phase 4).
 
 ---
 

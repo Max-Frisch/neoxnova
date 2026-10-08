@@ -69,12 +69,17 @@
    (pirates 70 / aliens 30 — only these two exist), resources 30, ships 20, nothing 17, DM 8,
    delay 6, fast 2. Enemy scales ONLY on general W/S/A research 109/110/111
    (`MirroredResearchBonus`); never specific weapon techs/arsenal/academy.
-    REMAINING: outcome-message/API surfacing + live calibration. Notes: `docs/EXPEDITIONS…` §8/§9.
+    **Outcome surfacing DONE 2026-10-08**: every outcome (incl. combat/BH) now writes an
+   `expedition_reports` row (migration 0013) with `title`/`message` (`game.ExpeditionMessage`),
+   loot/ships/DM/upgrade, `combat_report_id` for fights; served by `GET /api/v1/expeditions/reports/{id}`
+   and `GET /api/v1/planets/{id}/expedition-reports`. **Owner re-locked the mix 2026-10-08: combat 15 %,
+   fatal black hole 0.5 %** (was 2 %); freed weight → resources .31/ships .21/DM .085, nothing .16.
+   REMAINING: live calibration only. Notes: `docs/EXPEDITIONS…` §8/§9/§10.
    **Full message scan 2026-10-08** (§10): corrected live mix n=641 = ships 30.7 %, resources 20.7 %,
    darkmatter 13.7 %, delay 12.5 %, combat 10.0 % (pirates 49/aliens 15), nothing 7.8 %, fast 3.7 %,
    fatal black hole 0.5 %, stardust 0.3 %. The vanilla `MissionCaseExpedition.php` is a reference
-   only (uniform 1/9 ⇒ 11 % BH / 33 % nothing); live is custom. Owner-locked Go mix (combat 15 %,
-   BH 2 %) does **not** match observation — flag before re-locking; Go surfacing still to do.
+   only (uniform 1/9 ⇒ 11 % BH / 33 % nothing); live is custom. Owner chose to keep combat 15 % and
+   adopt the measured **0.5 % BH**.
 1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
     per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
     to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
@@ -116,7 +121,16 @@
    hostility is now OWNERSHIP-based (any fleet not owned by the planet owner is hostile, incl.
    foreign espionage) and the palette is enemy attack red `#ff4d4d`, enemy spy orange `#ff9900`,
    own inbound green `#4caf50` (`MissionDisplayFor(mission, hostile)`).
-3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
+3. **Auto-builder base (Go)** — DONE 2026-10-08. `internal/game/techtree.go` ports the live
+   prerequisite graph (back-fills every def's `Requires`, fixing the old nanite entry);
+   `internal/blueprint` is the pure planner (`Spec`/`State`/`Action`, `Advance` one action per free
+   scope, prereq closure, order/gradual/caps/bumpBuilders, energy deficit, min-reserve, done/idle);
+   migration `0014_blueprints.sql` + `store.BlueprintStore` (CRUD, `LoadState`, `ListEnabled`);
+   engine `AdvanceBlueprint` fires after every construction/shipyard/research completion and a ~5 s
+   `sweepBlueprints` catches cold starts; account-scope research is merged into each planet plan.
+   API: `GET/POST/DELETE /api/v1/planets/{id}/blueprint`, `POST …/blueprint/preview`,
+   `GET/POST /api/v1/blueprints/account`, `GET /api/v1/blueprints` (owner-or-ADMIN gated).
+   REMAINING: templates/apply-to-all, UI, auto-colonize, energy-gate. `docs/AUTO_BUILD_DESIGN.md`.
 4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
    created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
    creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
@@ -137,6 +151,13 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **auto-builder base (item 3) + expedition outcome surfacing (item 1)** — pure
+  `internal/blueprint` planner + complete `game.TechTree` prerequisite graph (back-fills all defs),
+  `0014_blueprints.sql` + `store.BlueprintStore`, engine advance-on-completion + 5 s sweep,
+  owner/admin API. Expeditions now persist an `expedition_reports` row for **every** outcome
+  (message text via `game.ExpeditionMessage`, combat links its `combat_report_id`) + two read routes;
+  mix re-locked to **combat 15 % / BH 0.5 %**. Tests: `blueprint` table tests, `game` techtree/message,
+  engine DB integration (blueprint enqueue + expedition report per branch). `go test ./...` green.
 - 2026-10-08: **full message parse scan (`msg-scan`/`msg-stats`)** — rewrote the expedition
   classifier against the live `sys_expe_*` lang strings + custom flavours (bacterium, virus,
   stardust, non-fatal blackhole-loot, ancient-battlefield); fixed `nothing_8`→resources and
@@ -323,11 +344,11 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
-- **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
-  (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
   API (Moon base → fields), or `DESTROY_MOON`.
-- **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
-- **Expedition outcome surfacing** — persist non-combat expedition outcomes and expose
-  reports/messages (item 1 follow-up). The message taxonomy + corrected mix are now mined
-  (`docs/EXPEDITIONS…` §10); decide the Go mix vs the 15 %/2 % lock first.
+- **Auto-builder Phase 2**: templates, apply-to-all, per-planet status/UI, dry-run preview polish,
+  energy-gate decision (see `docs/AUTO_BUILD_DESIGN.md` §12).
+- **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
+  (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
+- **Expedition live calibration** — harvest more outcomes and refine the non-locked mix weights
+  (`docs/EXPEDITIONS…` §10); surfacing is done.

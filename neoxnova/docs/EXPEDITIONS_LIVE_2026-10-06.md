@@ -312,10 +312,11 @@ template, ONE rolled W/S/A carried on `Combatant.FlatBonusPct`; Aliens have the
 inherited by 2Moons/XNova): resources 32.5 %, ships 22 %, dark matter 9 %,
 combat 8.4 % (pirates 5.8 / aliens 2.6 ⇒ 70/30), delay 7 %, early return 2 %,
 nothing 18.6 %, black hole 0.33 %, merchant 0.7 %. This server differs (combat
-~15 %, black hole ~2 %), so the mix is rescaled to: resources 30 %, ships 20 %,
-**combat 15 %** (pirates 70 / aliens 30), nothing 17 %, dark matter 8 %, delay
-6 %, fast 2 %, **black hole 2 %**. Owner-locked 2026-10-08: BH 2 %, combat 15 %,
-only Pirates + Aliens (no "barbarians" — that is a pirate flavour string).
+~15 %, black hole ~0.5 %), so the mix is rescaled to: resources 31 %, ships 21 %,
+**combat 15 %** (pirates 70 / aliens 30), nothing 16 %, dark matter 8.5 %, delay
+6 %, fast 2 %, **black hole 0.5 %**. Owner re-locked 2026-10-08: combat 15 % and
+the measured, friendlier **BH 0.5 %** (was 2 %); only Pirates + Aliens exist (no
+"barbarians" — that is a pirate flavour string).
 
 **Enemy scaling.** Pirate/alien fights use the regular combat engine but scale
 ONLY on the general Weapons/Shield/Armour research (109/110/111) — the strongest
@@ -371,9 +372,18 @@ logic.** Vanilla rolls `mt_rand(1,9)` uniform (nothing = 3/9 = 33 %, black hole 
 1/9 = 11 %); the live server is far away (nothing 7.8 %, fatal BH 0.5 %, ships
 30.7 %) and adds flavours absent from the PHP/lang file (bacterium, virus,
 stardust, blackhole-loot, ancient-battlefield/Arsenal). **Do not copy the PHP
-weights.** Effect on the Go resolver: the owner-locked mix (combat 15 %, BH 2 %)
-does **not** match the observed 10 % / 0.5 % — flag for the owner before
-re-locking; item 1's `expeditionOutcomeWeights` remains a product decision.
+weights.** Effect on the Go resolver: the owner **re-locked** the mix to combat
+15 % / BH **0.5 %** (adopting the measured BH rate); the remaining weights stay a
+product decision.
+
+### Outcome surfacing (implemented 2026-10-08)
+
+Every resolved expedition now persists an `expedition_reports` row (migration
+`0013`) with a `title`/`message` from `game.ExpeditionMessage`, loot/ships/DM/
+upgrade code and return-time shift; combat outcomes also store the NPC and link
+the `combat_report_id`, and black holes/wipe-outs get their own message. Served
+by `GET /api/v1/expeditions/reports/{id}` and
+`GET /api/v1/planets/{id}/expedition-reports`. Only live calibration remains.
 
 ### Non-expedition messages now parsed
 

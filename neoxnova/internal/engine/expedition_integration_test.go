@@ -42,6 +42,7 @@ func expeditionFleet(t *testing.T, db *sql.DB, universeID string) int64 {
 		db.ExecContext(ctx, `DELETE FROM fleet_ships WHERE fleet_id = $1`, fleetID)
 		db.ExecContext(ctx, `DELETE FROM fleets WHERE id = $1`, fleetID)
 		db.ExecContext(ctx, `DELETE FROM combat_reports WHERE fleet_id = $1`, fleetID)
+		db.ExecContext(ctx, `DELETE FROM expedition_reports WHERE fleet_id = $1`, fleetID)
 		db.ExecContext(ctx, `DELETE FROM upgrade_items WHERE account_id = 2 AND upgrade_code IN (5,11)`)
 	})
 	return fleetID
@@ -111,6 +112,13 @@ func TestResolveExpeditionPersistence(t *testing.T) {
 		if err != nil || qty < 1 {
 			t.Fatalf("expected an upgrade_item 11 drawing, got qty=%d err=%v", qty, err)
 		}
+		var outcome, title, msg string
+		if err := db.QueryRowContext(ctx, `SELECT outcome, title, message FROM expedition_reports WHERE fleet_id=$1`, fleetID).Scan(&outcome, &title, &msg); err != nil {
+			t.Fatalf("expected an expedition report: %v", err)
+		}
+		if outcome != "resources" || title == "" || msg == "" {
+			t.Fatalf("expedition report = %q/%q/%q, want resources with text", outcome, title, msg)
+		}
 	})
 
 	t.Run("combat win", func(t *testing.T) {
@@ -148,6 +156,14 @@ func TestResolveExpeditionPersistence(t *testing.T) {
 		if reports != 1 {
 			t.Fatalf("combat_reports = %d, want 1", reports)
 		}
+		var outcome, npc string
+		var linked sql.NullInt64
+		if err := db.QueryRowContext(ctx, `SELECT outcome, npc, combat_report_id FROM expedition_reports WHERE fleet_id=$1`, fleetID).Scan(&outcome, &npc, &linked); err != nil {
+			t.Fatalf("expected a combat expedition report: %v", err)
+		}
+		if outcome != "combat" || npc != "pirates" || !linked.Valid {
+			t.Fatalf("expedition report = %q npc=%q linked=%v, want combat/pirates/linked", outcome, npc, linked.Valid)
+		}
 		var debris int
 		if err := db.QueryRowContext(ctx, `
 			SELECT COUNT(*) FROM celestial_objects
@@ -179,6 +195,13 @@ func TestResolveExpeditionPersistence(t *testing.T) {
 		}
 		if ships != 0 {
 			t.Fatalf("black-holed fleet still has %d ship rows", ships)
+		}
+		var outcome string
+		if err := db.QueryRowContext(ctx, `SELECT outcome FROM expedition_reports WHERE fleet_id=$1`, fleetID).Scan(&outcome); err != nil {
+			t.Fatalf("expected a black-hole expedition report: %v", err)
+		}
+		if outcome != "blackhole" {
+			t.Fatalf("expedition report outcome = %q, want blackhole", outcome)
 		}
 	})
 }

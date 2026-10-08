@@ -3,6 +3,9 @@ package game
 import (
 	"math"
 	"math/rand"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // Expedition model (backlog item 1). Pure, deterministic-given-a-seed: the
@@ -71,24 +74,24 @@ type ExpeditionResult struct {
 	UpgradeCode int
 }
 
-// expeditionOutcomeWeights is the outcome distribution. It tracks the open
-// (OGame/2Moons/XNova) default mix — resources 32.5 %, ships 22 %, dark matter
-// 9 %, combat 8.4 % (pirates 5.8 / aliens 2.6), delay 7 %, early return 2 %,
-// nothing 18.6 %, black hole 0.33 % — rescaled here so combat is the live ~15 %
-// and the black hole the measured ~2 %. Everyone else is scaled down
-// proportionally. PROVISIONAL.
+// expeditionOutcomeWeights is the outcome distribution. Owner-locked
+// 2026-10-08: combat 15 %, black hole 0.5 % (the "friendlier" rate — the
+// measured live rate is 0.5 % and the earlier 2 % lock was too punishing). The
+// freed black-hole weight is returned to the positive outcomes (resources,
+// ships, dark matter) and trimmed from "nothing". Sums to 1.0. PROVISIONAL
+// beyond the two locked rates.
 var expeditionOutcomeWeights = []struct {
 	outcome ExpeditionOutcome
 	weight  float64
 }{
-	{ExpeditionResources, 0.30},
-	{ExpeditionShips, 0.20},
+	{ExpeditionResources, 0.31},
+	{ExpeditionShips, 0.21},
 	{ExpeditionCombat, 0.15},
-	{ExpeditionNothing, 0.17},
-	{ExpeditionDarkMatter, 0.08},
+	{ExpeditionNothing, 0.16},
+	{ExpeditionDarkMatter, 0.085},
 	{ExpeditionDelay, 0.06},
 	{ExpeditionFastReturn, 0.02},
-	{ExpeditionBlackHole, 0.02},
+	{ExpeditionBlackHole, 0.005},
 }
 
 // npcWeights: within a combat encounter the open-codebase split is 5.8 % pirates
@@ -278,6 +281,83 @@ func rollExpeditionDrop(fleetPoints int64, rng *rand.Rand) int {
 		return 0
 	}
 	return code
+}
+
+// ExpeditionMessage renders a resolved expedition as a player-facing message,
+// mirroring the live sys_expe_* taxonomy (docs/EXPEDITIONS… §10). It is pure so
+// the engine can persist it verbatim and the API can serve it without the
+// client re-deriving the flavour text.
+func ExpeditionMessage(res ExpeditionResult) (title, body string) {
+	switch res.Outcome {
+	case ExpeditionResources:
+		if res.Loot.Metal+res.Loot.Crystal+res.Loot.Deuterium == 0 {
+			return "Expedition", "Our expedition found an asteroid belt, but the cargo holds were too small to carry anything home."
+		}
+		return "Expedition: resources found", "Our expedition discovered an abandoned supply depot and recovered " +
+			formatLoot(res.Loot) + "."
+	case ExpeditionShips:
+		if len(res.Ships) == 0 {
+			return "Expedition", "Our expedition found the wreck of a long-lost fleet, but nothing could be salvaged."
+		}
+		return "Expedition: ships found", "Our expedition came across the remains of an ancient battlefield and recovered " +
+			formatShips(res.Ships) + "."
+	case ExpeditionCombat:
+		who := "pirates"
+		if res.NPC == NPCAliens {
+			who = "an alien species"
+		}
+		if res.Combat != nil && res.Combat.Winner == "attacker" {
+			return "Expedition: battle won", "Our expedition was attacked by " + who + " and won the battle. Debris field: " +
+				formatLoot(Cost{Metal: res.Combat.DebrisMetal, Crystal: res.Combat.DebrisCrystal}) + "."
+		}
+		return "Expedition: battle lost", "Our expedition encountered " + who + " and was destroyed in battle."
+	case ExpeditionDarkMatter:
+		return "Expedition: dark matter found", "Our expedition discovered an asteroid core containing dark matter."
+	case ExpeditionDelay:
+		return "Expedition: delayed", "Our expedition was delayed on its way home."
+	case ExpeditionFastReturn:
+		return "Expedition: early return", "Our expedition caught a favourable current and will return early."
+	case ExpeditionBlackHole:
+		return "Expedition: lost", "Our expedition was swallowed by a black hole. The fleet is lost."
+	default:
+		return "Expedition", "Our expedition returned without any noteworthy findings."
+	}
+}
+
+func formatLoot(c Cost) string {
+	parts := make([]string, 0, 3)
+	if c.Metal > 0 {
+		parts = append(parts, strconv.FormatInt(c.Metal, 10)+" metal")
+	}
+	if c.Crystal > 0 {
+		parts = append(parts, strconv.FormatInt(c.Crystal, 10)+" crystal")
+	}
+	if c.Deuterium > 0 {
+		parts = append(parts, strconv.FormatInt(c.Deuterium, 10)+" deuterium")
+	}
+	if len(parts) == 0 {
+		return "nothing"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatShips(ships map[string]int64) string {
+	parts := make([]string, 0, len(ships))
+	for code, n := range ships {
+		if n <= 0 {
+			continue
+		}
+		name := code
+		if def, ok := LookupUnit(code); ok {
+			name = def.Name
+		}
+		parts = append(parts, strconv.FormatInt(n, 10)+"x "+name)
+	}
+	if len(parts) == 0 {
+		return "nothing"
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
 }
 
 // MirroredResearchBonus is the general Weapons/Shield/Armour research

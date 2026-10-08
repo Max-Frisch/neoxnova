@@ -38,11 +38,11 @@ func TestRollExpeditionDeterministic(t *testing.T) {
 	}
 }
 
-// TestExpeditionOutcomeMix checks every outcome is reachable and the black-hole
-// rate stays in the measured neighbourhood (~2 %).
+// TestExpeditionOutcomeMix checks every outcome is reachable and the locked
+// rates hold: combat 15 %, black hole 0.5 %.
 func TestExpeditionOutcomeMix(t *testing.T) {
 	atk := expSampleAtk()
-	const n = 4000
+	const n = 20000
 	counts := map[ExpeditionOutcome]int{}
 	for s := int64(0); s < n; s++ {
 		counts[RollExpedition(atk, s).Outcome]++
@@ -56,12 +56,45 @@ func TestExpeditionOutcomeMix(t *testing.T) {
 		}
 	}
 	bh := float64(counts[ExpeditionBlackHole]) / n
-	if bh < 0.005 || bh > 0.05 {
-		t.Errorf("black-hole rate %.3f outside [0.005,0.05]", bh)
+	if bh < 0.002 || bh > 0.012 {
+		t.Errorf("black-hole rate %.4f outside [0.002,0.012]", bh)
 	}
 	fight := float64(counts[ExpeditionCombat]) / n
-	if fight < 0.05 || fight > 0.30 {
-		t.Errorf("combat rate %.3f outside [0.05,0.30]", fight)
+	if fight < 0.12 || fight > 0.18 {
+		t.Errorf("combat rate %.4f outside [0.12,0.18]", fight)
+	}
+}
+
+// TestExpeditionWeightsSumTo1 guards the mix against an accidental drift.
+func TestExpeditionWeightsSumTo1(t *testing.T) {
+	var total float64
+	for _, w := range expeditionOutcomeWeights {
+		total += w.weight
+	}
+	if total < 0.9999 || total > 1.0001 {
+		t.Fatalf("expedition weights sum to %.4f, want 1.0", total)
+	}
+}
+
+// TestExpeditionMessage ensures every outcome yields a non-empty message and
+// combat reports name the faction.
+func TestExpeditionMessage(t *testing.T) {
+	for _, o := range []ExpeditionOutcome{
+		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
+		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing, ExpeditionBlackHole,
+	} {
+		title, body := ExpeditionMessage(ExpeditionResult{Outcome: o})
+		if title == "" || body == "" {
+			t.Errorf("outcome %q produced an empty message", o)
+		}
+	}
+	_, alien := ExpeditionMessage(ExpeditionResult{
+		Outcome: ExpeditionCombat,
+		NPC:     NPCAliens,
+		Combat:  &CombatResult{Winner: "defender"},
+	})
+	if alien == "" {
+		t.Fatal("alien combat message empty")
 	}
 }
 

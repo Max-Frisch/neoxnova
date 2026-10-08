@@ -53,6 +53,16 @@ func (s *AuthStore) UserAuth(ctx context.Context, login string) (int64, string, 
 	return id, hash, err
 }
 
+// AuthRole returns a user's role ('PLAYER', 'MODERATOR', 'ADMIN').
+func (s *AuthStore) AuthRole(ctx context.Context, userID int64) (string, error) {
+	var role string
+	err := s.db.QueryRowContext(ctx, `SELECT auth_role FROM users WHERE id = $1`, userID).Scan(&role)
+	if err == sql.ErrNoRows {
+		return "", ErrNotFound
+	}
+	return role, err
+}
+
 // UserByID returns a user's public profile fields.
 func (s *AuthStore) UserByID(ctx context.Context, userID int64) (username, email string, err error) {
 	err = s.db.QueryRowContext(ctx, `
