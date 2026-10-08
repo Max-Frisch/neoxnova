@@ -20,10 +20,13 @@
 - **Expo send (`run-farm-send.sh`, 30 s):** slots = LIVE `expeditionSlots` (config fallback; acc1/acc2
   = 9). `active` = `/Expedition/` rows **not `/Hostail/`** (a real fleet flips A→R with `fleetID:null`
   on return). acc1 carries **6 permanent Hostail ghosts** — `used` double-counts them; ignore.
-- **S growth = build-capacity-limited:** `farm-plan sent --active N` sums the WHOLE fleet (main + all
-  site files + N in-flight), then `S = ⌊fleet/slots⌋` (capped by BB and 5·HC), **ratcheted** so losses
-  rebuild toward the high-water. Build targets = `S · growth` (`growth`=3) so throughput is the only
-  limit. Loop skips a cycle when the main `levels` refresh is stale.
+- **S sizing = whole-fleet/slots (accurate, no ratchet):** `farm-plan sent --active N --inflight-ships M`
+  sums the WHOLE fleet (main + all site files + the in-flight MAIN recovered from each airborne fleet's
+  live `exp-state` ship count) and sets `S = ⌊fleet/slots⌋` so exactly `slots` fleets cover the account.
+  The old run-log reconstruction over-counted (failed sends logged, `num`/stale S) and ratcheted S ~2x
+  too high → half the slots idle; that ratchet is gone. Build targets = `S · growth` (`growth`=3).
+  Sends are **one fleet per POST** (`exp_num>1` was unreliable). Loop skips a cycle when the main
+  `levels` refresh is stale.
 - **Worker stall fix:** pending unit stored `{base,exp,until}`, dropped when `have < base` (pool drain)
   or the ETA passes, so a drained colony re-submits instead of deadlocking.
 - **`httpbot trade <buy> <code:amt,...>`:** value 1:2:4 (deut→crystal = 1:2), **250 DM/call → big lumps**.
@@ -99,6 +102,16 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **expedition slots no longer idle (both accounts)** — `farm-plan.mjs` reconstructed
+  in-flight ships from `expedition-runs.json`, which over-counted (attempts logged even on failure,
+  `num`/stale S), ratcheting S ~2x too high: acc1 S=12.8k vs real cap ~6.4k, acc2 S=7.4k vs ~5.5k, so
+  only ~4/9 slots flew. The send loop now reads each airborne fleet's ship count from the live
+  `exp-state` and the planner recovers the MAIN count from it, sizing `S = whole-fleet/slots` with no
+  ratchet; sends are one fleet per POST (`exp_num>1` was unreliable) and explicitly `--cp <mainCp>`
+  (the session's current planet drifts to a colony a worker touched, and the POST then silently
+  no-ops). acc1 S≈7.7k (8/9 slots), acc2 S≈4.2k. `cmd/exposim` gained the live Frigate+recycler comps
+  (1:1 = 0.0% median / 3.8% worst-case losses; recyclers are the loot cargo). No Frigate combat/
+  black-hole yet.
 - 2026-10-08: **wall-free Frigate expedition comp (live, both accounts)** — `cmd/exposim` (new) swept
   comps on the real combat engine: the mirrored enemy makes fodder a liability (`BB+5HC` 12.9%/fight vs
   0.0% wall-free). Added Frigate (227) cost to the catalog, made `farm-plan.mjs` composition-configurable
