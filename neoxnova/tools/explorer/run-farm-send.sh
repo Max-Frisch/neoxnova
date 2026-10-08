@@ -121,8 +121,11 @@ while true; do
   # One fleet per POST. A single `exp_num=N` request was unreliable (rejected /
   # only partly applied) and left slots idle; N separate single-fleet sends land
   # deterministically and each is logged as its own run.
+  # Always target the main planet explicitly: the session's "current" planet
+  # drifts to whichever colony a worker last touched, and the expedition then
+  # fails (posts from a planet that doesn't hold the fleet).
   for ((k = 0; k < N; k++)); do
-    "${NODE[@]}" httpbot.mjs expedition "$SET" 1 1 10
+    "${NODE[@]}" httpbot.mjs expedition "$SET" 1 1 10 --cp "$MAIN_CP"
   done
 
   # Confirm the send registered; if it did not, the next cycle retries (the fresh
