@@ -117,14 +117,21 @@ while true; do
   # recycler/wall counts scale with the reduced hull size so the comp ratio holds.
   PER=$S; PERBR=$BR
   if [ "$N" -lt 1 ]; then
-    HAVEMAIN=$(ACC="$ACC" MAIN="$MAIN" node -e 'const s=JSON.parse(require("fs").readFileSync("data/farm-main-"+process.env.ACC+".json","utf8")).ships||{};process.stdout.write(String(s[process.env.MAIN]||0))' 2>/dev/null)
+    # Also require the full one-of-each set on main: the split path bypasses the
+    # `afford` gate, and a POST missing a required hull (e.g. a just-unlocked
+    # 213) would be rejected instead of flying.
+    read -r HAVEMAIN SMALLMIN <<<"$(ACC="$ACC" MAIN="$MAIN" node -e '
+      const s=JSON.parse(require("fs").readFileSync("data/farm-main-"+process.env.ACC+".json","utf8")).ships||{};
+      const codes=["202","204","205","206","207","211","213","215","216","225","226"];
+      process.stdout.write(String(s[process.env.MAIN]||0)+" "+Math.min(...codes.map((c)=>+s[c]||0)));' 2>/dev/null)"
     case "$HAVEMAIN" in ''|*[!0-9]*) HAVEMAIN=0;; esac
+    case "$SMALLMIN" in ''|*[!0-9]*) SMALLMIN=0;; esac
     L=$(( HAVEMAIN / FREE ))
     [ "$L" -gt "$S" ] && L=$S
-    if [ "$L" -ge "${FARM_MIN_FLEET:-1000}" ]; then
+    if [ "$SMALLMIN" -ge 1 ] && [ "$L" -ge "${FARM_MIN_FLEET:-1000}" ]; then
       PER=$L; PERBR=$(( L * BR / S )); [ "$PERBR" -lt 1 ] && PERBR=1
       N=$FREE
-      echo "[$(date +%T)] split: main=${HAVEMAIN} < S=${S} -> ${N}x${PER} over ${FREE} free slot(s)"
+      echo "[$(date +%T)] split: main=${HAVEMAIN} < S=${S} (small=${SMALLMIN}) -> ${N}x${PER} over ${FREE} free slot(s)"
     fi
   fi
   if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (main=${HAVEMAIN:-?} S=$S); wait"; sleep "$EVERY"; continue; fi
