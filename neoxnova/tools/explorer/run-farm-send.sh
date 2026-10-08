@@ -58,7 +58,7 @@ afford() {
     const s=(JSON.parse(require("fs").readFileSync("data/farm-main-"+process.env.ACC+".json","utf8")).ships)||{};
     const S=+process.env.S,br=+process.env.BR,cargo=+process.env.CARGON,free=+process.env.FREE;
     const main=+s[process.env.MAIN]||0, wall=+s[process.env.WALL]||0, cg=+s[process.env.CARGOC]||0, r=+s[process.env.RECY]||0;
-    const small=Math.min(+s["202"]||0,+s["204"]||0,+s["205"]||0,+s["206"]||0);
+    const small=Math.min(+s["202"]||0,+s["204"]||0,+s["205"]||0,+s["206"]||0,+s["207"]||0,+s["211"]||0,+s["213"]||0,+s["215"]||0,+s["216"]||0,+s["225"]||0,+s["226"]||0);
     let n=Math.min(free,Math.floor(main/S),
       process.env.WALL?Math.floor(wall/(+process.env.WALLPER*S)):free,
       process.env.CARGOC&&cargo>0?Math.floor(cg/cargo):free,
@@ -132,7 +132,7 @@ while true; do
   SET="${MAIN}:${PER}"
   [ -n "$C_WALL" ] && SET="${SET},${C_WALL}:$((C_WALLPER * PER))"
   [ -n "$C_CARGO" ] && [ "$CARGON" -gt 0 ] && SET="${SET},${C_CARGO}:${CARGON}"
-  SET="${SET},${C_RECY}:${PERBR},202:1,204:1,205:1,206:1"
+  SET="${SET},${C_RECY}:${PERBR},202:1,204:1,205:1,206:1,207:1,211:1,213:1,215:1,216:1,225:1,226:1"
   echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} per=${PER} brf=${PERBR} :: $SET"
   # One fleet per POST. A single `exp_num=N` request was unreliable (rejected /
   # only partly applied) and left slots idle; N separate single-fleet sends land

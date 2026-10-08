@@ -33,7 +33,10 @@
 - acc1 Bratwurst `3:125:12` (moon); sites = `1593` + `1655/1656/1657` (`3:125:9-11`) +
   `1690/1692/1693` (`3:124:9-11`). acc2 TheBob `2:188:16`; sites = `1598` + `1672/1673/1674/1675/1676`
   (`2:188:10-11` + `2:187:9-11`). **All shipyards upgraded to 18 (2026-10-08) → Frigate unlocked everywhere.**
-- **Expo set = `227:S,219:br` + 1 each `202/204/205/206` (no Spy Probe `210`; slot 21 errors).**
+- **Expo set = `227:S,219:br` + 1 each of every sub-Frigate ship `202/204/205/206/207/211/213/215/216/225/226`
+  (no Spy Probe `210`; slot 21 errors). 2026-10-08: added the 7 heavies (207 BS, 211 PB, 213 SF, 215 BC,
+  216 BM, 225 Galleon, 226 Destroyer) to inflate the expedition's fleet value/found scale — built on main
+  only, one per fleet; the send gate now requires all 11 present.**
   Composition is config-driven in `plans/farm-sites.json` `comp` (`main`/`wall`/`cargo`/`recycler`/`ramp`);
   freighter/recycler ratios are **point-based** (`recyclerPoints`) so they survive a hull flip. `S` resets
   to capacity whenever `comp` changes; otherwise it ratchets. The optional wall ratio-gate is OFF.
@@ -109,6 +112,15 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **one of each sub-Frigate ship per expedition (both accounts live)** — `farm-plan.mjs`
+  `small` set + `run-farm-send.sh` gate/`SET` now carry `202/204/205/206/207/211/213/215/216/225/226`
+  (1/fleet; 207/215/216/225/226 already on main, 211/213 built by the worker). In-flight ship-count
+  reconstruction now subtracts 11 smalls/fleet.
+- 2026-10-08: **2nd/3rd Frigate pirate wins net-positive** — acc1 msgs 241795 (06:53, return 241815)
+  and 241820 (07:03, return 241833). Losses M+C 76.802 B + 6.410 B = **83.211 B** (1,820 Frigate +
+  6,507 Battle Recycler; +4.941 B Deut); debris hauled back exactly equals the reported fields:
+  **169.047 B** (M 125.567 / C 43.480). Academy Standardisation (Fleet) L13 = −13 % rebuild ⇒ 72.394 B,
+  **+96.653 B net / 2.34×** (−12 %: +95.821 B / 2.31×).
 - 2026-10-08: **recycler ratio cut + colony pooling unblocked** — `plans/farm-sites.json` gains
   `comp.recyclerPoints=80e6` (≈1 recycler per 2 Frigates; was clamped to 1:1) and `poolMin=5000`.
   `run-farm-build.sh` now re-reads `poolMin` each cycle; the old fixed 50 k sat ABOVE the per-site

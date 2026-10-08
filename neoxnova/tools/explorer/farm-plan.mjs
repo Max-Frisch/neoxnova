@@ -20,8 +20,9 @@
 // We are phasing Battleship -> Frigate: drop the wall now (immediate ~0% losses,
 // frees the Heavy-Cargo cap so all slots fly) while ramping Frigates, then flip.
 // A full rotation = `slots` fleets, each `S` main + cargo + recycler + 1 of each
-// small ship. Each site produces its divided share; main fields the small ships
-// and the crystal-heavy recyclers.
+// sub-Frigate ship (202/204/205/206/207/211/213/215/216/225/226). Each site
+// produces its divided share; main fields the one-of-each ships and the
+// crystal-heavy recyclers.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,7 +73,12 @@ const mainPts = PTS[MAIN] || 1;
 const RECY_PER = Math.max(1, Math.round(Number(comp.recyclerPoints || 14.4e6) / mainPts));
 const CARGO_PER = Math.max(1, Math.round(Number(comp.cargoPoints || 500e6) / mainPts));
 const slots = Math.max(1, Number(st.slots || cfg.slots || 7));
-const small = { '202': slots, '204': slots, '205': slots, '206': slots };
+// One of each ship below Frigate per fleet: 202 LC, 204 LF, 205 HF, 206 Cruiser,
+// 207 Battleship, 211 Planet Bomber, 213 Star Fighter, 215 Battle Cruiser,
+// 216 Black Moon, 225 Galleon, 226 Destroyer. Built on main only; every fleet
+// carries one of each, which inflates the expedition's found/haul scale.
+const SMALL_CODES = ['202', '204', '205', '206', '207', '211', '213', '215', '216', '225', '226'];
+const small = Object.fromEntries(SMALL_CODES.map((c) => [c, slots]));
 // Live in-flight fleet sizes from the send loop (exp-state): summed ship count
 // over the airborne expeditions. Falls back to the run log when absent.
 const INFLIGHT_SHIPS = Math.max(0, Number(arg('--inflight-ships', 0)) || 0);
