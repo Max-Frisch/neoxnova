@@ -56,17 +56,19 @@ func MoonCreation(chancePct int, seed int64) (bool, int) {
 	return true, MoonDiameterKm(chancePct, x)
 }
 
-// MoonFieldsMax is a moon's field capacity granted by the Moon base: the live
+// MoonFieldsMax is a moon's base field capacity from the Moon base: the live
 // info card says "each level increases the free fields on the moon by 3" and
-// "one field occupies itself Moon Base". A fresh moon starts at 0 (but can still
-// build its first Moon base). Other field sources — the premium/cashshop
-// "+N fields on the moon" bonus and Planetarium Dark-Matter buys — are added by
-// the caller. Each building level occupies one field.
+// "one field occupies itself Moon Base". A fresh moon (level 0) shows 0 used /
+// 3 max, i.e. it starts with **1** base field, so the first Moon base can be
+// built immediately (see the fresh acc1 moon cp=1772). Other field sources —
+// the premium/cashshop "+N fields on the moon" bonus (this account: +2, giving
+// 3 at level 0 and 63 at level 20) and Planetarium Dark-Matter buys — are added
+// by the caller. Each building level occupies one field.
 func MoonFieldsMax(moonBaseLevel int) int {
 	if moonBaseLevel < 0 {
 		moonBaseLevel = 0
 	}
-	return 3 * moonBaseLevel
+	return 1 + 3*moonBaseLevel
 }
 
 // MoonFields is the classic diameter-derived field count, floor((d/1000)^2).

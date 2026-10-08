@@ -36,12 +36,13 @@ func TestMoonFields(t *testing.T) {
 }
 
 func TestMoonFieldsMax(t *testing.T) {
-	// Live moon: Moon base 20 -> 60 fields (+3 premium = 63 observed on the page).
-	if got := MoonFieldsMax(20); got != 60 {
-		t.Fatalf("MoonFieldsMax(20) = %d, want 60", got)
+	// Fresh moon: 1 base field. The account's +2 premium ("+2 fields on the moon")
+	// makes the observed 0-used / 3-max on the page; Moon base 20 = 61 +2 = 63.
+	if got := MoonFieldsMax(0); got != 1 {
+		t.Fatalf("MoonFieldsMax(0) = %d, want 1 (fresh moon base)", got)
 	}
-	if got := MoonFieldsMax(0); got != 0 {
-		t.Fatalf("MoonFieldsMax(0) = %d, want 0 (fresh moon)", got)
+	if got := MoonFieldsMax(20); got != 61 {
+		t.Fatalf("MoonFieldsMax(20) = %d, want 61", got)
 	}
 }
 
