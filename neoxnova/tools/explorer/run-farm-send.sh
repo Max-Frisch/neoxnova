@@ -23,9 +23,12 @@ EVERY="${FARM_SEND_EVERY_S:-30}"
 CFG="plans/farm-sites.json"
 MAIN_CP=$(CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC].mainCp))")
 CONFIG_SLOTS=$(CFG="$CFG" ACC="$ACC" node -e "const c=JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC]||{};process.stdout.write(String(c.slots||7))")
-echo "[$(date +%T)] farm-send ${ACC} start (config slots=${CONFIG_SLOTS})"
+# Composition (config) + the hull actually flying (state — the ramp flips it).
+COMP=$(CFG="$CFG" ACC="$ACC" node -e "const c=JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC]||{};const x=c.comp||{};process.stdout.write([x.main||'207',x.wall||'',x.wallPer||5,x.cargo||'',x.recycler||'219'].join('|'))")
+IFS='|' read -r C_MAIN C_WALL C_WALLPER C_CARGO C_RECY <<<"$COMP"
+echo "[$(date +%T)] farm-send ${ACC} start (config slots=${CONFIG_SLOTS} main=${C_MAIN} wall=${C_WALL:-none} cargo=${C_CARGO:-none} recy=${C_RECY})"
 
-state_get() { ACC="$ACC" node -e "const s=JSON.parse(require('fs').readFileSync('data/farm-state-'+process.env.ACC+'.json','utf8'));process.stdout.write(String(s['$1']))"; }
+state_get() { ACC="$ACC" node -e "const s=JSON.parse(require('fs').readFileSync('data/farm-state-'+process.env.ACC+'.json','utf8'));const v=s['$1'];process.stdout.write(v==null?'':String(v))"; }
 
 # Active = any real expedition row (outbound `(A)` OR returning `(R)`). The only
 # things to exclude are acc1's permanent ghosts: "Expedition at Hostail sector (R)"
@@ -43,14 +46,20 @@ exp_active() {
     });'
 }
 
-# max fleets we can field right now, capped at FREE ($3), given S ($1) and BR ($2)
+# max fleets we can field right now, capped at FREE ($3), given S ($1), recycler
+# count/fleet BR ($2) and cargo count/fleet CARGON ($4). Composition codes/ratios
+# come from the environment (MAIN/WALL/WALLPER/CARGOC/RECY).
 afford() {
-  ACC="$ACC" S="$1" BR="$2" FREE="$3" node -e '
+  ACC="$ACC" S="$1" BR="$2" CARGON="$3" FREE="$4" \
+  MAIN="$MAIN" WALL="$C_WALL" WALLPER="$C_WALLPER" CARGOC="$C_CARGO" RECY="$C_RECY" node -e '
     const s=(JSON.parse(require("fs").readFileSync("data/farm-main-"+process.env.ACC+".json","utf8")).ships)||{};
-    const S=+process.env.S,br=+process.env.BR,free=+process.env.FREE;
-    const bb=+s["207"]||0,hc=+s["203"]||0,r=+s["219"]||0;
+    const S=+process.env.S,br=+process.env.BR,cargo=+process.env.CARGON,free=+process.env.FREE;
+    const main=+s[process.env.MAIN]||0, wall=+s[process.env.WALL]||0, cg=+s[process.env.CARGOC]||0, r=+s[process.env.RECY]||0;
     const small=Math.min(+s["202"]||0,+s["204"]||0,+s["205"]||0,+s["206"]||0);
-    let n=Math.min(free,Math.floor(bb/S),Math.floor(hc/(5*S)),br>0?Math.floor(r/br):free,small);
+    let n=Math.min(free,Math.floor(main/S),
+      process.env.WALL?Math.floor(wall/(+process.env.WALLPER*S)):free,
+      process.env.CARGOC&&cargo>0?Math.floor(cg/cargo):free,
+      br>0?Math.floor(r/br):free, small);
     if(!isFinite(n)||n<0)n=0;
     process.stdout.write(String(n));' 2>/dev/null
 }
@@ -90,15 +99,20 @@ while true; do
   # currently flying (reconstructed from expedition-runs); S rises only as fast as the
   # fleet actually holds, and `st.S` ratchets so combat losses are rebuilt.
   "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent --active "$ACTIVE"
-  S=$(state_get S); BR=$(state_get br)
+  S=$(state_get S); BR=$(state_get br); CARGON=$(state_get cargo)
+  MAIN=$(state_get main); MAIN=${MAIN:-$C_MAIN}
+  CARGON=${CARGON:-0}
 
   FREE=$((SLOTS - ACTIVE))
   if [ "$FREE" -le 0 ]; then sleep "$EVERY"; continue; fi
 
-  N=$(afford "$S" "$BR" "$FREE"); case "$N" in ''|*[!0-9]*) N=0;; esac
-  if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (S=$S); wait"; sleep "$EVERY"; continue; fi
+  N=$(afford "$S" "$BR" "$CARGON" "$FREE"); case "$N" in ''|*[!0-9]*) N=0;; esac
+  if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (main=${MAIN} S=$S); wait"; sleep "$EVERY"; continue; fi
 
-  SET="207:${S},203:$((5 * S)),219:${BR},202:1,204:1,205:1,206:1"
+  SET="${MAIN}:${S}"
+  [ -n "$C_WALL" ] && SET="${SET},${C_WALL}:$((C_WALLPER * S))"
+  [ -n "$C_CARGO" ] && [ "$CARGON" -gt 0 ] && SET="${SET},${C_CARGO}:${CARGON}"
+  SET="${SET},${C_RECY}:${BR},202:1,204:1,205:1,206:1"
   echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} :: $SET"
   "${NODE[@]}" httpbot.mjs expedition "$SET" "$N" 1 10
 

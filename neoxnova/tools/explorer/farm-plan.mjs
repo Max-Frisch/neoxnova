@@ -5,9 +5,23 @@
 //   node farm-plan.mjs --acc acc1 sent   # pre-send snapshot -> grow S, phase=build
 //   node farm-plan.mjs --acc acc1 show   # print state JSON
 //
-// S is per-fleet BB count. A full rotation maintains 7 fleets:
-//   BB 7*S, HC 35*S (5:1 per fleet), BR 7*br (br=round(S/250)), 1 of each small ship.
-// Each build site produces its divided share; main additionally fields the small ships.
+// Composition is configurable per account in plans/farm-sites.json under "comp":
+//   main     primary flying hull, S per fleet (default "207" Battleship)
+//   wall     optional fodder hull + wallPer (main:wall count); omit for no wall
+//   cargo    optional freighter hull + cargoPer (main per freighter)
+//   recycler debris/collector hull + recyclerPer (main per recycler)
+//   ramp     optional {code, per} — build a replacement hull in parallel (per =
+//            main units a ramp unit is worth by points) and AUTO-FLIP `main` to it
+//            once the ramp fleet matches the current main fleet's points.
+//
+// Meta (2026-10-08): a single heavy hull, NO fodder wall. The enemy mirrors our
+// composition 0.66x, so a wall only absorbs our own alpha strike and lets the
+// pirates' heavies live longer — it helps only the weaker side (see cmd/exposim).
+// We are phasing Battleship -> Frigate: drop the wall now (immediate ~0% losses,
+// frees the Heavy-Cargo cap so all slots fly) while ramping Frigates, then flip.
+// A full rotation = `slots` fleets, each `S` main + cargo + recycler + 1 of each
+// small ship. Each site produces its divided share; main fields the small ships
+// and the crystal-heavy recyclers.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,14 +30,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLANS = path.join(__dirname, 'plans');
 const DATA = path.join(__dirname, 'data');
 
-const DEFAULT_S = 42000;
-// One of each small ship per fleet (all ships except Spy Probe 210 can be sent;
-// the set is rejected only when one is short on the planet). The total count
-// scales with the number of expedition slots (fleets per rotation) — see `slots`.
-
 const arg = (name, def) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : def; };
 const acc = arg('--acc');
-if (!acc) { console.error('usage: farm-plan.mjs --acc acc1|acc2 [plan|sent|show]'); process.exit(2); }
+if (!acc) { console.error('usage: farm-plan.mjs --acc acc1|acc2 [plan|sent|show|starter]'); process.exit(2); }
 
 const MODES = ['plan', 'sent', 'show', 'starter'];
 const mode = process.argv.find((a) => MODES.includes(a)) || 'plan';
@@ -33,20 +42,41 @@ if (!cfg) { console.error(`no farm-sites.json entry for ${acc}`); process.exit(2
 const sites = cfg.sites.map(String);
 const n = sites.length;
 
-const brOf = (s) => Math.round(s / 250);
+// Base (metal+crystal) points per unit — keeps the freighter/recycler ratios
+// scale-invariant across a hull flip (a Frigate is worth ~690 Battleships).
+const PTS = {
+  '202': 4000, '203': 12000, '204': 4000, '205': 11000, '206': 26500, '207': 58000,
+  '208': 450000, '209': 18000, '211': 120000, '213': 125000, '214': 9500000, '215': 100000,
+  '216': 12500000, '217': 56500, '219': 1800000, '225': 1600000, '226': 5000000, '227': 40000000, '228': 30000000,
+};
+
+const comp = cfg.comp || {};
+const WALL = comp.wall != null ? String(comp.wall) : null;
+const WALL_PER = Number(comp.wallPer || 5);
+const CARGO = comp.cargo != null ? String(comp.cargo) : null;
+const RECY = String(comp.recycler || '219');
+const RAMP = comp.ramp ? { code: String(comp.ramp.code), per: Number(comp.ramp.per || 1) } : null;
+
 const statePath = path.join(DATA, `farm-state-${acc}.json`);
 const readState = () => fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, 'utf8')) : {};
 const writeState = (st) => { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(statePath, JSON.stringify(st, null, 2)); };
 
 const st = readState();
 st.cycle = st.cycle || 0;
-st.S = st.S || DEFAULT_S;
 st.phase = st.phase || 'build';
-st.br = brOf(st.S);
-// Fleets per rotation = expedition slots. acc2 has 8, acc1 upgrades later; the
-// send loop writes the live-detected value to st.slots, cfg.slots is the fallback.
+// `main` lives in state so the ramp can flip it; config is the initial value.
+const MAIN = String(st.main || comp.main || '207');
+// Freighter/recycler ratios expressed in fleet points, converted to "main units
+// per freighter" so they stay valid when the hull (and S's scale) changes.
+const mainPts = PTS[MAIN] || 1;
+const RECY_PER = Math.max(1, Math.round(Number(comp.recyclerPoints || 14.4e6) / mainPts));
+const CARGO_PER = Math.max(1, Math.round(Number(comp.cargoPoints || 500e6) / mainPts));
 const slots = Math.max(1, Number(st.slots || cfg.slots || 7));
 const small = { '202': slots, '204': slots, '205': slots, '206': slots };
+
+// Any composition change (drop the wall, flip the hull, tune ratios) resets S to
+// the fleet's real capacity instead of ratcheting from the old constraint.
+const compSig = [MAIN, WALL, WALL_PER, CARGO, CARGO_PER, RECY, RECY_PER, RAMP ? RAMP.code : ''].join('|');
 
 const mainFile = path.join(DATA, `farm-main-${acc}.json`);
 const runsPath = path.join(DATA, 'expedition-runs.json');
@@ -62,31 +92,31 @@ const readShips = (file) => {
 const mainShips = readShips(mainFile);
 const num = (m, c) => Number(m[c]) || 0;
 
-// Account-wide BB/HC/BR = main + every build site + the fleets currently flying.
+// Account-wide counts = main + every build site + the fleets currently flying.
 // The production gate and targets MUST use the whole account, not just main: the
-// main-only view is a partial snapshot (most ships are in flight / on colonies),
-// which let HC balloon on acc1 and left BB idle on acc2.
+// main-only view is a partial snapshot (most ships are in flight / on colonies).
 const tally = (active) => {
-  const main = { bb: num(mainShips, '207'), hc: num(mainShips, '203'), br: num(mainShips, '219') };
-  const sitesTot = { bb: 0, hc: 0, br: 0 };
+  const codes = [MAIN, WALL, CARGO, RECY, RAMP && RAMP.code].filter(Boolean);
+  const main = {}, sitesTot = {}, inf = {};
+  for (const c of codes) { main[c] = num(mainShips, c); sitesTot[c] = 0; inf[c] = 0; }
   for (const cp of sites) {
     if (String(cp) === String(cfg.mainCp)) continue;
     const s = readShips(path.join(DATA, `farm-site-${acc}-${cp}.json`));
-    sitesTot.bb += num(s, '207'); sitesTot.hc += num(s, '203'); sitesTot.br += num(s, '219');
+    for (const c of codes) sitesTot[c] += num(s, c);
   }
-  const inf = { bb: 0, hc: 0, br: 0 };
   if (active > 0 && fs.existsSync(runsPath)) {
     const fleets = [];
     for (const r of JSON.parse(fs.readFileSync(runsPath, 'utf8'))) {
       const s = parseShipsCsv(r.ships);
       for (let i = 0; i < (Number(r.num) || 1); i++) fleets.push(s);
     }
-    for (const s of fleets.slice(-active)) { inf.bb += num(s, '207'); inf.hc += num(s, '203'); inf.br += num(s, '219'); }
+    for (const s of fleets.slice(-active)) for (const c of codes) inf[c] += num(s, c);
   }
+  const total = {};
+  for (const c of codes) total[c] = main[c] + sitesTot[c] + inf[c];
   return {
-    bb: main.bb + sitesTot.bb + inf.bb,
-    hc: main.hc + sitesTot.hc + inf.hc,
-    br: main.br + sitesTot.br + inf.br,
+    ...total,
+    mainCount: total[MAIN] || 0,
     // Small ships launch from main, so the "one of each" check stays main-only.
     small: Object.keys(small).every((c) => num(mainShips, c) >= small[c]),
     parts: { main, sites: sitesTot, inflight: inf },
@@ -95,82 +125,95 @@ const tally = (active) => {
 
 let have = tally(Number(st.active) || 0);
 
+// Auto-flip: once the ramp fleet matches the current main fleet by points
+// (rampCount >= mainCount / per), switch the flying hull to the ramp.
+let flipped = false;
+if (RAMP && st.ramp !== false && (have[RAMP.code] || 0) >= (have[MAIN] || 0) / RAMP.per) {
+  st.main = RAMP.code;
+  st.ramp = false; // done ramping
+  flipped = true;
+}
+
 if (mode === 'show') {
-  console.log(JSON.stringify({ ...st, have }, null, 2));
+  console.log(JSON.stringify({ ...st, comp: { MAIN, WALL, WALL_PER, CARGO, CARGO_PER, RECY, RECY_PER, RAMP }, have }, null, 2));
   process.exit(0);
 }
 
+const brOf = (s) => Math.max(1, Math.round(s / RECY_PER));
+const cargoOf = (s) => (CARGO ? Math.max(1, Math.round(s / CARGO_PER)) : 0);
+const goal = (counts, withSmall) => {
+  const ships = {};
+  for (const [c, v] of Object.entries(counts)) if (v > 0) ships[c] = v;
+  if (withSmall) Object.assign(ships, small);
+  return ships;
+};
+
 if (mode === 'starter') {
-  // One-off bootstrap goal: the FULL set on a single (resource-rich)
-  // planet, before handing over to the distributed rolling daemons.
-  const ships = { '207': slots * st.S, '203': 5 * slots * st.S, '219': slots * st.br, ...small };
-  fs.writeFileSync(path.join(PLANS, `farm-${acc}-starter.json`), JSON.stringify({ ships }, null, 2) + '\n');
-  console.log(`[farm-plan] ${acc} starter S=${st.S} br=${st.br} -> BB=${ships['207']} HC=${ships['203']} BR=${ships['219']}`);
+  const counts = { [MAIN]: slots * st.S, [CARGO]: cargoOf(st.S) * slots, [RECY]: brOf(st.S) * slots };
+  if (WALL) counts[WALL] = WALL_PER * slots * st.S;
+  fs.writeFileSync(path.join(PLANS, `farm-${acc}-starter.json`), JSON.stringify({ ships: goal(counts, true) }, null, 2) + '\n');
+  console.log(`[farm-plan] ${acc} starter S=${st.S} -> ${JSON.stringify(goal(counts, true))}`);
   process.exit(0);
 }
 
 if (mode === 'sent') {
-  // GROW: S is bounded only by the size of the WHOLE fleet, so it rises as fast as
-  // the shipyards add ships. We sum every ship the account owns — main + all build
-  // sites + the fleets currently flying (`--active N`, reconstructed from the most
-  // recent expedition-runs) — then S = fleet / slots. `st.S` ratchets up (monotonic)
-  // so combat losses are rebuilt toward the high-water mark instead of shrinking the
-  // plan; only the fleet growing raises it. No conservative per-planet cap.
+  // GROW: S is bounded only by the WHOLE fleet (main + sites + in-flight), so it
+  // rises as the shipyards add ships. A composition change resets S to capacity;
+  // otherwise S ratchets so combat losses rebuild toward the high-water mark.
   const active = Math.max(0, Number(arg('--active', 0)) || 0);
   have = tally(active);
-  const capS = Math.max(DEFAULT_S, Math.min(Math.floor(have.bb / slots), Math.floor(have.hc / (5 * slots))));
-  const grew = capS > st.S;
-  st.S = Math.max(st.S, capS);
+  const caps = [
+    Math.floor((have[MAIN] || 0) / slots),
+    WALL ? Math.floor((have[WALL] || 0) / (WALL_PER * slots)) : Infinity,
+    CARGO ? Math.floor(((have[CARGO] || 0) * CARGO_PER) / slots) : Infinity,
+    Math.floor(((have[RECY] || 0) * RECY_PER) / slots),
+  ];
+  const capS = Math.max(1, Math.min(...caps));
+  if (st.compSig !== compSig || flipped) { st.S = capS; st.compSig = compSig; }
+  else { st.S = Math.max(1, Math.max(st.S || 1, capS)); }
   st.br = brOf(st.S);
-  if (grew) st.cycle += 1;
-  st.phase = 'build';
+  st.cargo = cargoOf(st.S);
   st.active = active;
+  st.phase = 'build';
   st.lastSendAt = new Date().toISOString();
   writeState(st);
   const p = have.parts;
-  console.log(`[farm-plan] ${acc} grow: S=${st.S} (cap=${capS}) Fleet BB=${have.bb} HC=${have.hc} ` +
-    `[main ${p.main.bb}/${p.main.hc} sites ${p.sites.bb}/${p.sites.hc} inflight ${p.inflight.bb}/${p.inflight.hc} active=${active}] br=${st.br}`);
+  console.log(`[farm-plan] ${acc} grow: main=${MAIN} S=${st.S} (cap=${capS}) ` +
+    `have main=${have[MAIN] || 0} wall=${have[WALL] || 0} cargo=${have[CARGO] || 0} recy=${have[RECY] || 0} ramp=${RAMP ? (have[RAMP.code] || 0) : '-'} ` +
+    `[main ${p.main[MAIN] || 0} sites ${p.sites[MAIN] || 0} inflight ${p.inflight[MAIN] || 0} active=${active}] br=${st.br} cargo=${st.cargo}${flipped ? ' FLIP->' + MAIN : ''}`);
   process.exit(0);
 }
 
-// plan mode: emit the build goals. Targets are `st.S * grow` so they always sit
-// ABOVE the current fleet — the shipyards never finish the goal and keep producing
-// flat out, so real growth is limited by build throughput (all sites), not by a cap.
-// `grow` is just headroom; raise it if a shipyard ever idles waiting for the goal.
+// plan mode: emit the build goals. Targets sit ABOVE the current fleet (grow) so
+// the shipyards never finish and keep producing flat out. `grow` is headroom.
 const grow = Math.max(1, Number(cfg.growth || 3));
 const targetS = Math.ceil(st.S * grow);
-const needBB = slots * targetS, needHC = 5 * slots * targetS, needBR = slots * st.br;
-const full = have.bb >= needBB && have.hc >= needHC && have.br >= needBR && have.small;
-if (st.phase === 'build' && full) {
-  st.phase = 'ready';
-  console.log(`[farm-plan] ${acc} READY cycle=${st.cycle} bb=${have.bb}/${needBB} hc=${have.hc}/${needHC} br=${have.br}/${needBR} small=${have.small}`);
-} else if (st.phase === 'ready' && !full) {
-  // ships drawn down again (send/top-up) -> resume building
-  st.phase = 'build';
-}
-
 const share = (total) => Math.ceil(total / n);
-// Symmetric ratio gate over the WHOLE account: the fleet needs HC:BB = 5:1, so
-// build ONLY the deficient type until the ratio is restored — HC-only while
-// HC < 5*BB, BB-only while HC > 5*BB, both when balanced. Previously only the
-// HC-short side was gated, so the (cheaper) HC always kept building and ballooned
-// while BB idled. (cfg.pauseBB/pauseHC force one off; cfg.forceBB/forceHC on.)
-const bbDeficitMultiplier = 5;
-const hcShort = have.hc < bbDeficitMultiplier * have.bb; // need more HC
-const bbShort = have.hc > bbDeficitMultiplier * have.bb; // need more BB
-const buildBB = cfg.forceBB || (!cfg.pauseBB && !hcShort);
-const buildHC = cfg.forceHC || (!cfg.pauseHC && !bbShort);
-const bbShare = buildBB ? share(needBB) : 0, hcShare = buildHC ? share(needHC) : 0;
-// BB/HC are spread across sites; BR is crystal-heavy and the (crystal-poor)
-// colonies cannot supply their share, which deadlocked the ready gate. Keep the
-// whole BR need on the crystal-rich main; sites build BB/HC only.
-fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare, '219': needBR, ...small } }, null, 2) + '\n');
-// Ship production only — mines/conveyors are managed manually (not by the farm).
-fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`),
-  JSON.stringify({ ships: { '207': bbShare, '203': hcShare } }, null, 2) + '\n');
+
+// Ramp phase: build the replacement hull instead of more main, until it matches.
+const ramping = RAMP && st.ramp !== false && (have[RAMP.code] || 0) < (have[MAIN] || 0) / RAMP.per;
+const needMain = slots * targetS;
+const needCargo = cargoOf(st.S) * slots;
+const needRecy = brOf(st.S) * slots;
+const rampTarget = ramping ? Math.ceil(grow * (have[MAIN] || 0) / RAMP.per) : 0;
+
+const buildMain = !ramping && (cfg.forceMain || (!cfg.pauseMain && !(WALL && have[WALL] < WALL_PER * have[MAIN])));
+const mainShare = buildMain ? share(needMain) : 0;
+const wallShare = WALL && !ramping ? share(WALL_PER * needMain) : 0;
+const rampShare = ramping ? share(rampTarget) : 0;
+
+const full = have[MAIN] >= needMain && (!WALL || have[WALL] >= WALL_PER * needMain) && (!CARGO || have[CARGO] >= needCargo) && have[RECY] >= needRecy && have.small;
+if (st.phase === 'build' && full) st.phase = 'ready';
+else if (st.phase === 'ready' && !full) st.phase = 'build';
+
+// Cargo (217) is cheap and spread across sites; recycler (219) is crystal-heavy
+// and the crystal-poor colonies cannot supply their share, so keep the whole
+// recycler need on the crystal-rich main.
+const mainGoal = goal({ [MAIN]: mainShare, [WALL]: wallShare, [CARGO]: share(needCargo), [RECY]: needRecy, [RAMP ? RAMP.code : null]: rampShare }, true);
+const siteGoal = goal({ [MAIN]: mainShare, [WALL]: wallShare, [CARGO]: share(needCargo), [RAMP ? RAMP.code : null]: rampShare }, false);
+fs.writeFileSync(path.join(PLANS, `farm-${acc}-main.json`), JSON.stringify({ ships: mainGoal }, null, 2) + '\n');
+fs.writeFileSync(path.join(PLANS, `farm-${acc}-site.json`), JSON.stringify({ ships: siteGoal }, null, 2) + '\n');
 writeState(st);
-const gate = `${buildBB ? 'BB' : ''}${buildHC ? 'HC' : ''}` || 'none';
-console.log(`[farm-plan] ${acc} plan cycle=${st.cycle} S=${st.S} phase=${st.phase} br=${st.br} ` +
-  `have BB=${have.bb} HC=${have.hc} BR=${have.br} ratio=${(have.bb ? (have.hc / have.bb).toFixed(2) : 'inf')} gate=${gate} -> ` +
-  `main BB=${bbShare} HC=${hcShare} BR=${needBR}; site BB=${bbShare} HC=${hcShare} (${n} sites)`);
+console.log(`[farm-plan] ${acc} plan cycle=${st.cycle} main=${MAIN} S=${st.S} phase=${st.phase} br=${st.br} cargo=${st.cargo} ` +
+  `have main=${have[MAIN] || 0} recy=${have[RECY] || 0} ${ramping ? `RAMP ${RAMP.code}=${have[RAMP.code] || 0}/${Math.floor((have[MAIN] || 0) / RAMP.per)} ` : ''}` +
+  `-> main ${JSON.stringify(mainGoal)}; site ${JSON.stringify(siteGoal)} (${n} sites)`);
