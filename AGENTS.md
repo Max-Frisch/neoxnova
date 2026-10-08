@@ -7,6 +7,7 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
 > at task end. `AGENTS.md` is human-owned — agents do **not** edit it.
 
 ## Layout & commands
+
 - `.gitignore` allows only `README.md`, `AGENTS.md`, `neoxnova/**`; new root files need an exception.
 - Packages: `cmd/server` (wiring), `internal/api` (+`handlers`), `internal/store` (Postgres),
   `internal/engine` (durable scheduler), `internal/game` (pure math/catalog), `internal/cache`,
@@ -17,6 +18,7 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
   `seed` shell into the container (`docker exec -i neoxnova_postgres psql`), so no local `psql` needed.
 
 ## Environment & testing
+
 - `DATABASE_URL` is the only required variable (see `.env.example`); `.env` auto-loads, absence is fine.
   `UNIVERSE_ID` (default `universe_6_niburu`) must match `universes.code_name`.
 - Unit tests are pure (`internal/game`). DB integration tests skip unless `DATABASE_URL` is set; with
@@ -27,6 +29,7 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
   `UPDATE fleets SET start_time = NOW() - interval '5 s', arrival_time = NOW() - interval '1 s' WHERE id = <id>;`
 
 ## Architecture (non-obvious)
+
 - Durable scheduler `internal/engine/event_engine.go`: claims due rows with `FOR UPDATE SKIP LOCKED`,
   re-checks the condition, idempotent, multi-instance safe. Redis is only a wake hint (`cache.WakeKey`).
 - Resources are never cron-updated: `update_celestial_resources(id)` (PL/pgSQL) accrues on demand and
@@ -41,6 +44,7 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
 - Coordinate domains: galaxy 1-9, system 1-499, position 1-21 (21 = deep space).
 
 ## Editing gotchas
+
 - lib/pq rejects multiple statements in one `Exec` once parameters are present — use separate `ExecContext`.
 - `fleets.target_id` is nullable → scan into `sql.NullInt64`.
 - Migrations: numbered SQL applied manually, must be idempotent; add each to the `migrate` target in the Makefile.
@@ -48,12 +52,15 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
 - Conventional Commits; do not commit unless asked.
 
 ## Game data & live tooling
+
 - Balance is approximate/calibrated — read `neoxnova/docs/BALANCE_DATA_NEEDED.md` before "fixing" it;
   costs are locked to `testdata/niburus_catalog.json`.
 - Raw `*.HAR` captures are gitignored (may hold session cookies) — never commit.
 - Live-game automation + the fleet/combat wizard: read `neoxnova/docs/EXPLORER.md`.
 
-## Working style (tokens/cache)
-- One backlog item per session; finish by updating `docs/BACKLOG.md` and committing.
-- Keep tool output small (`rg -c`, `tail -n 15`, targeted reads); delegate bulk reads to subagents.
-- Never edit `AGENTS.md` mid-session; if a session grows long or drifts topics, suggest a fresh one.
+## Working style & Token Constraints
+
+- Scope: Execute exactly one item from `neoxnova/docs/BACKLOG.md` per session. Update the backlog file immediately upon completion.
+- Rule: Do not modify `AGENTS.md`. If a project change requires updating these rules, ask the human to do it.
+- Token Economy: Minimize tool output. Use targeted flags (e.g., `rg -c`, `tail -n 15`). Never dump entire large source files into context; read specific blocks or functions.
+- Multi-Step Tasks: For long tasks, write a brief execution plan to the terminal before changing code. If topic drift occurs, stop and prompt the user to start a fresh session.
