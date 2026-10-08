@@ -255,6 +255,22 @@ export function parseCombatReport(html) {
     });
   }
 
+  // Round-1 member header: name/coords + the aggregated Firepower/Shield/Armour
+  // bonuses actually applied in the fight. Expedition NPCs (Pirates/Aliens) show
+  // ONE rolled Weapons/Shield/Armour value on all three (e.g. "Aliens +202%"),
+  // unlike the player's three distinct research values. This is the only place
+  // the mirrored enemy research is visible, so it must be captured.
+  const header = (b) => {
+    const m = /batle_mem_header">\s*<span>([^<]*)<\/span>(?:\s*\(([^)]*)\))?<br>\s*Firepower <span>([^<]*)<\/span>[^<]*?Shield <span>([^<]*)<\/span>[^<]*?Armour <span>([^<]*)<\/span>/.exec(b);
+    if (!m) return null;
+    const pct = (s) => { const v = parseFloat(String(s).replace(/[^\d.-]/g, '')); return Number.isNaN(v) ? null : v; };
+    return { name: m[1].trim(), coords: (m[2] || '').trim() || null, firepower: pct(m[3]), shield: pct(m[4]), armour: pct(m[5]) };
+  };
+  const r1 = (html.match(/<div class="batle_round" id="round_1">([\s\S]*?)<!--\/round-->/) || [])[1] || html;
+  const di = r1.indexOf('batle_part_def');
+  const attackerInfo = header(di >= 0 ? r1.slice(0, di) : r1);
+  const defenderInfo = header(di >= 0 ? r1.slice(di) : '');
+
   const bands = [...html.matchAll(/class="band_att tooltip"[^>]*data-tooltip-content="([\s\S]*?)">/g)]
     .map((m) => m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
   rounds.forEach((r, i) => {
@@ -287,6 +303,8 @@ export function parseCombatReport(html) {
     roundCount: rounds.length,
     result,
     resultText,
+    attackerInfo,
+    defenderInfo,
     lossesRaw: itog ? itog[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null,
     debris: {
       metal: n((/now:\s*([\d.]+)\s*Metal/i.exec(text) || [])[1]),
@@ -307,4 +325,39 @@ export function parseTechtree(html) {
     reqs.push({ id: +m[1], name: m[2].trim(), current: +m[3], required: +m[4] });
   }
   return reqs;
+}
+
+// Parse an in-game Phalanx scan (page=phalanx&galaxy=&system=&planet=&planettype=).
+// The scan only works from a moon carrying a Phalanx Sensor, SAME galaxy as the
+// target, within level^2-1 systems. Returns the investigated target, the fleets
+// in movement (composition revealed, independent of owner) and an error string
+// ("Out of reach" / "This is your planet!") when the scan is refused.
+export function parsePhalanx(html) {
+  const n = (s) => { const v = parseInt(String(s).replace(/[^\d-]/g, ''), 10); return Number.isNaN(v) ? 0 : v; };
+  const targetM = /Investigate position \[([^\]]+)\](?:\s*\(([^)]*)\))?/.exec(html);
+  const bodyM = /ally_contents">\s*([\s\S]*?)<\/div>/.exec(html);
+  const error = !targetM && bodyM ? stripTags(bodyM[1]).trim() : null;
+  const fleets = [];
+  // The tooltip table contains its own <tr>/<td>, so never split on those: take
+  // the span between consecutive `class="fleets"` cells instead.
+  const starts = [...html.matchAll(/<td[^>]*class="fleets"[^>]*>/g)].map((m) => m.index);
+  for (let i = 0; i < starts.length; i++) {
+    const seg = html.slice(starts[i], starts[i + 1] ?? starts[i] + 6000);
+    const tip = (/data-tooltip-content="([^"]*)"/.exec(seg) || [])[1] || '';
+    const ships = {};
+    for (const sm of tip.matchAll(/>([^<>:]+):<\/td><td[^>]*>([\d.]+)</g)) ships[sm[1].trim()] = n(sm[2]);
+    const stripped = stripTags(seg).replace(/\s+/g, ' ').trim();
+    const dm = /(Fleets\b[\s\S]*)$/.exec(stripped);
+    fleets.push({
+      seconds: n((/data-fleet-time="(\d+)"/.exec(seg) || [])[1]),
+      endTime: n((/data-fleet-end-time="(\d+)"/.exec(seg) || [])[1]) || null,
+      ships,
+      text: (dm ? dm[1] : stripped).slice(0, 300),
+    });
+  }
+  const target = targetM ? {
+    coords: targetM[1], name: (targetM[2] || '').trim() || null,
+    galaxy: +targetM[1].split(':')[0], system: +targetM[1].split(':')[1], position: +targetM[1].split(':')[2],
+  } : null;
+  return { target, fleets, error };
 }

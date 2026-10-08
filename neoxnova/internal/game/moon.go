@@ -90,6 +90,22 @@ func PhalanxRange(level int) int {
 	return level*level - 1
 }
 
+// PhalanxInRange reports whether a Phalanx Sensor of the given level on a moon
+// at sensorGalaxy:sensorSystem can scan targetGalaxy:targetSystem. Measured live
+// (2026-10-08): a sensor in galaxy 2 reaches a target 3 systems away but not 4
+// (level 2 => 2^2-1 = 3), and a target in another galaxy returns "Out of reach"
+// — so the scan is **same-galaxy only** with reach = PhalanxRange(level) systems.
+func PhalanxInRange(sensorGalaxy, sensorSystem, targetGalaxy, targetSystem, level int) bool {
+	if level <= 0 || sensorGalaxy != targetGalaxy {
+		return false
+	}
+	d := sensorSystem - targetSystem
+	if d < 0 {
+		d = -d
+	}
+	return d <= PhalanxRange(level)
+}
+
 // JumpgateCooldown is the recharge between jumps. The live info card says the
 // base is at least one hour and "with each level, cooldown [is] reduced by 2
 // times". PROVISIONAL (needs a second moon to measure).

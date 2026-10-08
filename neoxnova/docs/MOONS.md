@@ -95,11 +95,39 @@ jumpgates**;
 cooldown [is] reduced by 2 times"* → modelled as `3600s >> level`. PROVISIONAL;
 the deuterium mention in the card is dubious (standard OGame is fuel-free).
 
-## Phalanx Sensor (`game/moon.go:PhalanxRange`)
+**Live test 2026-10-08 (acc1).** Built Jumpgate L1→L2 on both moons (`cp=1725`
+3:125:12 and `cp=1772` 2:188:9). The action endpoint exists —
+`GET/POST game.php?page=information&mode=sendFleet` returns JSON — but every
+attempt returns `{"message":"You dont have another portal to make the jump!",
+"error":true}` from **both** moons, even with both gates at L2 and the moon as
+the current planet. The two moons are in **different galaxies (2 and 3)**; since
+the Phalanx is same-galaxy (below), the jumpgate almost certainly is too. **Blocker:
+needs a 2nd same-galaxy moon to confirm** — no cross-galaxy jump. `page=jumpgate`
+itself answers "This page does not exist" (the UI form, class `jumpgate` +
+`scripts/game/gate.js`, is not served here).
+
+**Gotcha:** the "current planet" is account-global and is raced by the farm
+workers — a plain `?cp=<moon>` does not stick across processes. Set it and act
+inside one process (`data/jg*.mjs` debug scripts), or pause the workers.
+
+## Phalanx Sensor (`game/moon.go:PhalanxRange`) — WORKS, same-galaxy only
 
 Live info card range formula: **`level^2 - 1`** systems. Costs deuterium per scan;
 does not see recalled fleets. The documented *phalanx offline 10 min after
 teleport* (`docs/BALANCE_DATA_NEEDED.md`) is still unmodelled.
+
+**Live test 2026-10-08** (moon `cp=1772` 2:188:9, Phalanx L2). The scan is opened
+from the galaxy view as `page=phalanx&galaxy=&system=&planet=&planettype=`
+(`planettype` 1 = planet, 3 = moon) and needs the sensor moon as the current
+planet (pass `&cp=1772`). Output = `Investigate position [g:s:p] (Name)` + a
+**Fleet in movement** table whose rows reveal the **full composition**, `Fleet
+points`, countdown and origin/destination/mission — for ANY owner (it read
+acc2's `2:188:16` expedition fleets). Refusals: `Out of reach`, `This is your
+planet!` (own target). Confirmed **same-galaxy only**: a galaxy-2 sensor reaches
+a target 3 systems away but not 4 (`L2 → 3`, systems 185..191), and any target in
+galaxy 3 is `Out of reach` regardless of distance. Modelled by
+`game.PhalanxInRange`; parsed by `parse.mjs:parsePhalanx` and
+`httpbot.mjs phalanx <g:s:p> [1|3] --cp <moonCp>`.
 
 ## Destruction (PROVISIONAL)
 
@@ -119,27 +147,37 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
 
 1. **Destruction measurement**: Battle Fortress count vs diameter, additive vs
    multiplicative Moon-base reduction, and the >= 10,000 km rule.
-2. **Jumpgate** exact cooldown curve + eligible ships + the deuterium question
-   (needs a 2nd moon on the account).
+2. **Jumpgate** exact cooldown curve + eligible ships + the deuterium question.
+   Live blocker added 2026-10-08: `mode=sendFleet` says *"You dont have another
+   portal"* with two L2 gates in galaxies 2 & 3 → likely same-galaxy only; needs a
+   2nd same-galaxy moon.
 3. ~~Whether the *accumulated* debris or only the creating battle's new debris
    drives chance + diameter.~~ **RESOLVED 2026-10-08** (moon #2): only the
    creating battle's new debris; a pre-existing field does not add to the chance
    (and diameter ignores recycler count once the 20 % cap is reached).
 4. Phalanx deuterium cost per scan and the post-teleport offline window.
+   Phalanx reach/parse **RESOLVED 2026-10-08** (same-galaxy, `level^2-1`, full
+   composition revealed, `game.PhalanxInRange` + `httpbot phalanx`).
 5. Engine: resolve `ATTACK` on a `MOON` target, moon production safety, overview/
    galaxy/dashboard, and the fleet wizard's moon targeting.
 
 ## Implementation
 
 - `internal/game/moon.go`: `MoonDiameterKm`, `MoonCreation`, `MoonFieldsMax`,
-  `MoonFields`, `PhalanxRange`, `JumpgateCooldown`, `MoonDestruction`,
+  `MoonFields`, `PhalanxRange`, `PhalanxInRange`, `JumpgateCooldown`,
+  `MoonDestruction`,
   `MoonBaseDestructionReduction`, `MoonStructure`/`MoonOnlyStructureByID`.
   Creation chance is `combat.go:MoonChance`. All tested.
+- **Tooling**: `parse.mjs:parsePhalanx` + `httpbot.mjs phalanx <g:s:p> [1|3]
+  [--cp <moonCp>]` perform a live scan (composition/ETA). Jumpgate live POST is
+  blocked (see above); debug scripts `data/jg*.mjs` set the current planet inside
+  one process to dodge the worker race.
 - **Creation wired** (`engine/event_engine.go:resolveAttack`): an ATTACK on a
   player-owned `PLANET` rolls `game.MoonCreation(res.MoonChance, seed)` after the
   battle; on success it inserts a `MOON` at the same coordinates (0 fields, no
   production, cold/inherited temp) with `ON CONFLICT DO NOTHING` (one moon per
   planet). The result is recorded on `CombatResult.MoonCreated`/`MoonDiameterKm`
   (in the report JSON).
-- Remaining: `DESTROY_MOON` mission, Jumpgate, Phalanx, moon build/overview API,
-  and `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.
+- Remaining: `DESTROY_MOON` mission, Jumpgate jump (blocked on a same-galaxy
+  moon; model `JumpgateCooldown` exists), moon build/overview API, and
+  `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.

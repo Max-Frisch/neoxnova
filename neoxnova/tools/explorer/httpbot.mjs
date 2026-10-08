@@ -12,11 +12,12 @@
 //   node httpbot.mjs market                    # list live market lots (id, name, amount, price)
 //   node httpbot.mjs activate <greid> [--go]   # activate one upgrade drawing (dry unless --go)
 //   node httpbot.mjs sell <type> <amt> <rate> [--go]  # list drawings on the market (dry unless --go)
+//   node httpbot.mjs phalanx <g:s:p> [1|3] [--cp <moonCp>]  # moon Phalanx scan
 //   node httpbot.mjs resolve --goals f.json [--steps N] [--cp id]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, parseArsenalPage, parseMarketLots, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, parseArsenalPage, parseMarketLots, parsePhalanx, stripTags, num } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -1180,7 +1181,9 @@ async function cmdExpReports() {
   const targets = rows.filter((m) => m.report);
   let fetched = 0;
   for (const m of targets) {
-    if (store[m.report]) continue;
+    // Re-fetch cached reports until the header (attackerInfo/defenderInfo) is
+    // populated, so older reports get the mirrored enemy W/S/A bonus backfilled.
+    if (store[m.report] && store[m.report].defenderInfo) continue;
     const html = await (await getUrl(`${BASE}/game/CombatReport.php?raport=${m.report}`)).text();
     const parsed = parseCombatReport(html);
     // Per-unit view: `count` = round-1 starting count (what was sent / the enemy
@@ -1200,6 +1203,7 @@ async function cmdExpReports() {
     store[m.report] = {
       hash: m.report, msgId: m.id, at: m.date || null, result: parsed.result,
       attacker: agg('attacker'), defender: agg('defender'),
+      attackerInfo: parsed.attackerInfo, defenderInfo: parsed.defenderInfo,
       roundCount: parsed.roundCount, lossesRaw: parsed.lossesRaw, debris: parsed.debris,
     };
     fetched++;
@@ -1215,6 +1219,28 @@ async function cmdExpReports() {
     console.log(`  ${r.hash.slice(0, 8)} ${String(r.result || '?').padEnd(9)} atk=[${a}] def=[${d}] lostA=${r.attacker.reduce((s, u) => s + u.lost, 0)} lostD=${r.defender.reduce((s, u) => s + u.lost, 0)}`);
   }
   return store;
+}
+
+// Phalanx scan (page=phalanx). Only works when the CURRENT planet is a moon
+// with a Phalanx Sensor; the target must be in the SAME galaxy within
+// level^2-1 systems. `--cp <moonCp>` pins the sensor moon (the current planet is
+// account-global and the farm workers keep resetting it).
+//   node httpbot.mjs phalanx <g:s:p> [type=1|3] [--cp <moonCp>]
+async function cmdPhalanx(target, typeArg, cpArg) {
+  await login();
+  const m = /^(\d+):(\d+):(\d+)$/.exec(String(target || ''));
+  if (!m) throw new Error('usage: phalanx <g:s:p> [1|3] [--cp <moonCp>]');
+  const type = typeArg && /^[0-9]+$/.test(typeArg) ? typeArg : '1';
+  const q = `page=phalanx&galaxy=${m[1]}&system=${m[2]}&planet=${m[3]}&planettype=${type}` + (cpArg ? `&cp=${cpArg}` : '');
+  const scan = parsePhalanx(await (await getPage(q)).text());
+  if (scan.error) { console.log(`[phalanx] ${scan.target ? '' : ''}${scan.error} (sensor cp=${cpArg || 'current'})`); return scan; }
+  console.log(`[phalanx] ${scan.target.coords} (${scan.target.name || '?'}) — ${scan.fleets.length} fleet(s)`);
+  for (const f of scan.fleets) {
+    const comp = Object.entries(f.ships).map(([k, v]) => `${k}:${v}`).join(',');
+    console.log(`  ${f.text.slice(0, 120)}`);
+    if (comp) console.log(`    ${comp}`);
+  }
+  return scan;
 }
 
 // Battle simulator (page=battleSimulator). Input JSON file:
@@ -1330,6 +1356,7 @@ try {
   else if (cmd === 'worker') await cmdWorker(process.argv[3], process.argv[4], flag('--interval'));
   else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'exp-report') await cmdExpReports();
+  else if (cmd === 'phalanx') await cmdPhalanx(process.argv[3], process.argv[4], flag('--cp'));
   else if (cmd === 'card') await cmdCard(process.argv[3]);
   else if (cmd === 'cards') await cmdCards(flag('--out'));
   else if (cmd === 'arsenal') await cmdArsenal();
@@ -1351,5 +1378,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|card|cards|arsenal|market|activate|sell|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|phalanx|card|cards|arsenal|market|activate|sell|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }

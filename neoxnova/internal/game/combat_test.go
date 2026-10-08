@@ -173,6 +173,23 @@ func TestBuildSideAppliesUpgrades(t *testing.T) {
 	}
 }
 
+// TestBuildSideAppliesFlatBonus locks the expedition-NPC model: a single rolled
+// Weapons/Shield/Armour percent (the live report header, e.g. "Aliens +202%")
+// scales attack, shield and hull alike with no per-stat research.
+func TestBuildSideAppliesFlatBonus(t *testing.T) {
+	side, _ := buildSide(Combatant{Units: map[string]int64{"204": 1}, FlatBonusPct: 202})
+	ct := side.instances[0].def
+	if ct.attack != 151 { // round(50 * 3.02)
+		t.Fatalf("flat attack = %d, want 151", ct.attack)
+	}
+	if ct.shield != 106 { // round(35 * 3.02)
+		t.Fatalf("flat shield = %d, want 106", ct.shield)
+	}
+	if ct.hull != 1208 { // round(400 * 3.02)
+		t.Fatalf("flat hull = %d, want 1208", ct.hull)
+	}
+}
+
 // TestUnitStatsAttackEqualsWeaponSum locks the card invariant: a unit's base
 // attack equals the sum of the base attacks of its weapon components. If a card
 // ever disagrees, buildSide's per-component derivation would silently diverge.

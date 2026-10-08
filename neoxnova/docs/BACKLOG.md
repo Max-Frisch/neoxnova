@@ -44,6 +44,13 @@
   only absorbs our own alpha strike and inflates enemy HP — sim `cmd/exposim` shows `BB+5HC` loses 12.9%/fight
   vs **0.0%** wall-free (matches live ~1M HC/fight). Only Weapons/Shield/Armour research (109/110/111) is
   mirrored; specific weapon techs (120/121/122/199), arsenal, academy and governors are **attacker-only**.
+- **Enemy W/S/A is ONE rolled value on all three stats, ~2.2× our 109 for aliens** (2026-10-08, report
+  headers). Player shows three distinct values (acc1 +112/+85/+94); Pirates roll ~0.1–1.5× our 109 bonus,
+  Aliens plateaud at **+202%** (acc1) / **+159%** (acc2). **Rule: keep 109/110/111 at the techtree floor**
+  (Frigate 227 → 16/16/17; Battle Recycler 219 → 15/15/15) and invest in the non-mirrored bonuses, else the
+  alien scales with us and its ~2.2× roll wipes the fleet (both accounts lost a full fleet ~1 min apart).
+  Header now captured (`parseCombatReport.attackerInfo/defenderInfo` → `expedition-reports.json`); Go model
+  `game.Combatant.FlatBonusPct`. Details `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Battleship → Frigate phase:** both accounts auto-flipped `main` to `227` once the Frigate fleet matched
   the BB fleet by points (`ramp.per`=690). Frigate is the best unlocked hull (crystal 0.25/pt vs HC 0.5,
   build tier 20/s ⇒ ~800M pts/s vs BB 7.7M). Recycler count is point-based (≈1 per fleet-S). BB/HC fleet is
@@ -55,10 +62,11 @@
    enemy. Enemy formula now known (item 1b); remaining blocker: `cmd=2` leaks ghost fleets (avoid).
    Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
-   per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
-   to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
-   types ⇒ one roll per fleet. Small fleets sit on the template (old 2–40× ratios). Data + tables:
-   `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+    per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
+    to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
+    types ⇒ one roll per fleet. Small fleets sit on the template (old 2–40× ratios). **Enemy W/S/A is
+    a second roll** — one value on all three stats, ~2.2× our mirrored 109 for aliens (see live-state
+    bullet + §8). Data + tables: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 1c. **Arsenal upgrades (Go model)** — DONE 2026-10-07 (catalog, tiers 5k/50k/250k, activation rules,
    store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
    `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
@@ -101,10 +109,12 @@
    `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). **Creation wired**
    (`resolveAttack` rolls `MoonCreation(res.MoonChance, seed)` on a player planet; inserts a MOON at
    the coords with `ON CONFLICT DO NOTHING`, recorded in the report). Details + open questions:
-   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), Jumpgate + Phalanx impl,
-   moon build/overview API + `resolveAttack` on a MOON target.
+   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), Jumpgate jump (blocked —
+   needs a 2nd **same-galaxy** moon; `mode=sendFleet` says "no other portal" with two L2 gates in
+   galaxies 2 & 3), moon build/overview API + `resolveAttack` on a MOON target.
    **2nd moon acquired 2026-10-08**: acc1 now has `2:188:9` (diameter 8,544 km,
-   5000 recyclers/attempt). Jumpgate/phalanx testing unblocked for a later session.
+   5000 recyclers/attempt). **Phalanx DONE 2026-10-08**: works same-galaxy, reach `L²−1`, reveals
+   any owner's fleet composition/ETA (`game.PhalanxInRange`, `parsePhalanx`, `httpbot phalanx`).
    **Debris question resolved**: only the creating battle's new debris drives the
    moon roll — a pre-existing field does NOT add to it (and diameter ignores the
    recycler count once the 20 % cap is hit; 8,544 = x=13). Details: `docs/MOONS.md`.
@@ -112,6 +122,24 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **moon #2 tooling + Phalanx live; Jumpgate blocked** — built Phalanx L2 + Jumpgate L1/L2
+  on both acc1 moons (`cp=1772` 2:188:9, `cp=1725` 3:125:12). **Phalanx works**: `page=phalanx`
+  (from galaxy view, sensor moon as current planet), range `L²−1`, **same-galaxy only**, reveals any
+  owner's fleet composition/points/ETA. Added `game.PhalanxInRange` (+test), `parsePhalanx`,
+  `httpbot phalanx <g:s:p> [1|3] --cp`. **Jumpgate blocked**: `page=information&mode=sendFleet`
+  returns "You dont have another portal" from both moons despite two L2 gates → almost certainly
+  same-galaxy; needs a same-galaxy moon to confirm. Gotcha: the current planet is account-global and
+  raced by the farm workers (set+act in one process). Details `docs/MOONS.md`.
+- 2026-10-08: **weak-alien win analyzed** — `e219ad37` (10:48, msg 244369): same comp as the 10:05
+  wipe but enemy W/S/A **+90 %** vs +202 % (and a *larger* mirror, 12,231 vs 11,861 Frig) → **won**,
+  lost 4,963 Frig + 6,474 BR, enemy annihilated, debris M 264.2 B / C 89.8 B ⇒ ~+171 B net (1.94×).
+  Confirms the research roll, not the fleet roll, decides the fight. `docs/EXPEDITIONS…` §8.
+- 2026-10-08: **enemy W/S/A research decoded — single rolled value ~2.2× our 109 for aliens** — the
+  combat-report header (now parsed: `parseCombatReport.attackerInfo/defenderInfo` → `expedition-reports.json`)
+  shows the NPC with ONE Weapons/Shield/Armour value vs our three. Pirates ~0.1–1.5× our 109 bonus; Aliens
+  +202 %/+159 %. Both accounts lost a full Frigate fleet ~1 min apart to a ~2.2× alien. Rule recorded:
+  cap 109/110/111 at the techtree floor (227 → 16/16/17) and invest in non-mirrored bonuses. Go:
+  `game.Combatant.FlatBonusPct` + `cmd/exposim` pirate/alien scenarios; test added. §8.
 - 2026-10-08: **fresh moon #2 sampled + field model corrected** — acc1's 2nd moon is
   **`cp=1772`** at `2:188:9` (coexists with planet Xusyty `cp=1648`; not in `httpbot
   planets`). Snapshot (nothing built): all moon structures 0, **fields `0 used / 3 max`**,
@@ -244,6 +272,9 @@
   unknown (luck vs size/speed). The "Moa Tikarr demands surrender" text is just the **info message for
   a pirate/alien expedition combat**, paired 1:1 with a combat report for the same fleet/time (owner
   confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- **Aliens are a total-loss risk** even for a winning comp: the enemy's single rolled W/S/A can reach
+  ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
+  is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.
 - **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
   numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
   cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.

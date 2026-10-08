@@ -118,6 +118,12 @@ type Combatant struct {
 	// AcademyDamagePct is a legacy flat attack bonus (kept for callers that only
 	// have an aggregate figure). Prefer Academy.
 	AcademyDamagePct float64
+	// FlatBonusPct is a single additive percent applied to attack, shield and
+	// hull alike. Expedition NPCs (Pirates/Aliens) mirror the player's fleet but
+	// their combat report shows ONE rolled Weapons/Shield/Armour value on all
+	// three stats (e.g. "Aliens +202%") rather than per-stat research; model that
+	// here with Techs left at zero. See docs/EXPEDITIONS_LIVE_2026-10-06.md §8.
+	FlatBonusPct float64
 }
 
 // upgradePct returns the accumulated Arsenal bonus (in percent) for a code.
@@ -330,9 +336,12 @@ func buildSide(c Combatant) (*combatSide, SideReport) {
 		ct := &combatType{
 			code:   code,
 			attack: DerivedAttack(stats.Attack, classes, c),
-			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))),
-			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))),
+			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))+c.FlatBonusPct),
+			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))+c.FlatBonusPct),
 			isShip: isShipCode(code),
+		}
+		if c.FlatBonusPct != 0 {
+			ct.attack = int(math.Round(float64(ct.attack) * (1.0 + c.FlatBonusPct/100.0)))
 		}
 		if c.AcademyDamagePct != 0 {
 			ct.attack = int(math.Round(float64(ct.attack) * (1.0 + c.AcademyDamagePct/100.0)))

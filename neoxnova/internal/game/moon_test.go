@@ -95,6 +95,29 @@ func TestJumpgateCooldown(t *testing.T) {
 	}
 }
 
+// TestPhalanxInRange locks the measured live behaviour: same-galaxy only, reach
+// level^2-1 systems (sensor 2:188, level 2 => systems 185..191).
+func TestPhalanxInRange(t *testing.T) {
+	cases := []struct {
+		tg, ts int
+		want   bool
+	}{
+		{2, 185, true},  // distance 3 = 2^2-1
+		{2, 191, true},  // distance 3
+		{2, 188, true},  // own system
+		{2, 184, false}, // distance 4
+		{3, 125, false}, // other galaxy, even at distance 0
+	}
+	for _, c := range cases {
+		if got := PhalanxInRange(2, 188, c.tg, c.ts, 2); got != c.want {
+			t.Fatalf("PhalanxInRange(2,188 -> %d:%d, L2) = %v, want %v", c.tg, c.ts, got, c.want)
+		}
+	}
+	if PhalanxInRange(2, 188, 2, 188, 0) {
+		t.Fatal("level 0 sensor must not scan")
+	}
+}
+
 func TestMoonBaseDestructionReduction(t *testing.T) {
 	cases := map[int]float64{0: 0, 1: 0, 2: 0.03, 3: 0.03, 20: 0.30}
 	for level, want := range cases {

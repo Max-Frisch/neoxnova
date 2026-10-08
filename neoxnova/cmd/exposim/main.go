@@ -37,10 +37,16 @@ var cargoHold = map[string]float64{
 // (120/121/122/199), arsenal upgrades, academy and governors are attacker-only.
 var (
 	atkTechs = game.CombatTechs{Weapons: 18, Shield: 17, Armour: 18, Laser: 27, Ion: 25, Plasma: 22, Graviton: 5}
-	defTechs = game.CombatTechs{Weapons: 18, Shield: 17, Armour: 18}
 	atkAcad  = map[string]int{"1103": 1} // Double attack L1
-	atkDmg   = 8.0                        // Weaponry L6 + Weapons Class A L1
+	atkDmg   = 8.0                       // Weaponry L6 + Weapons Class A L1
 )
+
+// General (109/110/111) tech bonus the NPC mirrors. The enemy's combat report
+// shows ONE rolled Weapons/Shield/Armour value on all three stats; it scales
+// with this. Observed: Pirates ~+10–139%, Aliens up to +202% (the wiping fights)
+// — see docs/EXPEDITIONS_LIVE_2026-10-06.md §8. Modelled as a flat bonus on the
+// mirrored fleet with no specific weapon techs (those are attacker-only).
+var genBonus = float64(game.TechBonus(atkTechs.Weapons))
 
 const (
 	budget = 2.0e9
@@ -115,9 +121,9 @@ func fleetCargo(u map[string]int64) float64 {
 	return c
 }
 
-func lossPct(atk map[string]int64, factor float64, tmpl bool) (loss, win, rounds float64) {
+func lossPct(atk map[string]int64, factor, flat float64, tmpl bool) (loss, win, rounds float64) {
 	a := game.Combatant{Units: atk, Techs: atkTechs, Academy: atkAcad, AcademyDamagePct: atkDmg}
-	d := game.Combatant{Units: mirrorOf(atk, factor, tmpl), Techs: defTechs}
+	d := game.Combatant{Units: mirrorOf(atk, factor, tmpl), FlatBonusPct: flat}
 	fp := fleetPoints(atk)
 	for s := int64(1); s <= seeds; s++ {
 		res := game.Resolve(a, d, s)
@@ -136,8 +142,8 @@ type row struct {
 	name     string
 	buildSec float64
 	ptsPerS  float64
-	loss066  float64
-	loss090  float64
+	lossPir  float64
+	lossAln  float64
 	win      float64
 	rounds   float64
 	cargo    float64
@@ -167,23 +173,26 @@ func main() {
 	var rows []row
 	for _, c := range comps {
 		atk := scaleComp(c.weights, budget)
-		l066, win, rnd := lossPct(atk, 0.66, true)
-		l090, _, _ := lossPct(atk, 0.90, false)
+		// Typical pirate fight: fleet mirror 0.66, soft research roll.
+		lPir, _, _ := lossPct(atk, 0.66, 0.6*genBonus, true)
+		// Hard alien fight: high fleet roll, ~2.2x the general tech (the wipes).
+		lAln, win, rnd := lossPct(atk, 0.90, 2.2*genBonus, false)
 		bs := buildSeconds(atk)
 		rows = append(rows, row{
 			name: c.name, buildSec: bs, ptsPerS: budget / bs,
-			loss066: l066, loss090: l090, win: win, rounds: rnd, cargo: fleetCargo(atk),
+			lossPir: lPir, lossAln: lAln, win: win, rounds: rnd, cargo: fleetCargo(atk),
 		})
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].loss066 < rows[j].loss066 })
+	sort.Slice(rows, func(i, j int) bool { return rows[i].lossPir < rows[j].lossPir })
 
 	fmt.Printf("\nbudget %.2g pts/fleet, %d seeds\n", budget, seeds)
-	fmt.Printf("attacker: acc1 techs (109/110/111 + laser/ion/plasma/graviton) + academy; defender: 109/110/111 only\n")
+	fmt.Printf("attacker: acc1 techs (109/110/111 + laser/ion/plasma/graviton) + academy\n")
+	fmt.Printf("defender: fleet mirror + single rolled W/S/A (pirate ~0.6x, hard alien ~2.2x our 109 bonus = %.0f%%)\n", 2.2*genBonus)
 	fmt.Printf("%-20s %8s %10s %8s %8s %6s %7s %10s\n",
-		"comp", "rebuild", "pts/s", "loss.66", "loss.90", "win%", "rounds", "cargo")
+		"comp", "rebuild", "pts/s", "lossPir", "lossAln", "win%", "rounds", "cargo")
 	for _, r := range rows {
 		fmt.Printf("%-20s %7.0fs %10.3g %7.1f%% %7.1f%% %5.0f%% %7.1f %10.3g\n",
-			r.name, r.buildSec, r.ptsPerS, r.loss066, r.loss090, r.win, r.rounds, r.cargo)
+			r.name, r.buildSec, r.ptsPerS, r.lossPir, r.lossAln, r.win, r.rounds, r.cargo)
 	}
 	fmt.Println()
 }

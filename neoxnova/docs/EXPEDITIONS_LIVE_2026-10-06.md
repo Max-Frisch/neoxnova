@@ -214,13 +214,70 @@ below ~500 pts.
 
 Model: `enemy = round(fleet × roll[~0.6..0.9]) + template(HC/LF/Cruiser/BB/SF)`.
 
+### Enemy W/S/A research is a single rolled value (aliens skew ~2×)
+The report header exposes the bonuses actually applied (per-unit
+`Firepower/Shield/Armour` share it). The player's three are distinct (acc1
+**+112/+85/+94**, acc2 **+95/+81/+100**, = 109/110/111 + arsenal), but the NPC
+shows **one rolled value on all three**. Harvested acc1 headers (46 fights,
+06–08 Oct):
+
+| NPC | observed Firepower (=Shield=Armour) | median |
+|---|---|---:|
+| Pirates | 11,12,14,18,19,23,23,25,27,28,29,30,31,33,36,37,44,46,49,49,50,51,52,65,68,80,82,82,82,85,86,91,97,102,103,112,114,115,121,121,124,134,137,138,139,152 | ~51 |
+| Aliens | 51,53,56,74,81,84,90,96,96,113,118,133,168,**200**,**202** | ~90 |
+
+acc2 matched (Pirates +10…+125, Aliens +30…+159). Aliens sit clearly higher.
+The owner-confirmed rule: the NPC's value is the **mirror of our general
+Weapons/Shield/Armour research (109/110/111)** scaled by the fight roll — the
+two total losses below are the high rolls (200/202 ≈ **2.2×** acc1's `109`
+quadratic bonus of 90). Only 109/110/111 is mirrored; the specific weapon techs
+(120/121/122/199), arsenal, academy and governors are **attacker-only**.
+
+Standing rule: **keep 109/110/111 at the techtree floor** (Frigate `227` needs
+16/16/17; Battle Recycler `219` 15/15/15; `226` 14/13/13) and put research into
+the non-mirrored bonuses. Every extra general-tech level raises the alien as
+much as us, and a high alien roll wipes a full fleet — 2026-10-08, two "contact
+with unknown ships" encounters ~1 min apart:
+
+| account | report | our fleet | result | enemy W/S/A |
+|---|---|---|---:|---:|
+| acc1 | `1fc3647d` (msg 243839) | 20,228 (13,478 Frig + 6,739 BR) | lost **100 %** | +202 % |
+| acc2 | `ebd41e22` (msg 243848) | 5,188 (3,451 Frig + 1,726 BR) | lost **100 %** | +159 % |
+
+Header captured as `attackerInfo`/`defenderInfo` by `parseCombatReport` and
+stored in `data/expedition-reports.json` (harvest 2026-10-08). Go model:
+`game.Combatant.FlatBonusPct` (a single additive W/S/A percent), used by
+`cmd/exposim` (pirate ~0.6×, hard alien ~2.2× the 109 bonus).
+
+### The next alien fight was a weak roll — and we won (10:48)
+`e219ad37` (msg 244369) is the mirror-image of the wipe 43 min later: same comp,
+near-identical enemy fleet, **half the enemy research**.
+
+| report | enemy Frig | enemy BR | enemy W/S/A | our Frig | our BR | result |
+|---|---:|---:|---:|---:|---:|---|
+| `1fc3647d` 10:05 (wipe) | 11,861 | 5,930 | **+202 %** | 13,478 | 6,739 | lost **100 %** |
+| `e219ad37` 10:48 (win) | 12,231 | 6,116 | **+90 %** | 13,012 | 6,506 | **attacker wins** |
+
+The weak-alien enemy was actually *larger* (12,231 vs 11,861 Frigates) yet we
+won: effective power `count·(1+research)` flips from `11,861·3.02 = 35.8k` vs
+our `13,478·2.12 = 28.6k` (enemy ~1.25× → wipe) to `12,231·1.90 = 23.2k` vs
+`13,012·2.12 = 27.6k` (us ~1.19× → win). Losses: 4,963 Frig + 6,474 BR (the BRs
+are glass), enemy annihilated. 6 rounds, debris **M 264.2 B / C 89.8 B**
+(50 % of the 708 B total). Rebuild at Academy Standardisation −13 % ≈ **183 B**,
+so the fight is **~+171 B net (1.94×)**. Conclusion: the enemy fleet roll is
+secondary — the **research roll is the whole fight**; the same hull wins or wipes
+on it alone.
+
 ### Win record flipped at scale
 - acc1 Oct 7–8: **29 W / 11 D / 0 L** (was 14 W / 11 L / 10 D at ~9k pts).
 - acc2 Oct 7–8: **37 W / 5 D / 0 L**.
-At 450k–815k pts the player essentially cannot lose — but the wins are bloody:
+At 450k–815k pts the player essentially cannot lose **to pirates** — but the wins are bloody:
 40 acc1 fights cost **~40.9 M HC + 2.96 M BB**, yielding **627 B M / 443 B C**
 debris. HC take ~25–50 % losses per fight — this is the crystal drain in
 `docs/ROLLING_FARM.md`.
+**Exception (2026-10-08):** the `Pb+recycler` Frigate comp *can* lose — see the
+alien wipe table above (two full-fleet losses ~1 min apart). The `0 L` record
+predates the Frigate flip and only holds at low enemy W/S/A rolls.
 
 ### Black-hole rate is account-asymmetric
 - acc1: **2 / 461 (0.43 %)**.
