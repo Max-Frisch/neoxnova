@@ -9,8 +9,9 @@ Live automation + the fleet/combat wizard for niburuspace.com. Referenced from
   for debugging/UI inspection.
 - Secrets (gitignored): `neoxnova/secrets/explorer.env` with `NIBURU_USER/PASS`
   (acc1) and `NIBURU_SECOND_USER/PASS` (acc2); SSH key + config in `neoxnova/secrets/ssh/`.
-- acc2 runs on an Azure VM (Ubuntu, 2 vCPU/1 GB; tmux) — never run a browser there,
+- acc1 runs on an Azure VM (Ubuntu, 2 vCPU/1 GB; tmux) — never run a browser there,
   only `httpbot.mjs`. SSH alias `azure-bot` (`-F neoxnova/secrets/ssh/config`).
+  acc2 TheBob is retired from scope (manual-only fallback).
 - Commands: `node --max-old-space-size=96 httpbot.mjs levels --out data/levels.json`;
   `... resolve --goals plans/account2-goals.json --steps 5000`; `... dump "page=research"`.
   `explorer.mjs` adds `scan|status|build|cancel|sats|map|officers`.
@@ -91,7 +92,8 @@ to `page=shipyard&mode=fleet` / `&mode=defense`, batch-capped). Plans: `plans/ac
 `plans/acc2-fleet.json`.
 
 ## Live accounts
-- **acc1 Bratwurst** `3:125:12` (harvest hub `2:188:9` Xusyty) — local.
-- **acc2 TheBob** `2:188:16` — Azure VM `azure-bot`.
+- **acc1 Bratwurst** `3:125:12` (harvest hub `2:188:9` Xusyty) — Azure VM `azure-bot`, tmux
+  (`drain-acc1` + `bonus-acc1`).
+- **acc2 TheBob** `2:188:16` — RETIRED from scope (manual-only fallback).
 - Fleet-speed recovery: engine techs 115/117/118 researched only while instant; Academy branch I
   Weaponry 5 -> Engine limitation.

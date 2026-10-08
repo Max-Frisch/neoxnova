@@ -3,21 +3,17 @@
 ## Live state
 - Stack: `docker compose`; run `go`/`make` from `neoxnova/`. **Deploy = local commit → push →
   VM `ssh -F neoxnova/secrets/ssh/config azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.**
-- **Rolling farm ONLINE both accounts (2026-10-07).** `run-farm-build.sh` = planner+pooler (writes
-  `plans/farm-<acc>-{main,site}.json`; pools colony ships → main once a colony holds
-  ≥`FARM_POOL_MIN`=50k). `run-farm-worker.sh <acc> <cp> main|site` = one persistent worker per
-  ship-building planet (all shipyards build in parallel; session reused via `data/session-<user>.json`,
-  relogin only when a request proves logout). acc1 = local detached bash; acc2 = VM tmux (`farm-acc2` +
-  `farmw-acc2-{1598,1672,1673,1674}`, plus `farmsend-acc2`,`expharv-acc2`,`bonus-acc2`).
-- acc1 local build+send loops are detached bash children and once died with their parent shell (~2 h
-  outage, 2026-10-07); restart with `run-farm.ps1 start`, check `run-farm.ps1 status` + log mtimes.
-- **acc1 BURN-DOWN ONLINE (2026-10-08):** acc1 build workers + pooler STOPPED (no rebuild); expo is now
-  the isolated `drain.mjs acc1` (config `plans/farm-sites.json > acc1.drain`, log `data/drain-acc1.log`).
-  It keeps every slot busy with main hull Frigate `227` (fallback Battleship `207` once home Frigates <
-  `minFleetPoints`=5000 ≈125) + `219` at 1:20 + 1 of each sub-Frigate ship while on main (Black Moon `216`
-  dropped: slow hull, negligible ship-finds). Per-fleet size AND fleet count auto-scale to the home fleet,
-  so it never stalls as ships are lost. DRY: `node drain.mjs acc1 --dry`. acc2 farm unchanged.
-- **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** Shipyard = `Building: N per second`
+- **acc1 MOVED TO VM, BURN-DOWN ONLINE (2026-10-08).** acc2 TheBob **RETIRED from scope** (served its
+  purpose for player-vs-player data; reusable manually if ever needed) — its VM tmux sessions were
+  killed and its `plans/farm-sites.json` entry removed. acc1 runs entirely on Azure VM `azure-bot` in
+  tmux, **no local processes, no ship rebuild**: `drain-acc1` = isolated `drain.mjs acc1` via
+  `run-drain.sh` (config `plans/farm-sites.json > acc1.drain`, log `data/drain-acc1.log`) and
+  `bonus-acc1` = `run-bonus.sh` (clicks the Online Bonus page). It keeps every slot busy with main hull
+  Frigate `227` (fallback Battleship `207` once home Frigates < `minFleetPoints`=5000 ≈125) + `219` at
+  1:20 + 1 of each sub-Frigate ship while on main (Black Moon `216` dropped). Per-fleet size AND fleet
+  count auto-scale to the home fleet, so it never stalls as ships are lost. DRY: `node drain.mjs acc1 --dry`.
+- **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** The legacy build/pool/send loops
+  (`run-farm-*.sh`, `run-farm.ps1`) are PARKED (not running). Shipyard = `Building: N per second`
   (`perSec` in `parse.mjs`); `resolve` sizes each order to `EXPLORER_UNIT_SECONDS`(90 s) and re-submits
   ~2.5 s after completion. **Optional ratio gate (account-wide, only when `comp.wall` is set):** the plan
   sums main + sites + in-flight (`st.active`) and builds ONLY the deficient type. Currently OFF (wall-free meta).
@@ -37,8 +33,8 @@
   or the ETA passes, so a drained colony re-submits instead of deadlocking.
 - **`httpbot trade <buy> <code:amt,...>`:** value 1:2:4 (deut→crystal = 1:2), **250 DM/call → big lumps**.
 - acc1 Bratwurst `3:125:12` (moon); sites = `1593` + `1655/1656/1657` (`3:125:9-11`) +
-  `1690/1692/1693` (`3:124:9-11`). acc2 TheBob `2:188:16`; sites = `1598` + `1672/1673/1674/1675/1676`
-  (`2:188:10-11` + `2:187:9-11`). **All shipyards upgraded to 18 (2026-10-08) → Frigate unlocked everywhere.**
+  `1690/1692/1693` (`3:124:9-11`). **All shipyards upgraded to 18 (2026-10-08) → Frigate unlocked
+  everywhere.** acc2 TheBob `2:188:16` (sites `1598` + `1672/1673/1674/1675/1676`) is RETIRED.
 - **Expo set = `227:S,219:br` + 1 each of every sub-Frigate ship `202/204/205/206/207/211/213/215/216/225/226`
   (no Spy Probe `210`; slot 21 errors). 2026-10-08: added the 7 heavies (207 BS, 211 PB, 213 SF, 215 BC,
   216 BM, 225 Galleon, 226 Destroyer) to inflate the expedition's fleet value/found scale — built on main
@@ -162,6 +158,11 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **acc1 migrated to the VM; acc2 retired.** acc2 TheBob's VM tmux sessions
+  (`bonus-acc2`, any leftover `farm*/farmw*/farmsend*/expharv-acc2`) were killed and its
+  `plans/farm-sites.json` entry removed — acc2 is out of scope (manual-only fallback). acc1 now runs
+  entirely on `azure-bot` in tmux: `drain-acc1` (new `run-drain.sh`, burn-down expo sender) +
+  `bonus-acc1` (`run-bonus.sh`); local acc1 drain/bonus processes stopped. No ship rebuild anywhere.
 - 2026-10-08: **auto-builder Phase 2 (scale, backend/API)** — built-in templates
   (`internal/blueprint/presets.go` `Presets`/`ValidateSpec`, `GET /api/v1/blueprints/templates`),
   apply-to-all (`POST /api/v1/blueprints/apply`, `all`/`celestial_ids`, cap 100,

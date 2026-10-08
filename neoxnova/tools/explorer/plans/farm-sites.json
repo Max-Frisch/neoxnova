@@ -22,19 +22,5 @@
       "speed": 10,
       "time": 1
     }
-  },
-  "acc2": {
-    "mainCp": "1598",
-    "mainCoords": "2:188:16",
-    "slots": 9,
-    "growth": 3,
-    "poolMin": 5000,
-    "sites": ["1598", "1672", "1673", "1674", "1675", "1676"],
-    "comp": {
-      "main": "207",
-      "recycler": "219",
-      "recyclerPoints": 800000000,
-      "ramp": { "code": "227", "per": 690 }
-    }
   }
 }

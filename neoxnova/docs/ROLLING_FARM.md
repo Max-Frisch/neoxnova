@@ -11,12 +11,12 @@ Referenced from `BACKLOG.md`. Everything runs from `neoxnova/tools/explorer/`.
 > for the current cycle/S and the BR-gate fix.
 
 ## Accounts & hosts
-- **acc1 Bratwurst** — main `3:125:12` (cp `1593`); runs locally on Windows
-  (PowerShell detached loops; **no tmux**).
-- **acc2 TheBob** — main `2:188:16`; runs on Azure VM `azure-bot`
-  (`ssh -F neoxnova/secrets/ssh/config azure-bot`), tmux.
-- Keep as-is tonight. Moving acc1 onto the VM (shared public IP) is deferred
-  — it needs an account selector (see "Known gaps").
+- **acc1 Bratwurst** — main `3:125:12` (cp `1593`). **Moved to Azure VM `azure-bot`
+  (2026-10-08)**, tmux: `drain-acc1` (burn-down expo sender, `run-drain.sh`) +
+  `bonus-acc1` (`run-bonus.sh`). No ship rebuild. `ssh -F neoxnova/secrets/ssh/config azure-bot`.
+- **acc2 TheBob** — **RETIRED from scope (2026-10-08)**; served its purpose for
+  player-vs-player data. Keep for manual live data only if needed. Its VM tmux
+  sessions and `plans/farm-sites.json` entry were removed.
 - **VM sync rule:** local commit → `git push` →
   `ssh -F neoxnova/secrets/ssh/config azure-bot 'git -C ~/neoxnova fetch && git -C ~/neoxnova reset --hard origin/main'`.
 
@@ -168,17 +168,13 @@ unconfirmed; user believes tiers are 5k/50k/250k). Higher tiers need S ≥ ~400 
 - Pick 2–4 build sites per account; fill `plans/farm-sites.json`.
 
 ## Launch
-- **Bootstrap (once, before the daemons):** build the full starter on the
-  resource-rich main so the first round fires quickly:
-  `node farm-plan.mjs --acc <acc> starter` → `resolve --goals
-  plans/farm-<acc>-starter.json --cp <main> --steps 1000000`; then `farm-plan
-  --acc <acc> sent`, fire the 7-set manually, and start the daemons below.
-- **acc1 (Windows):** `powershell -File run-farm.ps1 -Acc acc1` (spawns both
-  loops detached; logs `data/farm-build-acc1.log`, `data/farm-send-acc1.log`).
-- **acc2 (VM):** `tmux new -d -s farm-acc2 'bash run-farm-build.sh acc2'` and
-  `tmux new -d -s farmsend-acc2 'bash run-farm-send.sh acc2'`; harvest already
-  runs as `expharv-acc2`.
-- Harvest daemons: acc1 local loop, acc2 tmux `expharv-acc2` (`run-expharvest.sh`).
+- **acc1 (VM, current):** `bash run-drain.sh start acc1` (tmux `drain-acc1`,
+  burn-down sender, log `data/drain-acc1.log`) and `bash run-bonus.sh start acc1`
+  (tmux `bonus-acc1`). No build/send/pooler loops — ship building is off.
+- **Legacy ship-building farm (parked):** `run-farm.ps1` (Windows) /
+  `run-farm-build.sh`+`run-farm-send.sh` (tmux). Not running.
+- Harvest daemons: `run-expharvest.sh` / `run-msgharvest.sh` per account (off by
+  default now that acc2 is retired).
 
 ## Track (agent glance, tails only)
 - `data/exp-harvest-<acc>.log` summary lines + `exp-report` fight reports:
