@@ -69,7 +69,12 @@
    (pirates 70 / aliens 30 — only these two exist), resources 30, ships 20, nothing 17, DM 8,
    delay 6, fast 2. Enemy scales ONLY on general W/S/A research 109/110/111
    (`MirroredResearchBonus`); never specific weapon techs/arsenal/academy.
-   REMAINING: outcome-message/API surfacing + live calibration. Notes: `docs/EXPEDITIONS…` §8/§9.
+    REMAINING: outcome-message/API surfacing + live calibration. Notes: `docs/EXPEDITIONS…` §8/§9.
+   **Full message scan 2026-10-08** (§10): corrected live mix n=641 = ships 30.7 %, resources 20.7 %,
+   darkmatter 13.7 %, delay 12.5 %, combat 10.0 % (pirates 49/aliens 15), nothing 7.8 %, fast 3.7 %,
+   fatal black hole 0.5 %, stardust 0.3 %. The vanilla `MissionCaseExpedition.php` is a reference
+   only (uniform 1/9 ⇒ 11 % BH / 33 % nothing); live is custom. Owner-locked Go mix (combat 15 %,
+   BH 2 %) does **not** match observation — flag before re-locking; Go surfacing still to do.
 1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
     per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
     to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
@@ -132,6 +137,15 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **full message parse scan (`msg-scan`/`msg-stats`)** — rewrote the expedition
+  classifier against the live `sys_expe_*` lang strings + custom flavours (bacterium, virus,
+  stardust, non-fatal blackhole-loot, ancient-battlefield); fixed `nothing_8`→resources and
+  "deserted pirate base"→combat mis-buckets. `parseMessageRows` now also extracts fight-report
+  `profit`/`rubblefield`/`combatXp`, achievement name/level/reward and spy sightings. New
+  `httpbot.mjs msg-scan` walks **all 12 inbox categories** into `data/messages.json`
+  (deep-scan acc1 = 1383 rows, 1267 expedition), `msg-stats` reprints; `run-msgharvest.sh`
+  daemon for forward capture. Corrected live mix in `docs/EXPEDITIONS…` §10; `EXPLORER.md`
+  updated. Go outcome surfacing/calibration deliberately NOT changed (owner-locked mix).
 - 2026-10-08: **expedition resolver (item 1) — DONE** — pure `game/expedition.go` (`RollExpedition`,
   `FleetPoints`, enemy mirror+template+rolled W/S/A) + `engine.resolveExpedition` at the
   HOLDING→RETURNING transition (loot, ship finds, DM credit, delay/fast ETA, combat report, losses,
@@ -315,4 +329,5 @@
   API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder base (item 3)** — `docs/AUTO_BUILD_DESIGN.md`.
 - **Expedition outcome surfacing** — persist non-combat expedition outcomes and expose
-  reports/messages (item 1 follow-up); calibrate the PROVISIONAL outcome mix from the harvest.
+  reports/messages (item 1 follow-up). The message taxonomy + corrected mix are now mined
+  (`docs/EXPEDITIONS…` §10); decide the Go mix vs the 15 %/2 % lock first.

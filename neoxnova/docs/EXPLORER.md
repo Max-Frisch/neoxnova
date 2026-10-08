@@ -57,6 +57,29 @@ Expeditions are **not** in the fleet wizard; use the `#expfleet` panel on
 leaks ghost fleets (counted in fleetTable, never resolve). Findings + black-hole
 status: `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
 
+## Messages (`msg-scan` / `msg-stats`)
+The inbox has 12 categories (sidebar `Message.getMessages(id)`): 0 spy, 1 player,
+2 alliance, 3 combat, 4 system, 5 transport, 15 expedition, 50 game,
+99 construction, 100 all, 199 archive, 999 outbox. `exp-log`/`exp-report` only
+cover 15/3; `msg-scan` covers **every** category in one pass.
+- `node --max-old-space-size=192 httpbot.mjs msg-scan [--cats 0,3,15] [--max-sites N]`
+  pages each category by `site`, parses + classifies every row, and merges into
+  `data/messages.json` (additive: deleted/archived rows stay local). Defaults to a
+  **deep backfill**; the server repeats the final page instead of returning an
+  empty one, so paging stops when two consecutive pages carry the same ids.
+  A `--max-sites 6` scan is enough for forward capture (`run-msgharvest.sh`).
+- `node httpbot.mjs msg-stats` reprints the statistics from `data/messages.json`
+  without fetching.
+- Rows are classified by an ordered taxonomy: expedition bodies against the live
+  `data/_lang_FLEETphp` `sys_expe_*` strings + the custom flavours this server
+  added (bacterium, virus, stardust, non-fatal "blackhole-loot", "ancient
+  battlefield" Arsenal drops); fight reports also yield `profit`/`rubblefield`/
+  `combatXp`; system rows yield the achievement name/level/reward; spy rows yield
+  the sighting owner/coords. Live mix + flavour table:
+  `docs/EXPEDITIONS_LIVE_2026-10-06.md` §10.
+- Continuous: `bash run-msgharvest.sh start [tag]` (tmux `msgharv-<tag>`, every
+  `EXPLORER_MSG_EVERY_S`=900 s, `EXPLORER_MSG_MAX_SITES`=6).
+
 ## Battle simulator (WORKS)
 POST `page=battleSimulator&mode=send` with `slots=2` and `battleinput[0][0][code]` (attacker) /
 `battleinput[0][1][code]` (defender); `1xx` = techs/skills, `2xx`/`4xx` = ships/defenses. Response is

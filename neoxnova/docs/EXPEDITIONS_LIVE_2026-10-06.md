@@ -338,3 +338,48 @@ resources/combat/black-hole persistence).
 
 Remaining: surface non-combat outcomes as messages/reports and calibrate the
 outcome mix from a larger harvest.
+
+## 10. Full message parse scan (2026-10-08, acc1)
+
+`httpbot.mjs msg-scan` now walks **every** inbox category (0 spy, 1 player, 3
+combat, 4 system, 15 expedition, …) and merges parsed rows into
+`data/messages.json`; `msg-stats` reprints the statistics. The old expedition
+classifier always left an `unknown` bucket and mis-bucketed flavours (e.g.
+`sys_expe_nothing_8` matched `asteroid` → resources; "deserted pirate base"
+matched `pirate` → combat). It now maps every body against the live
+`data/_lang_FLEETphp` `sys_expe_*` strings plus the custom flavours this server
+added. Deep-scan totals (acc1, 08 Oct ~17:50): **1383 messages**, 1267 of them
+expedition (the full visible backlog, min msg id 216201 ≈ the `expeditions.json`
+accumulation).
+
+### Corrected live outcome mix (n = 641 non-death outcomes)
+
+| outcome | n | share | notes |
+|---|---|---|---|
+| ships | 197 | **30.7 %** | incl. 4 "ancient battlefield" Arsenal drops |
+| resources | 133 | **20.7 %** | incl. 7 bacterium (M→D) + 8 virus (C→D) + 3 non-fatal black-hole loot |
+| darkmatter | 88 | 13.7 % | |
+| delay | 80 | 12.5 % | particle-storm / red-giant / collision / navigator / module / missed-target |
+| combat | 64 | **10.0 %** | pirates 49 / aliens 15 (76.6 / 23.4) |
+| nothing | 50 | 7.8 % | life-form / yellow-fever / supernova / red-anomaly / virus / emptiness / reactor |
+| fast | 24 | 3.7 % | relay / wormhole / solar-wind |
+| blackhole | 3 | **0.5 %** | fatal (`lost-fleet`); a separate non-fatal "blackhole-loot" (3) is a resources gain |
+| stardust | 2 | 0.3 % | custom rare-resource find ("1 unit of the rare Stardust") |
+
+**The captured vanilla `MissionCaseExpedition.php` is a reference, not the live
+logic.** Vanilla rolls `mt_rand(1,9)` uniform (nothing = 3/9 = 33 %, black hole =
+1/9 = 11 %); the live server is far away (nothing 7.8 %, fatal BH 0.5 %, ships
+30.7 %) and adds flavours absent from the PHP/lang file (bacterium, virus,
+stardust, blackhole-loot, ancient-battlefield/Arsenal). **Do not copy the PHP
+weights.** Effect on the Go resolver: the owner-locked mix (combat 15 %, BH 2 %)
+does **not** match the observed 10 % / 0.5 % — flag for the owner before
+re-locking; item 1's `expeditionOutcomeWeights` remains a product decision.
+
+### Non-expedition messages now parsed
+
+Fight reports (cat 3, 98 rows / 80 reports) previously stored only
+attacker/defender losses; now also `profit` (M 1.907 T / C 0.855 T / D 0.759 T),
+`rubblefield` (M 2.187 T / C 1.001 T) and `combatXp` (10,820). System rows (cat 4)
+yield the achievement name/level/reward (e.g. "Successfull expo 15", "Dark matter
+finder 7", "Upgrade finder 4"). Spy rows (cat 0) yield the sighting
+owner/coords. All categories are `unclassified=0` after the fix.

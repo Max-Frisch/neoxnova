@@ -13,6 +13,8 @@
 //   node httpbot.mjs activate <greid> [--go]   # activate one upgrade drawing (dry unless --go)
 //   node httpbot.mjs sell <type> <amt> <rate> [--go]  # list drawings on the market (dry unless --go)
 //   node httpbot.mjs phalanx <g:s:p> [1|3] [--cp <moonCp>]  # moon Phalanx scan
+//   node httpbot.mjs msg-scan [--cats 0,3,15] [--max-sites 40]  # scan all message categories -> data/messages.json
+//   node httpbot.mjs msg-stats                                 # reprint stats from data/messages.json
 //   node httpbot.mjs resolve --goals f.json [--steps N] [--cp id]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -1070,47 +1072,127 @@ function parseMessageRows(html) {
     const id = m[1];
     const head = [...m[0].matchAll(/<td[^>]*class="head_row_msg"[^>]*>([\s\S]*?)<\/td>/g)].map((c) => stripTags(c[1]).replace(/\s+/g, ' ').trim());
     const date = head[1] || null;
-    const sender = head[2] || null;
+    const sender = (head[2] || '').replace(/^From\s+/i, '').trim() || null;
     const subject = head[3] || null;
     const body = stripTags(m[2]).replace(/\s+/g, ' ').trim();
     const report = (m[2].match(/CombatReport\.php\?raport=([a-f0-9]+)/i) || [])[1] || null;
-    const lossOf = (re) => { const x = re.exec(m[2]); return x ? Number(x[1].replace(/\./g, '')) : 0; };
-    rows.push({
-      id, date, sender, subject, body,
-      ...(report ? { report, attackerLosses: lossOf(/Losses attacker:\s*([\d.]+)/i), defenderLosses: lossOf(/Lost defender:\s*([\d.]+)/i) } : {}),
-    });
+    const row = { id, date, sender, subject, body };
+    if (report) {
+      row.report = report;
+      row.attackerLosses = num(/(?:Losses attacker|Lost attacker):\s*([\d.]+)/i.exec(body)?.[1]);
+      row.defenderLosses = num(/(?:Lost defender|Losses defender):\s*([\d.]+)/i.exec(body)?.[1]);
+    }
+    // Fight-report summary (messcat=3): profit, rubblefield and combat XP are
+    // all printed in the message body and were previously dropped.
+    const profit = /Profit Metal:\s*([\d.]+)\s*Crystal:\s*([\d.]+)\s*Deuterium:\s*([\d.]+)/i.exec(body);
+    if (profit) row.profit = { metal: num(profit[1]), crystal: num(profit[2]), deuterium: num(profit[3]) };
+    const rub = /Rubblefield Metal:\s*([\d.]+)\s*Crystal:\s*([\d.]+)/i.exec(body);
+    if (rub) row.rubblefield = { metal: num(rub[1]), crystal: num(rub[2]) };
+    const xp = /Received\s+([\d.]+)\s+combat experience/i.exec(body);
+    if (xp) row.combatXp = num(xp[1]);
+    // Achievement (messcat=4): "Reached: <name> <n> level/lvl. Received: <a> Antimatter [and] <b> Achievement Points".
+    const ach = /Reached:\s*(.+?)\s+(\d+)\s+(?:level|lvl)[.!]?\s*Received:\s*([\d.]+)\s+Antimatter\s*(?:and\s*)?([\d.]+)\s+Achiev/i.exec(body);
+    if (ach) row.achievement = { name: ach[1].trim(), level: num(ach[2]), antimatter: num(ach[3]), points: num(ach[4]) };
+    // Spy (messcat=0): fleet sighting with owner/coords, or a spy report.
+    const sight = /hostile fleet of the planet (.+?)\s*\[([\d:]+)\]\s*was sighted near your planet (.+?)\s*\[([\d:]+)\]/i.exec(body);
+    if (sight) row.sighting = { owner: sight[1].trim(), from: sight[2], target: sight[3].trim(), at: sight[4] };
+    rows.push(row);
   }
   return rows;
 }
 
-// Classify an expedition message body into a coarse outcome category. Strings
-// mirror the live 2Moons-derived server (data/expeditions.json and
-// data/_lang_FLEETphp). Vanilla 2Moons MissionCaseExpedition rolls mt_rand(1,9):
-// 1=resources, 2=dark matter, 3=ships, 4=pirates/aliens, 5=black hole,
-// 6=time shift, 7-9=nothing. Return acks ("Your fleet has returned...") are not
-// outcomes; cmdExpLog tags them kind="return".
+// Ordered expedition-outcome taxonomy keyed off the live server language file
+// (data/_lang_FLEETphp, sys_expe_*). First match wins, so the specific custom
+// strings precede the generic buckets. Vanilla MissionCaseExpedition rolls
+// mt_rand(1,9): 1=resources 2=darkmatter 3=ships 4=combat 5=black hole
+// 6=time shift 7-9=nothing; this server adds custom flavours (bacterium, virus,
+// stardust, "ancient battlefield" arsenal drops, a non-fatal black hole).
+const EXPEDITION_FLAVORS = [
+  ['return', 'return', [/returned from the expedition/i]],
+  ['blackhole', 'lost-fleet', [/has not returned from the hyperspacejump/i, /opening black hole/i, /nuclear breach/i, /Zzzrrt/i, /encountered a black hole/i]],
+  ['delay', 'collision', [/collided with a strange ship/i]],
+  ['delay', 'particle-storm', [/particle storms/i]],
+  ['delay', 'red-giant', [/red giant distorted/i]],
+  ['delay', 'navigator', [/miscalculation of the navigator|landed the fleet at a completely wrong place/i]],
+  ['delay', 'missed-target', [/missed it`s target|missed its target/i]],
+  ['delay', 'navigation-module', [/navigation module still has a few bugs/i]],
+  ['fast', 'relay', [/unforeseen relay in the energy coils/i]],
+  ['fast', 'wormhole', [/unstable wormhole as a shortcut/i]],
+  ['fast', 'solar-wind', [/got into a solar wind at the return flight/i]],
+  ['combat', 'pirates', [/Moa Tikarr/i, /space ?pirates?/i, /star ?pirates?/i, /secret pirate base/i, /barbarian/i, /trap of some cunning pirates/i]],
+  ['combat', 'aliens', [/unknown ships/i, /unknown specie/i, /activate their weapons/i, /crystalline ships of unknown origin/i, /alien invasion fleet/i, /aggressive alien race/i, /disconnected abruptly/i]],
+  ['darkmatter', 'darkmatter', [/dark ?matter/i]],
+  ['ships', 'ancient-battlefield', [/ancient battlefield/i]],
+  ['ships', 'predecessor', [/predecessor expedition/i]],
+  ['ships', 'pirate-base', [/deserted pirate base/i]],
+  ['ships', 'war-wrecks', [/almost completly destroyed by wars/i]],
+  ['ships', 'starbase', [/old starbase|hangar of the fortress/i]],
+  ['ships', 'armada', [/remains of an armada/i]],
+  ['ships', 'shipyard', [/automatic shipyard/i]],
+  ['ships', 'cemetery', [/ship cemetery/i]],
+  ['ships', 'perfect', [/spaceships which were in perfect condition/i]],
+  ['resources', 'bacterium', [/bacterium that eats metal/i]],
+  ['resources', 'virus', [/virus that will destroy crystalline/i]],
+  ['stardust', 'stardust', [/rare Stardust/i]],
+  ['resources', 'resources', [/raw material|asteroids? cluster|resource fields|highly-poisonous|freighter convoy|raw material deposits|civilian ships|alien shipwreck|asteroid belt|rich in raw materials|useful resources/i]],
+  ['nothing', 'life-form', [/life-form of pure energy/i]],
+  ['nothing', 'yellow-fever', [/yellow fever/i]],
+  ['nothing', 'supernova', [/lovely pictures of a supernova/i]],
+  ['nothing', 'computer-virus', [/computervirus/i]],
+  ['nothing', 'red-anomaly', [/red anomalies of class 5/i]],
+  ['nothing', 'emptiness', [/vast emptiness of space/i]],
+  ['nothing', 'reactor', [/reactor malfuntion/i]],
+  ['nothing', 'animals', [/curious, small little animals/i]],
+  ['nothing', 'still-nothing', [/has not brought any real new knowledge|not very successful|empty-handed/i]],
+  // Non-fatal black-hole flavour: the fleet survives and resources increase.
+  ['resources', 'blackhole-loot', [/drawn into the black hole[\s\S]*resources became much more/i]],
+];
+
+// Classify an expedition message body -> coarse outcome (Go-aligned). See
+// EXPEDITION_FLAVORS; returns 'unknown' only when nothing matches.
 function classifyExpedition(body) {
-  const b = (body || '').toLowerCase();
-  if (/returned from the expedition/.test(b)) return 'return';
-  if (/black hole|nuclear breach|has not returned from the hyperspacejump|zzzrrt/.test(b)) return 'blackhole';
-  if (/predecessor expedition|deserted pirate base|ship cemetery|armada|automatic shipyard|starbase|previously intact ships?|repair some of|complete the construction|retrieved|hangar of the fortress/.test(b)) return 'ships';
-  if (/dark matter/.test(b)) return 'darkmatter';
-  if (/moa tikarr|pirate|barbarian|alien|unknown ships|activate their weapons|an unforseen encounter/.test(b)) return 'combat';
-  if (/accelerated the return|returned a bit earlier|shortcut to return/.test(b)) return 'fast-return';
-  if (/last longer than thought|return is delayed|missed it`s target|took substantially more time|went in the completely wrong direction|wrong place|collided with a strange ship|cancel the expedition\)? with a shortage/.test(b)) return 'delay';
-  if (/dark matter/.test(b)) return 'darkmatter';
-  if (/raw material|resources|crystalline|asteroid|storage rooms|converted into crystal deuterium/.test(b)) return 'resources';
-  if (/nothing|no real new knowledge|empty-handed|vast emptiness|not very successful|not brought/.test(b)) return 'nothing';
+  const b = body || '';
+  for (const [outcome, , pats] of EXPEDITION_FLAVORS) if (pats.some((re) => re.test(b))) return outcome;
   return 'unknown';
 }
 
-// Pull the delivered loot out of a return-ack body.
+// The specific flavour label (e.g. 'particle-storm', 'bacterium') for an
+// expedition body, or null.
+function expeditionFlavor(body) {
+  const b = body || '';
+  for (const [outcome, flavor, pats] of EXPEDITION_FLAVORS) if (pats.some((re) => re.test(b))) return { outcome, flavor };
+  return { outcome: 'unknown', flavor: null };
+}
+
+// Coarse class for the full message scan, by category. Category names come from
+// the live messages sidebar (Message.getMessages(id)).
+function classifyMessage(m) {
+  const cat = m.catName;
+  if (cat === 'expedition') return classifyExpedition(m.body);
+  if (cat === 'combat') return 'fight';
+  if (cat === 'spy') return m.sighting ? 'spy-sighting' : 'spy-report';
+  if (cat === 'system') return m.achievement ? 'achievement' : 'system';
+  if (cat === 'transport') return 'transport';
+  if (cat === 'player') return 'player';
+  if (cat === 'alliance') return 'alliance';
+  if (cat === 'construction') return 'construction';
+  if (cat === 'game') return 'game';
+  return 'other';
+}
+
+// Pull the delivered loot out of a return-ack body. Handles both the standard
+// "It deliveres Metal X, Crystal Y, Deuterium Z and Dark Matter W." form and the
+// with-DM variant "They found (W)Dark matter ... the Dark matter was saved.".
 function parseExpeditionLoot(body) {
   const g = (name) => {
     const m = new RegExp(`${name}\\s+([\\d.]+)`, 'i').exec(body);
     return m ? Number(m[1].replace(/\./g, '')) : 0;
   };
-  return { metal: g('Metal'), crystal: g('Crystal'), deuterium: g('Deuterium'), darkmatter: g('Dark Matter') };
+  const paren = /They found\s*\(([\d.]+)\)\s*Dark ?matter/i.exec(body);
+  return {
+    metal: g('Metal'), crystal: g('Crystal'), deuterium: g('Deuterium'),
+    darkmatter: paren ? Number(paren[1].replace(/\./g, '')) : g('Dark Matter'),
+  };
 }
 
 // Fetch expedition messages (messcat=15) and append newly seen ones to data/expeditions.json.
@@ -1135,7 +1217,9 @@ async function cmdExpLog() {
     await delay();
   }
   for (const m of log.messages) {
-    m.outcome = classifyExpedition(m.body || '');
+    const cl = expeditionFlavor(m.body || '');
+    m.outcome = cl.outcome;
+    m.flavor = cl.flavor;
     m.kind = m.outcome === 'return' ? 'return' : 'outcome';
     if (m.kind === 'return') m.loot = parseExpeditionLoot(m.body || '');
   }
@@ -1219,6 +1303,123 @@ async function cmdExpReports() {
     console.log(`  ${r.hash.slice(0, 8)} ${String(r.result || '?').padEnd(9)} atk=[${a}] def=[${d}] lostA=${r.attacker.reduce((s, u) => s + u.lost, 0)} lostD=${r.defender.reduce((s, u) => s + u.lost, 0)}`);
   }
   return store;
+}
+
+// Message categories from the live sidebar (Message.getMessages(id)).
+const MSG_CATEGORIES = {
+  0: 'spy', 1: 'player', 2: 'alliance', 3: 'combat', 4: 'system', 5: 'transport',
+  15: 'expedition', 50: 'game', 99: 'construction', 100: 'all', 199: 'archive', 999: 'outbox',
+};
+
+// Full message scan: fetch every category (paged by `site`), parse + classify
+// each row, and merge into data/messages.json. Idempotent and additive — rows
+// that disappear from the live inbox (deleted/archived) stay in the local log,
+// so the statistics keep accumulating. This is the comprehensive store; the
+// expedition-specific fast log stays in data/expeditions.json (cmdExpLog).
+// The server repeats the final page instead of returning an empty one, so paging
+// stops when two consecutive pages carry the same ids (works even on a full
+// re-scan where every row is already known).
+//   node httpbot.mjs msg-scan [--cats 0,3,15] [--max-sites 500] [--out data/messages.json]
+async function cmdMsgScan(catsArg, maxSitesArg, outArg) {
+  await login();
+  const outPath = path.resolve(outArg || path.join(DATA_DIR, 'messages.json'));
+  const cats = catsArg
+    ? catsArg.split(',').map((s) => Number(s.trim())).filter((c) => c in MSG_CATEGORIES)
+    : Object.keys(MSG_CATEGORIES).map(Number).filter((c) => c !== 100);
+  const maxSites = Number(maxSitesArg || 500);
+  let log = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : { updatedAt: null, messages: [] };
+  const byId = new Map(log.messages.map((m) => [String(m.id), m]));
+  const added = {};
+  const tagClass = (m) => {
+    m.class = classifyMessage(m);
+    if (m.catName === 'expedition') { const cl = expeditionFlavor(m.body); m.outcome = cl.outcome; m.flavor = cl.flavor; }
+  };
+  for (const cat of cats) {
+    const catName = MSG_CATEGORIES[cat];
+    let prevIds = '';
+    let repeats = 0;
+    let count = 0;
+    for (let site = 1; site <= maxSites; site++) {
+      const html = await (await getPage(`page=messages&mode=view&messcat=${cat}&site=${site}&ajax=1`)).text();
+      const rows = parseMessageRows(html);
+      const pageIds = rows.map((r) => r.id).join(',');
+      if (!rows.length || pageIds === prevIds) { repeats++; if (repeats >= 2 || !rows.length) break; await delay(); continue; }
+      repeats = 0; prevIds = pageIds;
+      for (const r of rows) {
+        r.cat = cat; r.catName = catName;
+        const ex = byId.get(String(r.id));
+        if (!ex) { tagClass(r); byId.set(String(r.id), r); added[catName] = (added[catName] || 0) + 1; }
+        else { for (const k of Object.keys(r)) if (ex[k] == null) ex[k] = r[k]; ex.cat = cat; ex.catName = catName; tagClass(ex); }
+        count++;
+      }
+      await delay();
+    }
+    console.log(`[msg-scan] cat=${cat} ${catName}: ${count} rows`);
+  }
+  log.messages = [...byId.values()].sort((a, b) => Number(a.id) - Number(b.id));
+  log.updatedAt = new Date().toISOString();
+  log.categories = MSG_CATEGORIES;
+  const totalAdded = Object.values(added).reduce((s, n) => s + n, 0);
+  console.log(`[msg-scan] +${totalAdded} new, ${log.messages.length} total -> ${outPath}`);
+  console.log(`[msg-scan] new by category: ${JSON.stringify(added)}`);
+  log.stats = summarizeMessages(log);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(log, null, 2));
+  return log;
+}
+
+// Shared statistics over the merged message log: counts per category/class, the
+// expedition outcome mix, fight-report totals, achievements and spy sightings.
+function summarizeMessages(log) {
+  const byCat = {}, byClass = {}, expOutcome = {}, expFlavor = {};
+  const fight = { count: 0, attackerLosses: 0, defenderLosses: 0, profit: { metal: 0, crystal: 0, deuterium: 0 }, rubble: { metal: 0, crystal: 0 }, xp: 0, reports: 0 };
+  const ach = {}, sightings = [];
+  for (const m of log.messages || []) {
+    byCat[m.catName] = (byCat[m.catName] || 0) + 1;
+    const cl = m.class || m.outcome || 'unknown';
+    byClass[cl] = (byClass[cl] || 0) + 1;
+    if (m.catName === 'expedition') {
+      const oc = m.outcome || m.class || 'unknown';
+      expOutcome[oc] = (expOutcome[oc] || 0) + 1;
+      if (oc !== 'return') expFlavor[m.flavor || '?'] = (expFlavor[m.flavor || '?'] || 0) + 1;
+    }
+    if (m.catName === 'combat') {
+      fight.count++;
+      fight.attackerLosses += m.attackerLosses || 0;
+      fight.defenderLosses += m.defenderLosses || 0;
+      fight.xp += m.combatXp || 0;
+      if (m.report) fight.reports++;
+      if (m.profit) { fight.profit.metal += m.profit.metal; fight.profit.crystal += m.profit.crystal; fight.profit.deuterium += m.profit.deuterium; }
+      if (m.rubblefield) { fight.rubble.metal += m.rubblefield.metal; fight.rubble.crystal += m.rubblefield.crystal; }
+    }
+    if (m.achievement) { const k = m.achievement.name; ach[k] = Math.max(ach[k] || 0, m.achievement.level); }
+    if (m.sighting) sightings.push(m.sighting);
+  }
+  const outcomes = Object.values(expOutcome).reduce((s, n) => s + n, 0) - (expOutcome.return || 0);
+  console.log(`[msg-stats] total=${(log.messages || []).length} byCategory=${JSON.stringify(byCat)}`);
+  console.log(`[msg-stats] byClass=${JSON.stringify(byClass)}`);
+  if (outcomes) {
+    const mix = {};
+    for (const [k, n] of Object.entries(expOutcome)) if (k !== 'return') mix[k] = `${n} (${(100 * n / outcomes).toFixed(1)}%)`;
+    console.log(`[msg-stats] expedition outcomes (n=${outcomes}): ${JSON.stringify(mix)}`);
+    console.log(`[msg-stats] expedition flavors: ${JSON.stringify(expFlavor)}`);
+  }
+  if (fight.count) console.log(`[msg-stats] fights=${fight.count} reports=${fight.reports} lostA=${fight.attackerLosses} lostD=${fight.defenderLosses} xp=${fight.xp} profit=${JSON.stringify(fight.profit)} rubble=${JSON.stringify(fight.rubble)}`);
+  const unclassified = byClass.unknown || 0;
+  const unknownRows = (log.messages || []).filter((m) => (m.class || m.outcome) === 'unknown').slice(0, 10);
+  console.log(`[msg-stats] unclassified=${unclassified}`);
+  for (const m of unknownRows) console.log(`   ? [${m.catName}] ${m.id} ${(m.subject || '').slice(0, 30)} :: ${(m.body || '').slice(0, 110)}`);
+  return { byCat, byClass, expOutcome, expFlavor, fight, ach, sightings };
+}
+
+// Recompute statistics from an existing data/messages.json without fetching.
+//   node httpbot.mjs msg-stats [--out data/messages.json]
+async function cmdMsgStats(outArg) {
+  const p = path.resolve(outArg || path.join(DATA_DIR, 'messages.json'));
+  if (!fs.existsSync(p)) throw new Error(`no message log at ${p}; run msg-scan first`);
+  const log = JSON.parse(fs.readFileSync(p, 'utf8'));
+  summarizeMessages(log);
+  return log;
 }
 
 // Phalanx scan (page=phalanx). Only works when the CURRENT planet is a moon
@@ -1356,6 +1557,8 @@ try {
   else if (cmd === 'worker') await cmdWorker(process.argv[3], process.argv[4], flag('--interval'));
   else if (cmd === 'exp-log') await cmdExpLog();
   else if (cmd === 'exp-report') await cmdExpReports();
+  else if (cmd === 'msg-scan') await cmdMsgScan(flag('--cats'), flag('--max-sites'), flag('--out'));
+  else if (cmd === 'msg-stats') await cmdMsgStats(flag('--out'));
   else if (cmd === 'phalanx') await cmdPhalanx(process.argv[3], process.argv[4], flag('--cp'));
   else if (cmd === 'card') await cmdCard(process.argv[3]);
   else if (cmd === 'cards') await cmdCards(flag('--out'));
@@ -1378,5 +1581,5 @@ try {
     const g = flag('--goals'); if (!g) throw new Error('need --goals');
     await cmdVerify(g, flag('--cp'));
   }
-  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|phalanx|card|cards|arsenal|market|activate|sell|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
+  else { console.error('Use: dump|get|levels|planets|cancel|trim|redeem|academy|academy-map|academy-up|fleet|fleetback|expedition|exp-state|exp-log|exp-report|msg-scan|msg-stats|phalanx|card|cards|arsenal|market|activate|sell|conveyor-probe|trade|worker|sim|simsuite|resolve|verify'); process.exit(1); }
 } catch (e) { console.error('[FATAL]', e.message); process.exit(1); }
