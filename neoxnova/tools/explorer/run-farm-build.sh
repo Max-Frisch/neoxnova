@@ -45,7 +45,11 @@ while true; do
     "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
     POOL=$(ACC="$ACC" CP="$cp" POOL_MIN="$POOL_MIN" CFG="$CFG" node -e '
       const cfg=JSON.parse(require("fs").readFileSync(process.env.CFG,"utf8"))[process.env.ACC];
-      const x=cfg.comp||{}; const codes=[x.main||"207",x.wall,x.cargo,x.recycler||"219"].filter(Boolean);
+      const x=cfg.comp||{};
+      // Pool the CURRENT flying hull (state.main — the ramp flips it) plus any legacy
+      // config hull, wall/cargo/recycler. Never satellites (212 power the colonies).
+      let st={}; try{st=JSON.parse(require("fs").readFileSync("data/farm-state-"+process.env.ACC+".json","utf8"));}catch(e){}
+      const codes=[...new Set([x.main||"207",st.main,x.wall,x.cargo,x.recycler||"219"].filter(Boolean))];
       const s=(JSON.parse(require("fs").readFileSync("data/farm-site-"+process.env.ACC+"-"+process.env.CP+".json","utf8")).ships)||{};
       let tot=0; const parts=[];
       for(const c of codes){const n=+s[c]||0; if(n>0){tot+=n; parts.push(c+":"+n);}}
