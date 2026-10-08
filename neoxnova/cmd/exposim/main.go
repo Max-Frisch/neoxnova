@@ -156,6 +156,8 @@ func main() {
 		{"BlackMoon only", map[string]float64{"216": 1}},
 		{"BlackMoon+5x217+2x219", map[string]float64{"216": 1, "217": 0.032, "219": 0.013}},
 		{"Frigate only", map[string]float64{"227": 1}},
+		{"Live Frigate+BR 1:1", map[string]float64{"227": 1, "219": 1}},
+		{"Frigate+BR 1:25", map[string]float64{"227": 1, "219": 0.04}},
 		{"Frigate+20x217+5x219", map[string]float64{"227": 1, "217": 0.4, "219": 0.1}},
 		{"Frigate+BM", map[string]float64{"227": 1, "216": 2}},
 		{"BM+4HF", map[string]float64{"216": 1, "205": 4}},
