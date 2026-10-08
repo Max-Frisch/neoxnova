@@ -85,9 +85,10 @@
 2. **Incoming-fleet view** (transport/attack/espionage) — DONE 2026-10-07:
    `GET /api/v1/planets/{id}/incoming-fleets` returns inbound OUTBOUND fleets with
    `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
-   maps missions to live labels. Live sample captured 2026-10-08 (overview "Fleet" event log):
-   hostile incoming lines render red/orange (Attack red, Spying orange), own outgoing + own attack
-   green, own returns grey — use to finalise `Colour`.
+   maps missions to live labels. **Colours finalised 2026-10-08** from the live overview sample:
+   hostility is now OWNERSHIP-based (any fleet not owned by the planet owner is hostile, incl.
+   foreign espionage) and the palette is enemy attack red `#ff4d4d`, enemy spy orange `#ff9900`,
+   own inbound green `#4caf50` (`MissionDisplayFor(mission, hostile)`).
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
 4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
    created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
@@ -99,7 +100,11 @@
    the coords with `ON CONFLICT DO NOTHING`, recorded in the report). Details + open questions:
    `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), Jumpgate + Phalanx impl,
    moon build/overview API + `resolveAttack` on a MOON target.
-   **Need:** a 2nd moon to measure the Jumpgate cooldown/eligibility.
+   **2nd moon acquired 2026-10-08**: acc1 now has `2:188:9` (diameter 8,544 km,
+   5000 recyclers/attempt). Jumpgate/phalanx testing unblocked for a later session.
+   **Debris question resolved**: only the creating battle's new debris drives the
+   moon roll — a pre-existing field does NOT add to it (and diameter ignores the
+   recycler count once the 20 % cap is hit; 8,544 = x=13). Details: `docs/MOONS.md`.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→…→abandon.
 

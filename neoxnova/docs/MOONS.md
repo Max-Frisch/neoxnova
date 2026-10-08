@@ -1,15 +1,22 @@
 # Moons — live findings + formulas (item 4)
 
 Status: **partial.** Formulas + the moon building catalog are captured; creation,
-destruction, jumpgate and phalanx are not wired into the engine yet. acc1 has the
-only live moon.
+destruction, jumpgate and phalanx are not wired into the engine yet. acc1 now has
+**two** live moons (`3:125:12` + `2:188:9`), so jumpgate/phalanx testing is
+unblocked for a later session.
 
-## Live facts (acc1, captured 2026-10-07)
+## Live facts (acc1)
 
-- Moon `cp=1725`, planet `3:125:12` (same coordinates), **diameter 8,426 km**.
+- Moon #1 `cp=1725`, planet `3:125:12` (same coordinates), **diameter 8,426 km**
+  (captured 2026-10-07).
 - Created by combat at a **20 %** chance (owner flew 5 attacks of **2500 Battle
   Recyclers** `219`; the moon appeared on the 3rd/4th lost fight). 2500 is not a
   threshold — the 20 % cap needs only ~2,000,000 debris (~3 Battle Recyclers).
+- Moon #2 `2:188:9` (Xusyty), **diameter 8,544 km** (owner-observed 2026-10-08):
+  4 failed + 1 successful attempt, each **5000 Battle Recyclers** (double #1).
+  Diameter is *not* proportional to the recyclers sent: chance is capped at 20 %
+  either way, and the classic diameter `floor(√(x+3p)·1000)` only varies with the
+  random `x` (10..20) → 8,366–8,944 km. 8,544 ⇒ `x=13` (vs `x=11` for #1).
 - **Fields: 62 used / 63 max** (`Fields occupied: 62 from 63, Free: 1`).
 - Buildings: `14 Robot Factory 10`, `15 Nanite 13`, `21 Shipyard 10`,
   `34 Alliance Depot 0`, `41 Moon base 20`, `42 Phalanx 0`, `43 Jumpgate 0`,
@@ -26,8 +33,12 @@ Chance from the debris field (`internal/game/combat.go:MoonChance`):
 ```
 moon chance % = min( floor( (metal + crystal) / 100000 ), 20 )
 ```
-2,000,000 debris = 20 %. Server nuance: the field may be **accumulated** from
-several shots, not only the creating battle.
+2,000,000 debris = 20 %. **Server nuance (observed 2026-10-08): only the debris
+created by the moon-forming battle itself counts.** acc1's moon #2 had a debris
+field already on the planet from the 4 prior failed attempts, yet the chance used
+only the successful attack's new debris — the accumulated field did NOT push the
+chance higher (it was capped at 20 % regardless). The current engine already does
+this (`resolveAttack` feeds only `res.DebrisMetal/Crystal` into `MoonChance`).
 
 Diameter (`game/moon.go:MoonDiameterKm`):
 ```
@@ -68,7 +79,9 @@ moon page omits them entirely.
 
 ## Jumpgate (`game/moon.go:JumpgateCooldown`) — needs a 2nd moon
 
-Live info card: instant transfer between your moons; **requires >= 2 jumpgates**;
+**acc1 now has a 2nd moon (`2:188:9`) → cooldown/eligibility measurable next
+session.** Live info card: instant transfer between your moons; **requires >= 2
+jumpgates**;
 **resources cannot be transported**; base recharge **>= 1 h**, *"with each level,
 cooldown [is] reduced by 2 times"* → modelled as `3600s >> level`. PROVISIONAL;
 the deuterium mention in the card is dubious (standard OGame is fuel-free).
@@ -99,8 +112,10 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
    multiplicative Moon-base reduction, and the >= 10,000 km rule.
 2. **Jumpgate** exact cooldown curve + eligible ships + the deuterium question
    (needs a 2nd moon on the account).
-3. **Creation wiring**: whether the *accumulated* debris or only the creating
-   battle's new debris drives chance + diameter here.
+3. ~~Whether the *accumulated* debris or only the creating battle's new debris
+   drives chance + diameter.~~ **RESOLVED 2026-10-08** (moon #2): only the
+   creating battle's new debris; a pre-existing field does not add to the chance
+   (and diameter ignores recycler count once the 20 % cap is reached).
 4. Phalanx deuterium cost per scan and the post-teleport offline window.
 5. Engine: resolve `ATTACK` on a `MOON` target, moon production safety, overview/
    galaxy/dashboard, and the fleet wizard's moon targeting.
