@@ -282,7 +282,7 @@ func (s *FleetStore) IncomingFleets(ctx context.Context, celestialID, userID int
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, mission, origin_galaxy, origin_system, origin_position, origin_type,
+		SELECT id, user_id, mission, origin_galaxy, origin_system, origin_position, origin_type,
 		       target_galaxy, target_system, target_position, target_type,
 		       start_time, arrival_time
 		FROM fleets
@@ -298,16 +298,19 @@ func (s *FleetStore) IncomingFleets(ctx context.Context, celestialID, userID int
 	for rows.Next() {
 		var f models.IncomingFleet
 		var missionStr, oT, tT string
+		var fleetUser int64
 		var oG, oS, oP, tG, tS, tP int
 		if err := rows.Scan(
-			&f.FleetID, &missionStr,
+			&f.FleetID, &fleetUser, &missionStr,
 			&oG, &oS, &oP, &oT, &tG, &tS, &tP, &tT,
 			&f.DepartureTime, &f.ArrivalTime,
 		); err != nil {
 			return nil, err
 		}
 		f.Mission = models.MissionType(missionStr)
-		display := game.MissionDisplayFor(missionStr)
+		// Hostility is ownership-based: any fleet not owned by the planet owner is
+		// a threat (the live log marks foreign spy fleets hostile too).
+		display := game.MissionDisplayFor(missionStr, fleetUser != userID)
 		f.MissionText, f.Colour, f.Hostile = display.Text, display.Colour, display.Hostile
 		f.Origin = models.Coordinates{Galaxy: oG, System: oS, Position: oP, Type: models.CelestialType(oT)}
 		f.Destination = models.Coordinates{Galaxy: tG, System: tS, Position: tP, Type: models.CelestialType(tT)}

@@ -129,7 +129,7 @@ type IncomingFleet struct {
 	Mission       MissionType `json:"mission"`
 	MissionText   string      `json:"mission_text"`
 	Colour        string      `json:"colour"`
-	Hostile       bool        `json:"hostile"`
+	Hostile       bool        `json:"hostile"` // true when the fleet is not owned by the planet owner
 	Origin        Coordinates `json:"origin"`
 	Destination   Coordinates `json:"destination"`
 	DepartureTime time.Time   `json:"departure_time"`

@@ -1,39 +1,59 @@
 package game
 
-// Mission display for incoming fleets. A defender sees the mission of every
-// fleet inbound to a planet as a human-readable label plus a colour hint. The
-// labels mirror the live server's type_mission_* strings
-// (tools/explorer/data/_lang_FLEETphp): Attack / Transport / Station (deploy) /
-// Hold / Spy / Colonisation / Recycle / Destroy / Expedition.
+// Mission display for incoming fleets. A defender sees every fleet inbound to a
+// planet as a human-readable label plus a colour hint, mirroring the live
+// overview "Fleet" event log. The labels match the server's type_mission_*
+// strings (tools/explorer/data/_lang_FLEETphp).
 //
-// The live theme's exact palette is not captured (no incoming-fleet sample), so
-// the colours below are documented defaults; only the ATTACK (and moon-destroy)
-// rows are flagged Hostile.
+// Hostility is about OWNERSHIP, not the mission: the live log marks every fleet
+// that is not the viewer's own as a threat ("A hostile Fleets ... Mission: ..."),
+// colouring enemy attacks red and enemy espionage orange, while the viewer's own
+// inbound fleets render green. The palette below was taken from a live sample
+// (2026-10-08: acc1 defending against acc2's attack + spy).
 type MissionDisplay struct {
 	Text    string
 	Colour  string
 	Hostile bool
 }
 
-// missionDisplays maps a mission name (models.MissionType) to its display.
-var missionDisplays = map[string]MissionDisplay{
-	"ATTACK":       {Text: "Attack", Colour: "#ff4d4d", Hostile: true},
-	"TRANSPORT":    {Text: "Transport", Colour: "#4caf50"},
-	"DEPLOY":       {Text: "Station", Colour: "#4c8dff"},
-	"HOLD":         {Text: "Hold", Colour: "#26c6da"},
-	"ESPIONAGE":    {Text: "Spy", Colour: "#ffd54f"},
-	"COLONIZE":     {Text: "Colonisation", Colour: "#ab47bc"},
-	"RECYCLE":      {Text: "Recycle", Colour: "#9e9e9e"},
-	"DESTROY_MOON": {Text: "Destroy", Colour: "#b71c1c", Hostile: true},
-	"EXPEDITION":   {Text: "Expedition", Colour: "#00bcd4"},
+const (
+	colourHostile    = "#ff4d4d" // enemy fleet / attack
+	colourHostileSpy = "#ff9900" // enemy espionage
+	colourOwn        = "#4caf50" // the viewer's own inbound fleet
+	colourNeutral    = "#9e9e9e" // unknown mission
+)
+
+// missionLabels maps a mission name (models.MissionType) to its live label.
+var missionLabels = map[string]string{
+	"ATTACK":       "Attack",
+	"TRANSPORT":    "Transport",
+	"DEPLOY":       "Station",
+	"HOLD":         "Hold",
+	"ESPIONAGE":    "Spy",
+	"COLONIZE":     "Colonisation",
+	"RECYCLE":      "Recycle",
+	"DESTROY_MOON": "Destroy",
+	"EXPEDITION":   "Expedition",
 }
 
-// MissionDisplayFor resolves a mission name to its defender-facing display. An
-// unknown mission falls back to its raw name (neutral colour, not hostile) so
-// the view never drops a fleet.
-func MissionDisplayFor(mission string) MissionDisplay {
-	if d, ok := missionDisplays[mission]; ok {
-		return d
+// MissionDisplayFor resolves a mission name plus the fleet's ownership (hostile
+// = the fleet is NOT owned by the planet owner) to its defender-facing display.
+// An unknown mission falls back to its raw name so the view never drops a fleet.
+func MissionDisplayFor(mission string, hostile bool) MissionDisplay {
+	label, ok := missionLabels[mission]
+	if !ok {
+		label = mission
+		colour := colourNeutral
+		if hostile {
+			colour = colourHostile
+		}
+		return MissionDisplay{Text: label, Colour: colour, Hostile: hostile}
 	}
-	return MissionDisplay{Text: mission, Colour: "#9e9e9e"}
+	if !hostile {
+		return MissionDisplay{Text: label, Colour: colourOwn}
+	}
+	if mission == "ESPIONAGE" {
+		return MissionDisplay{Text: label, Colour: colourHostileSpy, Hostile: true}
+	}
+	return MissionDisplay{Text: label, Colour: colourHostile, Hostile: true}
 }

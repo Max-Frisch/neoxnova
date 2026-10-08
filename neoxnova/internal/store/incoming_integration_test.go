@@ -70,7 +70,7 @@ func TestIncomingFleets(t *testing.T) {
 
 	// Fleets are inserted directly so the test does not depend on ship counts or
 	// the attack noob-protection gate.
-	mkFleet := func(mission models.MissionType, targetID int64, tG, tS, tP int, arrival time.Time) {
+	mkFleet := func(owner int64, mission models.MissionType, targetID int64, tG, tS, tP int, arrival time.Time) {
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO fleets (
 				universe_id, user_id, mission, phase, origin_id, target_id,
@@ -79,15 +79,16 @@ func TestIncomingFleets(t *testing.T) {
 				start_time, arrival_time, return_time
 			) VALUES ($1,$2,$3,'OUTBOUND',$4,$5, 1,7,6,'PLANET', $6,$7,$8,'PLANET',
 				NOW() - interval '1 min', $9, $9 + interval '1 hour')
-		`, universeID, attacker, string(mission), origin, targetID, tG, tS, tP, arrival); err != nil {
+		`, universeID, owner, string(mission), origin, targetID, tG, tS, tP, arrival); err != nil {
 			t.Fatalf("insert %s fleet: %v", mission, err)
 		}
 	}
 	now := time.Now()
-	mkFleet(models.MissionAttack, target, 1, 7, 7, now.Add(30*time.Minute))
-	mkFleet(models.MissionTransport, target, 1, 7, 7, now.Add(10*time.Minute))
-	mkFleet(models.MissionAttack, decoy, 1, 7, 5, now.Add(20*time.Minute))
-	defer db.ExecContext(ctx, `DELETE FROM fleets WHERE user_id = $1`, attacker)
+	mkFleet(attacker, models.MissionAttack, target, 1, 7, 7, now.Add(30*time.Minute))
+	mkFleet(attacker, models.MissionTransport, target, 1, 7, 7, now.Add(10*time.Minute))
+	mkFleet(attacker, models.MissionAttack, decoy, 1, 7, 5, now.Add(20*time.Minute))
+	mkFleet(defender, models.MissionDeploy, target, 1, 7, 7, now.Add(5*time.Minute))
+	defer db.ExecContext(ctx, `DELETE FROM fleets WHERE user_id IN ($1,$2)`, attacker, defender)
 	defer db.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id IN ($1,$2,$3)`, origin, target, decoy)
 	defer db.ExecContext(ctx, `DELETE FROM users WHERE id IN ($1,$2)`, attacker, defender)
 
@@ -96,22 +97,31 @@ func TestIncomingFleets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("IncomingFleets: %v", err)
 	}
-	if len(fleets) != 2 {
-		t.Fatalf("incoming = %d, want 2 (attack + transport): %+v", len(fleets), fleets)
+	if len(fleets) != 3 {
+		t.Fatalf("incoming = %d, want 3 (own deploy + attack + transport): %+v", len(fleets), fleets)
 	}
-	// Soonest arrival first (transport at +10m before attack at +30m).
-	if fleets[0].Mission != models.MissionTransport || fleets[1].Mission != models.MissionAttack {
-		t.Fatalf("order = %s, %s; want TRANSPORT then ATTACK", fleets[0].Mission, fleets[1].Mission)
+	// Soonest arrival first (own deploy +5m, transport +10m, attack +30m).
+	if fleets[0].Mission != models.MissionDeploy || fleets[1].Mission != models.MissionTransport || fleets[2].Mission != models.MissionAttack {
+		t.Fatalf("order = %s, %s, %s; want DEPLOY, TRANSPORT, ATTACK", fleets[0].Mission, fleets[1].Mission, fleets[2].Mission)
 	}
-	atk := fleets[1]
+	// The defender's own inbound fleet is not hostile; the attacker's fleets are,
+	// regardless of mission (a foreign transport is a threat too).
+	own := fleets[0]
+	if own.Hostile || own.MissionText != "Station" || own.Colour == "" {
+		t.Fatalf("own deploy display = %+v", own)
+	}
+	atk := fleets[2]
 	if !atk.Hostile || atk.MissionText != "Attack" || atk.Colour == "" {
 		t.Fatalf("attack display = %+v", atk)
 	}
 	if atk.Origin.Galaxy != 1 || atk.Origin.System != 7 || atk.Origin.Position != 6 {
 		t.Fatalf("origin = %+v", atk.Origin)
 	}
-	if fleets[0].Hostile || fleets[0].MissionText != "Transport" {
-		t.Fatalf("transport display = %+v", fleets[0])
+	if !fleets[1].Hostile || fleets[1].MissionText != "Transport" {
+		t.Fatalf("foreign transport display = %+v", fleets[1])
+	}
+	if own.Colour == atk.Colour {
+		t.Fatalf("own colour %q must differ from hostile colour %q", own.Colour, atk.Colour)
 	}
 
 	// A non-owner must not see the target's incoming fleets (no existence leak).
