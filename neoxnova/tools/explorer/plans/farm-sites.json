@@ -4,10 +4,12 @@
     "mainCoords": "3:125:12",
     "slots": 9,
     "growth": 3,
+    "poolMin": 5000,
     "sites": ["1593", "1655", "1656", "1657", "1690", "1692", "1693"],
     "comp": {
       "main": "207",
       "recycler": "219",
+      "recyclerPoints": 80000000,
       "ramp": { "code": "227", "per": 690 }
     }
   },
@@ -16,10 +18,12 @@
     "mainCoords": "2:188:16",
     "slots": 9,
     "growth": 3,
+    "poolMin": 5000,
     "sites": ["1598", "1672", "1673", "1674", "1675", "1676"],
     "comp": {
       "main": "207",
       "recycler": "219",
+      "recyclerPoints": 80000000,
       "ramp": { "code": "227", "per": 690 }
     }
   }

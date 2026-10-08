@@ -85,7 +85,9 @@
 2. **Incoming-fleet view** (transport/attack/espionage) — DONE 2026-10-07:
    `GET /api/v1/planets/{id}/incoming-fleets` returns inbound OUTBOUND fleets with
    `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
-   maps missions to live labels. Colours are provisional pending a live incoming sample.
+   maps missions to live labels. Live sample captured 2026-10-08 (overview "Fleet" event log):
+   hostile incoming lines render red/orange (Attack red, Spying orange), own outgoing + own attack
+   green, own returns grey — use to finalise `Colour`.
 3. **Auto-builder base (Go)** — blueprint per planet + account research; `docs/AUTO_BUILD_DESIGN.md`.
 4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
    created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
@@ -102,6 +104,17 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-08: **recycler ratio cut + colony pooling unblocked** — `plans/farm-sites.json` gains
+  `comp.recyclerPoints=80e6` (≈1 recycler per 2 Frigates; was clamped to 1:1) and `poolMin=5000`.
+  `run-farm-build.sh` now re-reads `poolMin` each cycle; the old fixed 50 k sat ABOVE the per-site
+  build target (~3.9·S ≈ 32 k), so colonies hoarded ships forever and the main planet starved —
+  the real cause of 2 idle expo slots (`not enough ships for 1 fleet`). Note: the in-flight
+  reconstruction assumes the new ratio, so S is briefly ~1.3× high until the 1:1 fleets land.
+- 2026-10-08: **acc1 Frigate pirate fight is net-positive** — report `01a73067` (08 Oct 05:33, msg 241594):
+  Frigate+Recycler comp `227:7630 + 219:7630` won vs the mirrored enemy. Our M+C losses 53.82 B
+  (1,143 Frigate + 5,065 Battle Recycler); the 9-min-later return (msg 241609) hauled the full 50 %
+  debris field home — M 94.19 B + C 32.71 B = **126.90 B** (Deut 0). With Academy Standardisation
+  (Fleet) L13 = −13 % ship cost, rebuilding the loss is 46.83 B ⇒ **~80 B surplus / 2.71× recovery**.
 - 2026-10-08: **expedition slots no longer idle (both accounts)** — `farm-plan.mjs` reconstructed
   in-flight ships from `expedition-runs.json`, which over-counted (attempts logged even on failure,
   `num`/stale S), ratcheting S ~2x too high: acc1 S=12.8k vs real cap ~6.4k, acc2 S=7.4k vs ~5.5k, so
@@ -190,9 +203,10 @@
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
-- Expedition black-hole rate is **account-asymmetric** (acc1 0.43 %, acc2 3.85 % overnight); cause
-  unknown (luck vs size/speed). 34 `unknown` outcomes are "Moa Tikarr demands surrender" — verify
-  whether these are combats whose report we drop. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- Expedition black-hole rate is **account-asymmetric** (acc1 4, acc2 22 in the harvested logs); cause
+  unknown (luck vs size/speed). The "Moa Tikarr demands surrender" text is just the **info message for
+  a pirate/alien expedition combat**, paired 1:1 with a combat report for the same fleet/time (owner
+  confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
   numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and Jumpgate
   cooldown/eligibility (needs a 2nd moon). See `docs/MOONS.md`.

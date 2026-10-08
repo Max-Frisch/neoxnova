@@ -21,7 +21,11 @@ NODE=(node --max-old-space-size=96)
 EVERY="${FARM_BUILD_EVERY_S:-30}"
 # Only pool a colony once it has accumulated a real batch, so we don't spam tiny
 # deploy fleets (each is a fleet movement; expo + pooling must stay under the cap).
-POOL_MIN="${FARM_POOL_MIN:-50000}"
+# Threshold = config `poolMin` (re-read every cycle), else $FARM_POOL_MIN, else 5000.
+# It MUST sit below the per-site build target: the site goal is share(slots*grow*S),
+# so a threshold above it makes colonies hoard ships forever while the main planet
+# starves and expedition slots sit idle.
+POOL_FLOOR="${FARM_POOL_MIN:-5000}"
 CFG="plans/farm-sites.json"
 
 read_cfg() { CFG="$CFG" ACC="$ACC" node -e "process.stdout.write(String(JSON.parse(require('fs').readFileSync(process.env.CFG,'utf8'))[process.env.ACC][process.argv[1]]))" "$1"; }
@@ -35,6 +39,7 @@ while true; do
   echo "[$(date +%T)] planner cycle"
   "${NODE[@]}" httpbot.mjs levels --cp "$MAIN_CP" --out "data/farm-main-${ACC}.json"
   "${NODE[@]}" farm-plan.mjs --acc "$ACC" plan
+  POOL_MIN=$(CFG="$CFG" ACC="$ACC" POOL_FLOOR="$POOL_FLOOR" node -e 'const c=JSON.parse(require("fs").readFileSync(process.env.CFG,"utf8"))[process.env.ACC]||{};process.stdout.write(String(c.poolMin||process.env.POOL_FLOOR))')
   for cp in "${SITES[@]}"; do
     [ "$cp" = "$MAIN_CP" ] && continue
     "${NODE[@]}" httpbot.mjs levels --cp "$cp" --out "data/farm-site-${ACC}-${cp}.json"
