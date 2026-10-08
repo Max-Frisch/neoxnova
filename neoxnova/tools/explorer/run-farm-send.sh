@@ -111,13 +111,29 @@ while true; do
   if [ "$FREE" -le 0 ]; then sleep "$EVERY"; continue; fi
 
   N=$(afford "$S" "$BR" "$CARGON" "$FREE"); case "$N" in ''|*[!0-9]*) N=0;; esac
-  if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (main=${MAIN} S=$S); wait"; sleep "$EVERY"; continue; fi
+  # Split fallback: a full-S fleet doesn't fit, but the main planet holds a usable
+  # batch — divide it over the free slots and fly smaller fleets instead of idling
+  # them (frigates are slow, so waiting for full-S just wastes expo volume). The
+  # recycler/wall counts scale with the reduced hull size so the comp ratio holds.
+  PER=$S; PERBR=$BR
+  if [ "$N" -lt 1 ]; then
+    HAVEMAIN=$(ACC="$ACC" MAIN="$MAIN" node -e 'const s=JSON.parse(require("fs").readFileSync("data/farm-main-"+process.env.ACC+".json","utf8")).ships||{};process.stdout.write(String(s[process.env.MAIN]||0))' 2>/dev/null)
+    case "$HAVEMAIN" in ''|*[!0-9]*) HAVEMAIN=0;; esac
+    L=$(( HAVEMAIN / FREE ))
+    [ "$L" -gt "$S" ] && L=$S
+    if [ "$L" -ge "${FARM_MIN_FLEET:-1000}" ]; then
+      PER=$L; PERBR=$(( L * BR / S )); [ "$PERBR" -lt 1 ] && PERBR=1
+      N=$FREE
+      echo "[$(date +%T)] split: main=${HAVEMAIN} < S=${S} -> ${N}x${PER} over ${FREE} free slot(s)"
+    fi
+  fi
+  if [ "$N" -lt 1 ]; then echo "[$(date +%T)] slots free=${FREE}/${SLOTS} active=${ACTIVE} but not enough ships for 1 fleet (main=${HAVEMAIN:-?} S=$S); wait"; sleep "$EVERY"; continue; fi
 
-  SET="${MAIN}:${S}"
-  [ -n "$C_WALL" ] && SET="${SET},${C_WALL}:$((C_WALLPER * S))"
+  SET="${MAIN}:${PER}"
+  [ -n "$C_WALL" ] && SET="${SET},${C_WALL}:$((C_WALLPER * PER))"
   [ -n "$C_CARGO" ] && [ "$CARGON" -gt 0 ] && SET="${SET},${C_CARGO}:${CARGON}"
-  SET="${SET},${C_RECY}:${BR},202:1,204:1,205:1,206:1"
-  echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} :: $SET"
+  SET="${SET},${C_RECY}:${PERBR},202:1,204:1,205:1,206:1"
+  echo "[$(date +%T)] firing ${N} fleet(s): slots=${SLOTS} active=${ACTIVE} S=${S} br=${BR} per=${PER} brf=${PERBR} :: $SET"
   # One fleet per POST. A single `exp_num=N` request was unreliable (rejected /
   # only partly applied) and left slots idle; N separate single-fleet sends land
   # deterministically and each is logged as its own run.

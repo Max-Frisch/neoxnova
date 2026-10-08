@@ -108,8 +108,11 @@
   `comp.recyclerPoints=80e6` (≈1 recycler per 2 Frigates; was clamped to 1:1) and `poolMin=5000`.
   `run-farm-build.sh` now re-reads `poolMin` each cycle; the old fixed 50 k sat ABOVE the per-site
   build target (~3.9·S ≈ 32 k), so colonies hoarded ships forever and the main planet starved —
-  the real cause of 2 idle expo slots (`not enough ships for 1 fleet`). Note: the in-flight
-  reconstruction assumes the new ratio, so S is briefly ~1.3× high until the 1:1 fleets land.
+  the real cause of 2 idle expo slots (`not enough ships for 1 fleet`). `run-farm-send.sh` also gained
+  a split fallback: when a full-S fleet won't fit but the main holds ≥`FARM_MIN_FLEET` (1000), it
+  divides that batch over the FREE slots and flies smaller fleets (`per`/`brf`, ratio preserved) so
+  slots stop idling while the fleet is under capacity. Note: the in-flight reconstruction assumes
+  the new ratio, so S is briefly ~1.3× high until the 1:1 fleets land.
 - 2026-10-08: **acc1 Frigate pirate fight is net-positive** — report `01a73067` (08 Oct 05:33, msg 241594):
   Frigate+Recycler comp `227:7630 + 219:7630` won vs the mirrored enemy. Our M+C losses 53.82 B
   (1,143 Frigate + 5,065 Battle Recycler); the 9-min-later return (msg 241609) hauled the full 50 %
