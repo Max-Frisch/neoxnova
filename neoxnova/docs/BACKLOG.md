@@ -11,6 +11,12 @@
   `farmw-acc2-{1598,1672,1673,1674}`, plus `farmsend-acc2`,`expharv-acc2`,`bonus-acc2`).
 - acc1 local build+send loops are detached bash children and once died with their parent shell (~2 h
   outage, 2026-10-07); restart with `run-farm.ps1 start`, check `run-farm.ps1 status` + log mtimes.
+- **acc1 BURN-DOWN ONLINE (2026-10-08):** acc1 build workers + pooler STOPPED (no rebuild); expo is now
+  the isolated `drain.mjs acc1` (config `plans/farm-sites.json > acc1.drain`, log `data/drain-acc1.log`).
+  It keeps every slot busy with main hull Frigate `227` (fallback Battleship `207` once home Frigates <
+  `minFleetPoints`=5000 ≈125) + `219` at 1:20 + 1 of each sub-Frigate ship while on main (Black Moon `216`
+  dropped: slow hull, negligible ship-finds). Per-fleet size AND fleet count auto-scale to the home fleet,
+  so it never stalls as ships are lost. DRY: `node drain.mjs acc1 --dry`. acc2 farm unchanged.
 - **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** Shipyard = `Building: N per second`
   (`perSec` in `parse.mjs`); `resolve` sizes each order to `EXPLORER_UNIT_SECONDS`(90 s) and re-submits
   ~2.5 s after completion. **Optional ratio gate (account-wide, only when `comp.wall` is set):** the plan
