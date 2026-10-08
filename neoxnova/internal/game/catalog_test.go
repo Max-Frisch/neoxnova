@@ -95,6 +95,11 @@ func TestCatalogCostsMatchCapture(t *testing.T) {
 	}
 
 	for _, it := range append(append([]fixtureItem{}, f.Ships...), f.Defenses...) {
+		// A zero next_cost means the unit was locked / not captured in the HAR
+		// (e.g. Frigate 227 before it was unlocked), so there is nothing to compare.
+		if it.NextCost.Metal == 0 && it.NextCost.Crystal == 0 && it.NextCost.Deuterium == 0 {
+			continue
+		}
 		key := strconv.Itoa(it.Code)
 		if _, ok := LookupUnit(key); !ok {
 			t.Errorf("unit %d (%s) missing from catalog", it.Code, it.Name)
