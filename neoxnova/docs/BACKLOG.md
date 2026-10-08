@@ -115,7 +115,9 @@
 - 2026-10-08: **one of each sub-Frigate ship per expedition (both accounts live)** — `farm-plan.mjs`
   `small` set + `run-farm-send.sh` gate/`SET` now carry `202/204/205/206/207/211/213/215/216/225/226`
   (1/fleet; 207/215/216/225/226 already on main, 211/213 built by the worker). In-flight ship-count
-  reconstruction now subtracts 11 smalls/fleet.
+  reconstruction now subtracts 11 smalls/fleet. Split fallback also held until the full set is on main
+  (it bypassed `afford`). Both loops restarted live (acc1 local, acc2 VM tmux); 211/213 now built and
+  the next send carries all 11.
 - 2026-10-08: **2nd/3rd Frigate pirate wins net-positive** — acc1 msgs 241795 (06:53, return 241815)
   and 241820 (07:03, return 241833). Losses M+C 76.802 B + 6.410 B = **83.211 B** (1,820 Frigate +
   6,507 Battle Recycler; +4.941 B Deut); debris hauled back exactly equals the reported fields:
