@@ -33,16 +33,19 @@ state_get() { ACC="$ACC" node -e "const s=JSON.parse(require('fs').readFileSync(
 # Active = any real expedition row (outbound `(A)` OR returning `(R)`). The only
 # things to exclude are acc1's permanent ghosts: "Expedition at Hostail sector (R)"
 # (fleetID null, never land). Counting both legs stops mid-return re-fires.
-# Prints "active slots total" (or "ERR 0 0" when the page is unreadable).
+# Prints "active slots total inflight" where inflight = summed ship count of the
+# real fleets (from the live page, so the planner can size S accurately; the old
+# run-log reconstruction over-counted). "ERR 0 0 0" when the page is unreadable.
 exp_active() {
   "${NODE[@]}" httpbot.mjs exp-state 2>/dev/null | ACC="$ACC" node -e '
     let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{
       const i=d.indexOf("{"),j=d.lastIndexOf("}");
-      if(i<0||j<0){process.stdout.write("ERR 0 0");return;}
-      let st;try{st=JSON.parse(d.slice(i,j+1));}catch(e){process.stdout.write("ERR 0 0");return;}
-      const active=(st.fleets||[]).filter(f=>/Expedition/i.test(f.mission)&&!/Hostail/i.test(f.mission)).length;
+      if(i<0||j<0){process.stdout.write("ERR 0 0 0");return;}
+      let st;try{st=JSON.parse(d.slice(i,j+1));}catch(e){process.stdout.write("ERR 0 0 0");return;}
+      const real=(st.fleets||[]).filter(f=>/Expedition/i.test(f.mission)&&!/Hostail/i.test(f.mission));
       const det=st.expeditionSlots?Number(st.expeditionSlots):0;
-      process.stdout.write(active+" "+det+" "+(st.fleets||[]).length);
+      const inflight=real.reduce((a,f)=>a+(Number(String(f.number||"0").replace(/[^0-9]/g,""))||0),0);
+      process.stdout.write(real.length+" "+det+" "+(st.fleets||[]).length+" "+inflight);
     });'
 }
 
@@ -78,7 +81,7 @@ levels_fresh() {
 
 while true; do
   STATS=$(exp_active)
-  read -r ACTIVE DETECTED TOTAL <<<"$STATS"
+  read -r ACTIVE DETECTED TOTAL INFLIGHT <<<"$STATS"
   if [ "$ACTIVE" = "ERR" ]; then echo "[$(date +%T)] exp-state unreadable; wait"; sleep "$EVERY"; continue; fi
 
   # Follow the live slot count so every available slot is kept busy (config is only
@@ -94,11 +97,12 @@ while true; do
   "${NODE[@]}" httpbot.mjs levels --cp "$MAIN_CP" --out "data/farm-main-${ACC}.json" >/dev/null 2>&1
   if ! levels_fresh 90; then echo "[$(date +%T)] main levels refresh stale/failed; wait"; sleep "$EVERY"; continue; fi
 
-  # Grow S toward the WHOLE-fleet capacity EVERY cycle — even when every slot is busy
-  # (FREE==0), so a full house never freezes growth. `--active` counts the fleets
-  # currently flying (reconstructed from expedition-runs); S rises only as fast as the
-  # fleet actually holds, and `st.S` ratchets so combat losses are rebuilt.
-  "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent --active "$ACTIVE"
+  # Size S from the WHOLE-fleet capacity EVERY cycle — even when every slot is busy
+  # (FREE==0). `--active` + `--inflight-ships` describe the fleets currently flying
+  # (live exp-state ship counts); the planner reconstructs their MAIN count so S
+  # fills all slots instead of ratcheting ~2x too high off the run log.
+  "${NODE[@]}" farm-plan.mjs --acc "$ACC" sent --active "$ACTIVE" \
+    --inflight-ships "${INFLIGHT:-0}" --inflight-count "${ACTIVE:-0}"
   S=$(state_get S); BR=$(state_get br); CARGON=$(state_get cargo)
   MAIN=$(state_get main); MAIN=${MAIN:-$C_MAIN}
   CARGON=${CARGON:-0}

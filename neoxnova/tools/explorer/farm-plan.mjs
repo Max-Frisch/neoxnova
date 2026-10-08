@@ -73,6 +73,10 @@ const RECY_PER = Math.max(1, Math.round(Number(comp.recyclerPoints || 14.4e6) / 
 const CARGO_PER = Math.max(1, Math.round(Number(comp.cargoPoints || 500e6) / mainPts));
 const slots = Math.max(1, Number(st.slots || cfg.slots || 7));
 const small = { '202': slots, '204': slots, '205': slots, '206': slots };
+// Live in-flight fleet sizes from the send loop (exp-state): summed ship count
+// over the airborne expeditions. Falls back to the run log when absent.
+const INFLIGHT_SHIPS = Math.max(0, Number(arg('--inflight-ships', 0)) || 0);
+const INFLIGHT_COUNT = Math.max(0, Number(arg('--inflight-count', 0)) || 0);
 
 // Any composition change (drop the wall, flip the hull, tune ratios) resets S to
 // the fleet's real capacity instead of ratcheting from the old constraint.
@@ -95,7 +99,7 @@ const num = (m, c) => Number(m[c]) || 0;
 // Account-wide counts = main + every build site + the fleets currently flying.
 // The production gate and targets MUST use the whole account, not just main: the
 // main-only view is a partial snapshot (most ships are in flight / on colonies).
-const tally = (active) => {
+const tally = (active, inflightShips = 0, inflightCount = 0) => {
   const codes = [MAIN, WALL, CARGO, RECY, RAMP && RAMP.code].filter(Boolean);
   const main = {}, sitesTot = {}, inf = {};
   for (const c of codes) { main[c] = num(mainShips, c); sitesTot[c] = 0; inf[c] = 0; }
@@ -104,13 +108,31 @@ const tally = (active) => {
     const s = readShips(path.join(DATA, `farm-site-${acc}-${cp}.json`));
     for (const c of codes) sitesTot[c] += num(s, c);
   }
-  if (active > 0 && fs.existsSync(runsPath)) {
+  // Accurate in-flight reconstruction. exp-state reports each airborne fleet's
+  // total ship count; per fleet that is `coeff*S + smallPerFleet` where
+  //   coeff = 1 + wallPer + 1/cargoPer + 1/recyclerPer
+  // (S = the MAIN count, the rest scale linearly with it). Recover S, then scale
+  // the other codes. The old run-log reconstruction over-counted badly — failed
+  // send attempts are logged, `num` and a stale S inflate it — which ratcheted S
+  // ~2x too high and left most expedition slots idle.
+  const smallPerFleet = Object.keys(small).length;
+  let mainInflight = 0;
+  if (inflightCount > 0 && inflightShips > 0) {
+    const coeff = 1 + (WALL ? WALL_PER : 0) + (CARGO ? 1 / CARGO_PER : 0) + 1 / RECY_PER;
+    mainInflight = Math.max(0, (inflightShips - inflightCount * smallPerFleet) / coeff);
+  } else if (active > 0 && fs.existsSync(runsPath)) {
     const fleets = [];
     for (const r of JSON.parse(fs.readFileSync(runsPath, 'utf8'))) {
       const s = parseShipsCsv(r.ships);
       for (let i = 0; i < (Number(r.num) || 1); i++) fleets.push(s);
     }
     for (const s of fleets.slice(-active)) for (const c of codes) inf[c] += num(s, c);
+  }
+  if (mainInflight > 0) {
+    inf[MAIN] = Math.round(mainInflight);
+    if (RECY) inf[RECY] = Math.round(mainInflight / RECY_PER);
+    if (WALL) inf[WALL] = Math.round(mainInflight * WALL_PER);
+    if (CARGO) inf[CARGO] = Math.round(mainInflight / CARGO_PER);
   }
   const total = {};
   for (const c of codes) total[c] = main[c] + sitesTot[c] + inf[c];
@@ -123,7 +145,10 @@ const tally = (active) => {
   };
 };
 
-let have = tally(Number(st.active) || 0);
+// sent mode passes live values; plan mode reuses the ones persisted last cycle.
+const inflightShips = INFLIGHT_SHIPS || Number(st.inflightShips) || 0;
+const inflightCount = INFLIGHT_COUNT || Number(st.inflightCount) || 0;
+let have = tally(Number(st.active) || 0, inflightShips, inflightCount);
 
 // Auto-flip: once the ramp fleet matches the current main fleet by points
 // (rampCount >= mainCount / per), switch the flying hull to the ramp.
@@ -157,11 +182,11 @@ if (mode === 'starter') {
 }
 
 if (mode === 'sent') {
-  // GROW: S is bounded only by the WHOLE fleet (main + sites + in-flight), so it
-  // rises as the shipyards add ships. A composition change resets S to capacity;
-  // otherwise S ratchets so combat losses rebuild toward the high-water mark.
+  // S tracks the WHOLE fleet (main + sites + in-flight) so exactly `slots`
+  // fleets cover it: it rises with shipyard output and shrinks if the fleet
+  // shrinks (losses), keeping every slot busy.
   const active = Math.max(0, Number(arg('--active', 0)) || 0);
-  have = tally(active);
+  have = tally(active, INFLIGHT_SHIPS, INFLIGHT_COUNT);
   const caps = [
     Math.floor((have[MAIN] || 0) / slots),
     WALL ? Math.floor((have[WALL] || 0) / (WALL_PER * slots)) : Infinity,
@@ -169,11 +194,16 @@ if (mode === 'sent') {
     Math.floor(((have[RECY] || 0) * RECY_PER) / slots),
   ];
   const capS = Math.max(1, Math.min(...caps));
-  if (st.compSig !== compSig || flipped) { st.S = capS; st.compSig = compSig; }
-  else { st.S = Math.max(1, Math.max(st.S || 1, capS)); }
+  // Size to the whole fleet. With accurate in-flight counts capS is the true
+  // account fleet / slots, so all slots fill; no upward-only ratchet (which kept
+  // S inflated after the over-count). A comp change/flip just re-stamps the sig.
+  st.S = capS;
+  if (st.compSig !== compSig || flipped) st.compSig = compSig;
   st.br = brOf(st.S);
   st.cargo = cargoOf(st.S);
   st.active = active;
+  st.inflightShips = INFLIGHT_SHIPS;
+  st.inflightCount = INFLIGHT_COUNT;
   st.phase = 'build';
   st.lastSendAt = new Date().toISOString();
   writeState(st);
