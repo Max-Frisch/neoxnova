@@ -35,13 +35,14 @@ const (
 	ExpeditionBlackHole  ExpeditionOutcome = "blackhole"
 )
 
-// NPCType is the faction an expedition fights (live `cmd=2` names).
+// NPCType is the faction an expedition fights. Only Pirates and Aliens exist
+// (owner-confirmed 2026-10-08); the "barbarians" wording in the live capture is
+// just a pirate flavour string.
 type NPCType string
 
 const (
-	NPCPirates    NPCType = "pirates"
-	NPCAliens     NPCType = "aliens"
-	NPCBarbarians NPCType = "barbarians"
+	NPCPirates NPCType = "pirates"
+	NPCAliens  NPCType = "aliens"
 )
 
 // ExpeditionResult is the pure outcome of one expedition. The engine maps it to
@@ -70,32 +71,34 @@ type ExpeditionResult struct {
 	UpgradeCode int
 }
 
-// expeditionOutcomeWeights is the outcome distribution. Fitted to the harvested
-// live mix (docs §2: resources/ships common, fights ~15–20 %, black holes rare)
-// and the 954-expedition black-hole rate of 2.2 % (docs §8). PROVISIONAL.
+// expeditionOutcomeWeights is the outcome distribution. It tracks the open
+// (OGame/2Moons/XNova) default mix — resources 32.5 %, ships 22 %, dark matter
+// 9 %, combat 8.4 % (pirates 5.8 / aliens 2.6), delay 7 %, early return 2 %,
+// nothing 18.6 %, black hole 0.33 % — rescaled here so combat is the live ~15 %
+// and the black hole the measured ~2 %. Everyone else is scaled down
+// proportionally. PROVISIONAL.
 var expeditionOutcomeWeights = []struct {
 	outcome ExpeditionOutcome
 	weight  float64
 }{
-	{ExpeditionResources, 0.27},
-	{ExpeditionShips, 0.22},
+	{ExpeditionResources, 0.30},
+	{ExpeditionShips, 0.20},
 	{ExpeditionCombat, 0.15},
-	{ExpeditionNothing, 0.10},
-	{ExpeditionDelay, 0.09},
-	{ExpeditionDarkMatter, 0.09},
-	{ExpeditionFastReturn, 0.06},
+	{ExpeditionNothing, 0.17},
+	{ExpeditionDarkMatter, 0.08},
+	{ExpeditionDelay, 0.06},
+	{ExpeditionFastReturn, 0.02},
 	{ExpeditionBlackHole, 0.02},
 }
 
-// npcWeights: Pirates dominate the harvested fights, Aliens are rarer but far
-// deadlier, Barbarians are the third `cmd=2` faction. PROVISIONAL.
+// npcWeights: within a combat encounter the open-codebase split is 5.8 % pirates
+// vs 2.6 % aliens ⇒ 70 / 30 (owner: Aliens must stay much rarer).
 var npcWeights = []struct {
 	npc    NPCType
 	weight float64
 }{
 	{NPCPirates, 0.70},
-	{NPCAliens, 0.25},
-	{NPCBarbarians, 0.05},
+	{NPCAliens, 0.30},
 }
 
 // expeditionTemplate is the fixed minimum the enemy carries on top of the
@@ -277,8 +280,20 @@ func rollExpeditionDrop(fleetPoints int64, rng *rand.Rand) int {
 	return code
 }
 
+// MirroredResearchBonus is the general Weapons/Shield/Armour research
+// (codes 109/110/111) that an expedition NPC mirrors. The NPC applies ONE rolled
+// value to all three stats, so the base is the strongest of the three general
+// bonuses. Specific weapon techs (120/121/122/199), Arsenal upgrades, Academy
+// skills and governors are NEVER mirrored — real combat only.
+func MirroredResearchBonus(t CombatTechs) float64 {
+	return math.Max(
+		float64(TechBonus(t.Weapons)),
+		math.Max(float64(TechBonus(t.Shield)), float64(TechBonus(t.Armour))),
+	)
+}
+
 // expeditionEnemy builds the mirrored defender plus its single rolled W/S/A
-// bonus. Barbarians are the weakest roll, Aliens the strongest (the wipes).
+// bonus. Aliens roll higher than pirates (the fleet wipes).
 func expeditionEnemy(fleet map[string]int64, atk Combatant, npc NPCType, rng *rand.Rand) (map[string]int64, float64) {
 	factor := 0.60 + rng.Float64()*0.30 // one roll per fleet, median ~0.66
 	enemy := map[string]int64{}
@@ -297,15 +312,12 @@ func expeditionEnemy(fleet map[string]int64, atk Combatant, npc NPCType, rng *ra
 		}
 	}
 
-	gen := float64(TechBonus(atk.Techs.Weapons)) // the mirrored 109 bonus
+	gen := MirroredResearchBonus(atk.Techs) // the mirrored 109/110/111 bonus
 	var roll float64
-	switch npc {
-	case NPCAliens:
+	if npc == NPCAliens {
 		roll = 0.5 + rng.Float64()*1.9 // ~0.5–2.4× (median ~1.0, wipes at ~2.2×)
-	case NPCBarbarians:
-		roll = 0.2 + rng.Float64()*1.4 // ~0.2–1.6×
-	default: // pirates
-		roll = 0.1 + rng.Float64()*1.7 // ~0.1–1.8×
+	} else {
+		roll = 0.1 + rng.Float64()*1.7 // pirates: ~0.1–1.8×
 	}
 	return enemy, gen * roll
 }

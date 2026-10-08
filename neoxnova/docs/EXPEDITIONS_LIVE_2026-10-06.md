@@ -19,7 +19,7 @@ POST game.php?page=fleetTable
   exp_time    = 1..10  ->  0.25 .. 2.5 h expedition time
   exp_speed   = 1..10  ->  10 .. 100 %
   cmd         = 1  (random "Deep area of galaxy")
-  cmd=2, pve  = 1 Barbarians | 2 Pirates | 3 Aliens
+  cmd=2, pve  = 1 Barbarians | 2 Pirates | 3 Aliens   // owner 2026-10-08: only Pirates/Aliens exist; the pve=1 label is a mislabel
 ```
 
 Targets land at `[g:s:21]` (position 21 = deep space per `AGENTS.md`).
@@ -303,10 +303,25 @@ whether that is luck or a size/speed/account effect is unresolved.
 ## 9. Go resolver (implemented 2026-10-08)
 
 `internal/game/expedition.go:RollExpedition` is the pure model: a weighted
-outcome mix (PROVISIONAL — fitted to §2/§8), cargo-capped resource finds, ship
-recovery, dark matter, delay/fast ETA shifts, black holes (2 %) and the §8 enemy
-(mirror × U(0.60..0.90) + template, ONE rolled W/S/A carried on
-`Combatant.FlatBonusPct`; Aliens have the ~2.2× tail that wipes fleets).
+outcome mix, cargo-capped resource finds, ship recovery, dark matter, delay/fast
+ETA shifts, black holes (2 %) and the §8 enemy (mirror × U(0.60..0.90) +
+template, ONE rolled W/S/A carried on `Combatant.FlatBonusPct`; Aliens have the
+~2.2× tail that wipes fleets).
+
+**Outcome mix (PROVISIONAL).** Based on the open-codebase defaults (OGame,
+inherited by 2Moons/XNova): resources 32.5 %, ships 22 %, dark matter 9 %,
+combat 8.4 % (pirates 5.8 / aliens 2.6 ⇒ 70/30), delay 7 %, early return 2 %,
+nothing 18.6 %, black hole 0.33 %, merchant 0.7 %. This server differs (combat
+~15 %, black hole ~2 %), so the mix is rescaled to: resources 30 %, ships 20 %,
+**combat 15 %** (pirates 70 / aliens 30), nothing 17 %, dark matter 8 %, delay
+6 %, fast 2 %, **black hole 2 %**. Owner-locked 2026-10-08: BH 2 %, combat 15 %,
+only Pirates + Aliens (no "barbarians" — that is a pirate flavour string).
+
+**Enemy scaling.** Pirate/alien fights use the regular combat engine but scale
+ONLY on the general Weapons/Shield/Armour research (109/110/111) — the strongest
+of the three feeds the single rolled value (`game.MirroredResearchBonus`). The
+specific weapon techs (120/121/122/199), Arsenal upgrades, Academy and governors
+are never mirrored.
 
 `internal/engine/event_engine.go:resolveExpedition` runs at the
 HOLDING→RETURNING transition and persists the outcome: a `combat_reports` row +

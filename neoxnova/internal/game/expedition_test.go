@@ -109,7 +109,7 @@ func TestExpeditionRecovery(t *testing.T) {
 func TestExpeditionEnemyMirror(t *testing.T) {
 	atk := expSampleAtk()
 	fleet := map[string]int64{"227": 1000}
-	gen := float64(TechBonus(atk.Techs.Weapons))
+	gen := MirroredResearchBonus(atk.Techs)
 
 	for seed := int64(0); seed < 200; seed++ {
 		rng := rand.New(rand.NewSource(seed))
@@ -169,6 +169,13 @@ func TestExpeditionBlackHoleIsBare(t *testing.T) {
 		return
 	}
 	t.Fatal("no black hole found in 2000 rolls")
+}
+
+// TestMirroredResearchBonus picks the strongest general W/S/A bonus.
+func TestMirroredResearchBonus(t *testing.T) {
+	if got, want := MirroredResearchBonus(CombatTechs{Weapons: 10, Shield: 12, Armour: 11}), float64(TechBonus(12)); got != want {
+		t.Fatalf("MirroredResearchBonus = %v, want %v", got, want)
+	}
 }
 
 // TestFleetPoints locks the metal+crystal point sum used for scaling and tiers.

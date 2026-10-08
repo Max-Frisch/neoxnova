@@ -65,8 +65,11 @@
    `Combatant.FlatBonusPct`); resolved by the combat engine. `engine.resolveExpedition` persists it
    at the HOLDING→RETURNING transition: combat reports, losses, deep-space debris, dark-matter
    credit, Arsenal draw, `RESOLVED` on a wipe/black hole. `cmd=2` is never needed server-side.
-   REMAINING: outcome-message/API surfacing + live calibration of the outcome mix (PROVISIONAL).
-   Notes: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+   Mix (owner-locked 2026-10-08, rescaled open-codebase defaults): BH **2 %**, combat **15 %**
+   (pirates 70 / aliens 30 — only these two exist), resources 30, ships 20, nothing 17, DM 8,
+   delay 6, fast 2. Enemy scales ONLY on general W/S/A research 109/110/111
+   (`MirroredResearchBonus`); never specific weapon techs/arsenal/academy.
+   REMAINING: outcome-message/API surfacing + live calibration. Notes: `docs/EXPEDITIONS…` §8/§9.
 1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
     per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
     to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
