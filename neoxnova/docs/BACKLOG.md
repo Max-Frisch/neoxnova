@@ -160,16 +160,29 @@
    2026-10-09). Sink = the **debris-based planet/moon diameter + fields increase** (LARGE debris
    field + 1 Stardust), the optional grind-vs-cashshop path. Scope: `game` currency constant +
    occasional find in `RollExpedition` + store/API sink. `EXPEDITIONS…` §11e.
-8. **Expedition calibration + positive BH (next session).** Full work order with exact values:
-   `docs/EXPEDITIONS_CALIBRATION_PLAN.md` (owner-directed 2026-10-09 from §11). Covers: new outcome
-   weights (nothing 7.9 / fast 4 / ships 29.3 / resources 20.7 / DM 14.9, live-ratio fit), NPC mix
-   84:16, type-dependent enemy mirror (pirate 0.60–0.69 / alien 0.85–0.94) + strength rolls (pirates
-   skewed weaker, aliens ~same w/ rare tail), wider template bands, **DM scaling on fleet points**,
-   **rare positive "resource-multiplying" black hole** (new outcome, engine default path), and the
-   cosmetic flavour catalogue. **Fatal-BH rate DECIDED 2026-10-09 = 1.68 %** (owner; was 0.5 %) — table
-   in the plan already has it; no blocker left.
+8. **Expedition calibration + positive BH** — DONE 2026-10-09 (`internal/game/expedition.go` +
+   `cmd/exposim`, tests green incl. DB). Per `docs/EXPEDITIONS_CALIBRATION_PLAN.md`:
+   (1) weights re-locked — resources .2028 / ships .2879 / combat .15 / nothing .079 / DM .1465 /
+   delay .06 / fast .04 / **blackhole-loot .017** / **fatal BH .0168 (1.68 %)**;
+   (2) NPC mix 84:16; (3) type-dependent enemy — pirate mirror 0.60–0.69 + strength
+   `0.10+1.70·U¹·⁵`, alien mirror 0.85–0.94 + strength `0.70+1.80·U²`;
+   (4) widened template bands (203 20–180, 204 5–90, 206 5–85, 207 4–90, 213 5–45 + alien-only
+   215/216); (5) **DM scales on fleet points** (`expeditionDarkMatter`, ~3.3e-9–1.5e-8/pt, floor 100);
+   (6) new `ExpeditionBlackHoleLoot` outcome (multiplied resource find, cargo-capped) rides the engine
+   `default` branch and persists as `blackhole-loot`; (7) cosmetic flavour catalogue + `Flavor` field,
+   harvested from live `sys_expe_*`.
+   REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-09: **expedition calibration + positive BH implemented (backlog item 8).** `expedition.go`
+  reworked: outcome weights (fatal BH **1.68 %**, new positive **blackhole-loot 1.7 %**, live
+  ships/resources/DM ratios), NPC mix **84:16**, type-dependent enemy (pirate mirror 0.60–0.69 +
+  `0.10+1.70·U¹·⁵` strength; alien mirror 0.85–0.94 + `0.70+1.80·U²`), widened template bands +
+  alien-only 215/216, **DM scaled on `FleetPoints`** (was flat 100–5000), and a cosmetic flavour
+  catalogue (`Flavor` field + `ExpeditionMessage`). `ExpeditionBlackHoleLoot` hits the engine's
+  `default` path (cargo credited, fleet not wiped) and persists `blackhole-loot`. `cmd/exposim`
+  retuned to the new pirate/alien parameters. Tests: distribution/percentile/NPC-share/DM-scale/
+  BH-loot + a DB subtest; `go test ./...` green with `DATABASE_URL`. `docs/EXPEDITIONS_CALIBRATION_PLAN.md`.
 - 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
   after ~2 days running: 1524 expedition msgs / 772 outcomes, 172 combat reports / 36 expo fights.
   Findings in `docs/EXPEDITIONS_LIVE_2026-10-06.md` **§11**: (a) **enemy mirror is type-dependent** —
@@ -407,8 +420,8 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
-- **Expedition calibration + positive BH — full work order: `docs/EXPEDITIONS_CALIBRATION_PLAN.md`**
-  (backlog item 8). Owner already directed the values; blocker = pick the fatal-BH rate first.
+- **Stardust rare currency (item 7)**: `game` currency constant + occasional find in `RollExpedition`
+  + the debris-based planet/moon diameter/fields sink (`EXPEDITIONS…` §11e).
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
   API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder Phase 4 / auto-colonize** or Phase 3 polish (UI needs a client; energy-gate

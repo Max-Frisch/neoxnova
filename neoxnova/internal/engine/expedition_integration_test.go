@@ -204,4 +204,36 @@ func TestResolveExpeditionPersistence(t *testing.T) {
 			t.Fatalf("expedition report outcome = %q, want blackhole", outcome)
 		}
 	})
+
+	t.Run("positive black hole loot", func(t *testing.T) {
+		withExpeditionRoll(t, game.ExpeditionResult{
+			Outcome: game.ExpeditionBlackHoleLoot,
+			Loot:    game.Cost{Metal: 2000, Crystal: 1000, Deuterium: 250},
+		})
+		fleetID := expeditionFleet(t, db, universeID)
+		eng.resolveFleetEvent(ctx, fleetID)
+
+		var phase string
+		var m, c, d int64
+		if err := db.QueryRowContext(ctx, `SELECT phase, cargo_metal, cargo_crystal, cargo_deuterium FROM fleets WHERE id=$1`, fleetID).Scan(&phase, &m, &c, &d); err != nil {
+			t.Fatal(err)
+		}
+		if phase != "RETURNING" || m != 2000 || c != 1000 || d != 250 {
+			t.Fatalf("fleet = phase %q cargo M%d C%d D%d, want RETURNING 2000/1000/250", phase, m, c, d)
+		}
+		var ships int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM fleet_ships WHERE fleet_id=$1`, fleetID).Scan(&ships); err != nil {
+			t.Fatal(err)
+		}
+		if ships == 0 {
+			t.Fatal("positive black hole wiped the fleet")
+		}
+		var outcome string
+		if err := db.QueryRowContext(ctx, `SELECT outcome FROM expedition_reports WHERE fleet_id=$1`, fleetID).Scan(&outcome); err != nil {
+			t.Fatalf("expected a blackhole-loot report: %v", err)
+		}
+		if outcome != "blackhole-loot" {
+			t.Fatalf("expedition report outcome = %q, want blackhole-loot", outcome)
+		}
+	})
 }

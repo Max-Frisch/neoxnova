@@ -2,6 +2,7 @@ package game
 
 import (
 	"math/rand"
+	"sort"
 	"testing"
 )
 
@@ -39,29 +40,39 @@ func TestRollExpeditionDeterministic(t *testing.T) {
 }
 
 // TestExpeditionOutcomeMix checks every outcome is reachable and the locked
-// rates hold: combat 15 %, black hole 0.5 %.
+// rates hold: combat 15 %, fatal black hole 1.68 %, positive BH-loot 1.7 %.
 func TestExpeditionOutcomeMix(t *testing.T) {
 	atk := expSampleAtk()
-	const n = 20000
+	const n = 40000
 	counts := map[ExpeditionOutcome]int{}
 	for s := int64(0); s < n; s++ {
 		counts[RollExpedition(atk, s).Outcome]++
 	}
 	for _, o := range []ExpeditionOutcome{
 		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
-		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing, ExpeditionBlackHole,
+		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
 	} {
 		if counts[o] == 0 {
 			t.Errorf("outcome %q never occurred in %d rolls", o, n)
 		}
 	}
-	bh := float64(counts[ExpeditionBlackHole]) / n
-	if bh < 0.002 || bh > 0.012 {
-		t.Errorf("black-hole rate %.4f outside [0.002,0.012]", bh)
-	}
-	fight := float64(counts[ExpeditionCombat]) / n
-	if fight < 0.12 || fight > 0.18 {
-		t.Errorf("combat rate %.4f outside [0.12,0.18]", fight)
+	assertShare(t, counts, n, ExpeditionCombat, 0.15, 0.02)
+	assertShare(t, counts, n, ExpeditionBlackHole, 0.0168, 0.005)
+	assertShare(t, counts, n, ExpeditionBlackHoleLoot, 0.017, 0.005)
+	assertShare(t, counts, n, ExpeditionResources, 0.2028, 0.03)
+	assertShare(t, counts, n, ExpeditionShips, 0.2879, 0.03)
+	assertShare(t, counts, n, ExpeditionDarkMatter, 0.1465, 0.03)
+	assertShare(t, counts, n, ExpeditionNothing, 0.079, 0.02)
+	assertShare(t, counts, n, ExpeditionFastReturn, 0.04, 0.015)
+}
+
+// assertShare fails when an outcome's sampled share drifts beyond ±tol.
+func assertShare(t *testing.T, counts map[ExpeditionOutcome]int, n int, o ExpeditionOutcome, want, tol float64) {
+	t.Helper()
+	got := float64(counts[o]) / float64(n)
+	if got < want-tol || got > want+tol {
+		t.Errorf("outcome %q share %.4f outside [%.4f,%.4f]", o, got, want-tol, want+tol)
 	}
 }
 
@@ -81,7 +92,8 @@ func TestExpeditionWeightsSumTo1(t *testing.T) {
 func TestExpeditionMessage(t *testing.T) {
 	for _, o := range []ExpeditionOutcome{
 		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
-		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing, ExpeditionBlackHole,
+		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
 	} {
 		title, body := ExpeditionMessage(ExpeditionResult{Outcome: o})
 		if title == "" || body == "" {
@@ -137,32 +149,82 @@ func TestExpeditionRecovery(t *testing.T) {
 	}
 }
 
-// TestExpeditionEnemyMirror verifies the mirrored range, the template floor and
-// the rolled research bonus by faction.
+// TestExpeditionEnemyMirror verifies the type-dependent mirror range, the
+// template floor/ceil and the rolled research bonus by faction.
 func TestExpeditionEnemyMirror(t *testing.T) {
 	atk := expSampleAtk()
 	fleet := map[string]int64{"227": 1000}
 	gen := MirroredResearchBonus(atk.Techs)
 
-	for seed := int64(0); seed < 200; seed++ {
+	for seed := int64(0); seed < 400; seed++ {
 		rng := rand.New(rand.NewSource(seed))
 		enemy, flat := expeditionEnemy(fleet, atk, NPCPirates, rng)
 		got := enemy["227"]
-		if got < 500 || got > 900 {
-			t.Fatalf("seed %d pirate mirror %d outside [500,900]", seed, got)
+		if got < 600 || got > 690 {
+			t.Fatalf("seed %d pirate mirror %d outside [600,690]", seed, got)
 		}
 		if flat < 0.1*gen-1e-9 || flat > 1.8*gen+1e-9 {
 			t.Fatalf("seed %d pirate bonus %.2f outside [%.2f,%.2f]", seed, flat, 0.1*gen, 1.8*gen)
 		}
+		if _, ok := enemy["215"]; ok {
+			t.Fatalf("seed %d pirate enemy carried alien-only 215", seed)
+		}
 	}
 
-	rng := rand.New(rand.NewSource(7))
-	alien, flat := expeditionEnemy(fleet, atk, NPCAliens, rng)
-	if alien["203"] < 40 { // template floor
-		t.Fatalf("alien template HC = %d, want >= 40", alien["203"])
+	for seed := int64(0); seed < 400; seed++ {
+		rng := rand.New(rand.NewSource(seed))
+		alien, flat := expeditionEnemy(fleet, atk, NPCAliens, rng)
+		if m := alien["227"]; m < 850 || m > 940 {
+			t.Fatalf("seed %d alien mirror %d outside [850,940]", seed, m)
+		}
+		if alien["203"] < 20 || alien["203"] > 1180 { // template floor + mirror
+			t.Fatalf("seed %d alien template HC = %d out of range", seed, alien["203"])
+		}
+		if flat < 0.70*gen-1e-9 || flat > 2.5*gen+1e-9 {
+			t.Fatalf("seed %d alien bonus %.2f outside [0.70,2.5]x%.2f", seed, flat, gen)
+		}
 	}
-	if flat < 0.5*gen-1e-9 || flat > 2.4*gen+1e-9 {
-		t.Fatalf("alien bonus %.2f outside [0.5,2.4]x%.2f", flat, gen)
+}
+
+// TestExpeditionEnemyStrengthDistribution checks the strength rolls hit their
+// rough percentiles: pirates skew low, aliens sit at/above our bonus.
+func TestExpeditionEnemyStrengthDistribution(t *testing.T) {
+	atk := expSampleAtk()
+	fleet := map[string]int64{"227": 1000}
+	gen := MirroredResearchBonus(atk.Techs)
+	const n = 5000
+	median := func(samples []float64) float64 {
+		sort.Float64s(samples)
+		return samples[len(samples)/2]
+	}
+	var pirate, alien []float64
+	for s := int64(0); s < n; s++ {
+		_, pf := expeditionEnemy(fleet, atk, NPCPirates, rand.New(rand.NewSource(s)))
+		_, af := expeditionEnemy(fleet, atk, NPCAliens, rand.New(rand.NewSource(s)))
+		pirate = append(pirate, pf/gen)
+		alien = append(alien, af/gen)
+	}
+	if m := median(pirate); m < 0.55 || m > 0.85 {
+		t.Errorf("pirate median roll %.2f outside [0.55,0.85]", m)
+	}
+	if m := median(alien); m < 1.0 || m > 1.35 {
+		t.Errorf("alien median roll %.2f outside [1.0,1.35]", m)
+	}
+}
+
+// TestExpeditionNPCShare checks the 84:16 pirate:alien combat split.
+func TestExpeditionNPCShare(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+	const n = 40000
+	pirates := 0
+	for i := 0; i < n; i++ {
+		if rollNPC(rng) == NPCPirates {
+			pirates++
+		}
+	}
+	share := float64(pirates) / n
+	if share < 0.82 || share > 0.86 {
+		t.Fatalf("pirate share %.3f outside [0.82,0.86]", share)
 	}
 }
 
@@ -202,6 +264,65 @@ func TestExpeditionBlackHoleIsBare(t *testing.T) {
 		return
 	}
 	t.Fatal("no black hole found in 2000 rolls")
+}
+
+// TestExpeditionDarkMatterScales: DM finds scale with the fleet's points, so a
+// 10× fleet yields a ~10× median (and stays above the floor).
+func TestExpeditionDarkMatterScales(t *testing.T) {
+	const n = 4000
+	sample := func(points int64) []int64 {
+		rng := rand.New(rand.NewSource(99))
+		out := make([]int64, 0, n)
+		for i := 0; i < n; i++ {
+			out = append(out, expeditionDarkMatter(points, rng))
+		}
+		return out
+	}
+	small := sample(4.0e10)
+	large := sample(4.0e11)
+	median := func(v []int64) int64 {
+		sort.Slice(v, func(i, j int) bool { return v[i] < v[j] })
+		return v[len(v)/2]
+	}
+	ms, ml := median(small), median(large)
+	if ms < darkMatterFloor {
+		t.Fatalf("small fleet median DM %d below floor", ms)
+	}
+	ratio := float64(ml) / float64(ms)
+	if ratio < 8 || ratio > 12 {
+		t.Fatalf("DM scaling ratio %.2f, want ~10", ratio)
+	}
+	// A no-points fleet keeps the legacy flat range.
+	rng := rand.New(rand.NewSource(3))
+	for i := 0; i < 200; i++ {
+		if dm := expeditionDarkMatter(0, rng); dm < 100 || dm > 5000 {
+			t.Fatalf("flat DM %d outside [100,5000]", dm)
+		}
+	}
+}
+
+// TestExpeditionBlackHoleLoot: the positive black hole yields loot capped by the
+// hold and never wipes anything (engine branch is the default path).
+func TestExpeditionBlackHoleLoot(t *testing.T) {
+	rng := rand.New(rand.NewSource(5))
+	const capacity = int64(1_000_000_000)
+	sawBoost := false
+	for i := 0; i < 400; i++ {
+		l := expeditionBlackHoleLoot(capacity, rng)
+		total := l.Metal + l.Crystal + l.Deuterium
+		if total > capacity {
+			t.Fatalf("BH-loot %d exceeds capacity %d", total, capacity)
+		}
+		if total > 0 {
+			sawBoost = true
+		}
+	}
+	if !sawBoost {
+		t.Fatal("black hole loot never produced resources")
+	}
+	if got := expeditionBlackHoleLoot(0, rng); got != (Cost{}) {
+		t.Fatalf("zero-capacity BH-loot = %+v, want empty", got)
+	}
 }
 
 // TestMirroredResearchBonus picks the strongest general W/S/A bonus.

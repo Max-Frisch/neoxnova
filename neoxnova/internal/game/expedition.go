@@ -13,10 +13,11 @@ import (
 // and persists whatever comes back. Live calibration: see
 // docs/EXPEDITIONS_LIVE_2026-10-06.md (§2 outcome mix, §8 enemy formula).
 //
-// Enemy (item 1b): the defender is the sent fleet mirrored by a single per-fleet
-// roll U(0.60..0.90) plus a small fixed template, and its Weapons/Shield/Armour
-// is ONE rolled value scaling the attacker's general 109 bonus (Pirates ~0.1–1.7×,
-// Aliens up to ~2.2×). Specific weapon techs / arsenal / academy are
+// Enemy (items 1b/3): the defender is the sent fleet mirrored by a single
+// per-fleet roll — pirates 0.60–0.69, aliens 0.85–0.94 — plus a small fixed
+// template, and its Weapons/Shield/Armour is ONE rolled value scaling the
+// attacker's general 109 bonus (pirates skew low ~0.1–1.8×, aliens sit at/above
+// our bonus with a rare ~2.2× tail). Specific weapon techs / arsenal / academy are
 // attacker-only — they are never mirrored (Combatant.FlatBonusPct carries the NPC
 // roll). Combat reuses the pure engine in combat.go.
 //
@@ -28,14 +29,15 @@ import (
 type ExpeditionOutcome string
 
 const (
-	ExpeditionResources  ExpeditionOutcome = "resources"
-	ExpeditionShips      ExpeditionOutcome = "ships"
-	ExpeditionCombat     ExpeditionOutcome = "combat"
-	ExpeditionDelay      ExpeditionOutcome = "delay"
-	ExpeditionDarkMatter ExpeditionOutcome = "darkmatter"
-	ExpeditionFastReturn ExpeditionOutcome = "fast"
-	ExpeditionNothing    ExpeditionOutcome = "nothing"
-	ExpeditionBlackHole  ExpeditionOutcome = "blackhole"
+	ExpeditionResources     ExpeditionOutcome = "resources"
+	ExpeditionShips         ExpeditionOutcome = "ships"
+	ExpeditionCombat        ExpeditionOutcome = "combat"
+	ExpeditionDelay         ExpeditionOutcome = "delay"
+	ExpeditionDarkMatter    ExpeditionOutcome = "darkmatter"
+	ExpeditionFastReturn    ExpeditionOutcome = "fast"
+	ExpeditionNothing       ExpeditionOutcome = "nothing"
+	ExpeditionBlackHole     ExpeditionOutcome = "blackhole"
+	ExpeditionBlackHoleLoot ExpeditionOutcome = "blackhole-loot"
 )
 
 // NPCType is the faction an expedition fights. Only Pirates and Aliens exist
@@ -72,55 +74,77 @@ type ExpeditionResult struct {
 	ReturnAdjustSecs int64
 	// UpgradeCode is an Arsenal drawing (1..19) found on a win / ship find, or 0.
 	UpgradeCode int
+	// Flavor selects the cosmetic message variant for the outcome. It is rolled
+	// in RollExpedition so ExpeditionMessage stays pure/deterministic for a seed.
+	Flavor int
 }
 
-// expeditionOutcomeWeights is the outcome distribution. Owner-locked
-// 2026-10-08: combat 15 %, black hole 0.5 % (the "friendlier" rate — the
-// measured live rate is 0.5 % and the earlier 2 % lock was too punishing). The
-// freed black-hole weight is returned to the positive outcomes (resources,
-// ships, dark matter) and trimmed from "nothing". Sums to 1.0. PROVISIONAL
-// beyond the two locked rates.
+// expeditionOutcomeWeights is the outcome distribution. Re-locked 2026-10-09
+// against the fresh live harvest (docs/EXPEDITIONS… §11, n=772): owner kept
+// combat 15 %, adopted the measured fatal black hole 1.68 % (was 0.5 %), added
+// the rare POSITIVE black-hole loot (~1.7 %) and moved the freed weight into
+// nothing/fast while preserving the live ships:resources:DM proportions
+// (29.1:20.5:14.8). Sums to 1.0. PROVISIONAL beyond the locked rates.
 var expeditionOutcomeWeights = []struct {
 	outcome ExpeditionOutcome
 	weight  float64
 }{
-	{ExpeditionResources, 0.31},
-	{ExpeditionShips, 0.21},
+	{ExpeditionResources, 0.2028},
+	{ExpeditionShips, 0.2879},
 	{ExpeditionCombat, 0.15},
-	{ExpeditionNothing, 0.16},
-	{ExpeditionDarkMatter, 0.085},
+	{ExpeditionNothing, 0.079},
+	{ExpeditionDarkMatter, 0.1465},
 	{ExpeditionDelay, 0.06},
-	{ExpeditionFastReturn, 0.02},
-	{ExpeditionBlackHole, 0.005},
+	{ExpeditionFastReturn, 0.04},
+	{ExpeditionBlackHoleLoot, 0.017},
+	{ExpeditionBlackHole, 0.0168},
 }
 
-// npcWeights: within a combat encounter the open-codebase split is 5.8 % pirates
-// vs 2.6 % aliens ⇒ 70 / 30 (owner: Aliens must stay much rarer).
+// npcWeights: within a combat encounter, live 58 pirates : 11 aliens = 84 / 16
+// (docs/EXPEDITIONS… §11; was 70 / 30). Aliens stay much rarer.
 var npcWeights = []struct {
 	npc    NPCType
 	weight float64
 }{
-	{NPCPirates, 0.70},
-	{NPCAliens, 0.30},
+	{NPCPirates, 0.84},
+	{NPCAliens, 0.16},
 }
 
 // expeditionTemplate is the fixed minimum the enemy carries on top of the
-// mirrored fleet (docs §6/§8): tens–hundreds of ships the attacker often never
-// sent. Small fleets are dominated by it, large fleets barely notice it.
+// mirrored fleet (docs §6/§8/§11): tens–hundreds of ships the attacker often
+// never sent. Small fleets are dominated by it, large fleets barely notice it.
+// Bands widened 2026-10-09 for more randomness; 215/216 are alien-only (they
+// only reach small fleets via the mirror otherwise).
 var expeditionTemplate = []struct {
-	code     string
-	min, max int64
+	code      string
+	min, max  int64
+	alienOnly bool
 }{
-	{"203", 40, 120}, // Heavy Cargo
-	{"204", 10, 40},  // Light Fighter
-	{"206", 20, 60},  // Cruiser
-	{"207", 4, 15},   // Battleship
-	{"213", 8, 20},   // Star Fighter
+	{"203", 20, 180, false}, // Heavy Cargo
+	{"204", 5, 90, false},   // Light Fighter
+	{"206", 5, 85, false},   // Cruiser
+	{"207", 4, 90, false},   // Battleship
+	{"213", 5, 45, false},   // Star Fighter
+	{"215", 0, 20, true},    // Battlecruiser (aliens only)
+	{"216", 0, 3, true},     // Black Moon (aliens only)
 }
 
 // expeditionCombatSalt decorrelates the battle RNG from the outcome RNG while
 // keeping the whole result reproducible for a given seed.
 const expeditionCombatSalt = int64(0x45585043) // "EXPC"
+
+// Dark-matter finds scale with the sent fleet's points like resource finds
+// (docs §11: live 1,553–7,044, median ≈ 3,642). The acc1 burn-down fleet is
+// ~10k Frigates ⇒ FleetPoints ≈ 4.0e11, giving ~9.1e-9 DM/point at the median;
+// the uniform factor below reproduces the observed window and 4.5× spread.
+const (
+	darkMatterPerPointLo = 3.3e-9
+	darkMatterPerPointHi = 1.5e-8
+	darkMatterFloor      = int64(100)
+)
+
+// expeditionFlavorVariants bounds the cosmetic Flavor index rolled per outcome.
+const expeditionFlavorVariants = 16
 
 // RollExpedition resolves one expedition for a fleet. `atk` must carry the fleet
 // composition (atk.Units) plus the owner's combat techs/academy/upgrades; the
@@ -132,6 +156,7 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 	points := FleetPoints(fleet)
 
 	res := ExpeditionResult{Outcome: rollWeightedOutcome(rng)}
+	res.Flavor = rng.Intn(expeditionFlavorVariants)
 	switch res.Outcome {
 	case ExpeditionResources:
 		res.Loot = expeditionLoot(FleetCargo(fleet), rng)
@@ -141,7 +166,7 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 		res.UpgradeCode = rollExpeditionDrop(points, rng)
 
 	case ExpeditionDarkMatter:
-		res.DarkMatter = 100 + rng.Int63n(4900)
+		res.DarkMatter = expeditionDarkMatter(points, rng)
 
 	case ExpeditionDelay:
 		res.ReturnAdjustSecs = 600 + rng.Int63n(6600) // +10 min .. ~+2 h
@@ -159,6 +184,10 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 		if battle.Winner == "attacker" {
 			res.UpgradeCode = rollExpeditionDrop(points, rng)
 		}
+
+	case ExpeditionBlackHoleLoot:
+		// A rare POSITIVE black hole: resources are multiplied on the way through.
+		res.Loot = expeditionBlackHoleLoot(FleetCargo(fleet), rng)
 
 	case ExpeditionBlackHole:
 		// The engine wipes the fleet; nothing else to compute.
@@ -230,6 +259,42 @@ func expeditionLoot(capacity int64, rng *rand.Rand) Cost {
 	return Cost{Metal: metal, Crystal: crystal, Deuterium: deut}
 }
 
+// expeditionDarkMatter scales a dark-matter find with the sent fleet's points
+// (docs §11); fleets with no points keep the old flat 100–5000 range.
+func expeditionDarkMatter(points int64, rng *rand.Rand) int64 {
+	if points <= 0 {
+		return 100 + rng.Int63n(4900)
+	}
+	perPoint := darkMatterPerPointLo + rng.Float64()*(darkMatterPerPointHi-darkMatterPerPointLo)
+	dm := int64(math.Round(float64(points) * perPoint))
+	if dm < darkMatterFloor {
+		dm = darkMatterFloor
+	}
+	return dm
+}
+
+// expeditionBlackHoleLoot is the rare POSITIVE black-hole outcome: resources
+// drawn into the anomaly are multiplied ("resources became much more"). It
+// scales a normal resource find by 1.5–3× and still caps at the cargo hold.
+func expeditionBlackHoleLoot(capacity int64, rng *rand.Rand) Cost {
+	base := expeditionLoot(capacity, rng)
+	total := base.Metal + base.Crystal + base.Deuterium
+	if total <= 0 || capacity <= 0 {
+		return Cost{}
+	}
+	total = int64(math.Round(float64(total) * (1.5 + rng.Float64()*1.5)))
+	if total > capacity {
+		total = capacity
+	}
+	metal := int64(float64(total) * 0.55)
+	crystal := int64(float64(total) * 0.35)
+	deut := total - metal - crystal
+	if deut < 0 {
+		deut = 0
+	}
+	return Cost{Metal: metal, Crystal: crystal, Deuterium: deut}
+}
+
 // expeditionRecovery generates a "deserted base / predecessor wreck" find worth
 // 5–35 % of the sent fleet's points, across 1–3 random ship types (live finds
 // were large mixed batches, e.g. LC 787k + HC 22k + HF 1.7k + Cruiser 262).
@@ -284,8 +349,8 @@ func rollExpeditionDrop(fleetPoints int64, rng *rand.Rand) int {
 }
 
 // ExpeditionMessage renders a resolved expedition as a player-facing message,
-// mirroring the live sys_expe_* taxonomy (docs/EXPEDITIONS… §10). It is pure so
-// the engine can persist it verbatim and the API can serve it without the
+// mirroring the live sys_expe_* taxonomy (docs/EXPEDITIONS… §10/§11). It is pure
+// so the engine can persist it verbatim and the API can serve it without the
 // client re-deriving the flavour text.
 func ExpeditionMessage(res ExpeditionResult) (title, body string) {
 	switch res.Outcome {
@@ -319,6 +384,9 @@ func ExpeditionMessage(res ExpeditionResult) (title, body string) {
 		return "Expedition: early return", "Our expedition caught a favourable current and will return early."
 	case ExpeditionBlackHole:
 		return "Expedition: lost", "Our expedition was swallowed by a black hole. The fleet is lost."
+	case ExpeditionBlackHoleLoot:
+		return "Expedition: resources found", "Our ships were drawn into a black hole; some resources aboard became much more. Recovered: " +
+			formatLoot(res.Loot) + "."
 	default:
 		return "Expedition", "Our expedition returned without any noteworthy findings."
 	}
@@ -373,16 +441,29 @@ func MirroredResearchBonus(t CombatTechs) float64 {
 }
 
 // expeditionEnemy builds the mirrored defender plus its single rolled W/S/A
-// bonus. Aliens roll higher than pirates (the fleet wipes).
+// bonus. The mirror and the strength roll are both enemy-type dependent
+// (docs §11): pirates mirror less (0.60–0.69) and roll weaker overall, aliens
+// mirror more (0.85–0.94) and roll at/above our bonus with a rare tail that can
+// wipe the fleet.
 func expeditionEnemy(fleet map[string]int64, atk Combatant, npc NPCType, rng *rand.Rand) (map[string]int64, float64) {
-	factor := 0.60 + rng.Float64()*0.30 // one roll per fleet, median ~0.66
+	var mirror, roll float64
+	if npc == NPCAliens {
+		mirror = 0.85 + rng.Float64()*0.09 // 0.85–0.94 (med ~0.90)
+		roll = 0.70 + 1.80*math.Pow(rng.Float64(), 2)
+	} else {
+		mirror = 0.60 + rng.Float64()*0.09 // 0.60–0.69 (med ~0.64)
+		roll = 0.10 + 1.70*math.Pow(rng.Float64(), 1.5)
+	}
 	enemy := map[string]int64{}
 	for code, n := range fleet {
-		if m := int64(math.Round(factor * float64(n))); m > 0 {
+		if m := int64(math.Round(mirror * float64(n))); m > 0 {
 			enemy[code] = m
 		}
 	}
 	for _, t := range expeditionTemplate {
+		if t.alienOnly && npc != NPCAliens {
+			continue
+		}
 		cnt := t.min
 		if t.max > t.min {
 			cnt += rng.Int63n(t.max - t.min + 1)
@@ -393,11 +474,5 @@ func expeditionEnemy(fleet map[string]int64, atk Combatant, npc NPCType, rng *ra
 	}
 
 	gen := MirroredResearchBonus(atk.Techs) // the mirrored 109/110/111 bonus
-	var roll float64
-	if npc == NPCAliens {
-		roll = 0.5 + rng.Float64()*1.9 // ~0.5–2.4× (median ~1.0, wipes at ~2.2×)
-	} else {
-		roll = 0.1 + rng.Float64()*1.7 // pirates: ~0.1–1.8×
-	}
 	return enemy, gen * roll
 }

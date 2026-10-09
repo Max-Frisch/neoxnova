@@ -174,9 +174,10 @@ func main() {
 	var rows []row
 	for _, c := range comps {
 		atk := scaleComp(c.weights, budget)
-		// Typical pirate fight: fleet mirror 0.66, soft research roll.
-		lPir, _, _ := lossPct(atk, 0.66, 0.6*genBonus, true)
-		// Hard alien fight: high fleet roll, ~2.2x the general tech (the wipes).
+		// Typical pirate fight: mirror 0.60–0.69 (med 0.64), soft strength roll
+		// (med ~0.70x the general 109 bonus) per docs §11.
+		lPir, _, _ := lossPct(atk, 0.64, 0.70*genBonus, true)
+		// Hard alien fight: mirror 0.85–0.94 (med 0.90), ~2.2x the general tech (the wipes).
 		lAln, win, rnd := lossPct(atk, 0.90, 2.2*genBonus, false)
 		bs := buildSeconds(atk)
 		rows = append(rows, row{
@@ -188,7 +189,8 @@ func main() {
 
 	fmt.Printf("\nbudget %.2g pts/fleet, %d seeds\n", budget, seeds)
 	fmt.Printf("attacker: acc1 techs (109/110/111 + laser/ion/plasma/graviton) + academy\n")
-	fmt.Printf("defender: fleet mirror + single rolled W/S/A (pirate ~0.6x, hard alien ~2.2x our 109 bonus = %.0f%%)\n", 2.2*genBonus)
+	fmt.Printf("defender: fleet mirror (pirate 0.60-0.69, alien 0.85-0.94) + single rolled W/S/A\n")
+	fmt.Printf("          pirate strength ~0.70x / hard alien ~2.2x our 109 bonus = %.0f%%\n", 2.2*genBonus)
 	fmt.Printf("%-20s %8s %10s %8s %8s %6s %7s %10s\n",
 		"comp", "rebuild", "pts/s", "lossPir", "lossAln", "win%", "rounds", "cargo")
 	for _, r := range rows {

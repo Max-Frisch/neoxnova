@@ -2,8 +2,9 @@
 
 Owner-directed port of the 2026-10-09 live findings (`EXPEDITIONS_LIVE_2026-10-06.md`
 §11). Pure resolver lives in `internal/game/expedition.go`; persistence in
-`internal/engine/event_engine.go` (`resolveExpedition` ~898). **Nothing here is
-implemented yet** — this is the work order.
+`internal/engine/event_engine.go` (`resolveExpedition` ~898). **IMPLEMENTED
+2026-10-09** (items 1–7; item 8 stardust deferred) — kept as the calibration
+record; only live re-calibration remains.
 
 Baseline numbers from §11 (acc1, n=772 outcomes / 36 expo fights, gen≈82 =
 `MirroredResearchBonus`):
