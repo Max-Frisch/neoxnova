@@ -20,13 +20,14 @@ INSERT INTO universes (
     debris_rate, max_galaxies, base_colonies
 ) VALUES (
     'universe_6_niburu', 'Niburu Universe 6', 4000.00, 10000.00, 15.00,
-    0.50, 1, 5
+    0.50, 2, 5
 )
 ON CONFLICT (code_name) DO UPDATE SET
     game_speed = EXCLUDED.game_speed,
     resource_speed = EXCLUDED.resource_speed,
     fleet_speed = EXCLUDED.fleet_speed,
     debris_rate = EXCLUDED.debris_rate,
+    max_galaxies = EXCLUDED.max_galaxies,
     base_colonies = EXCLUDED.base_colonies;
 
 -- 2. Test commander ----------------------------------------------------------

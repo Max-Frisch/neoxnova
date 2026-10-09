@@ -1,0 +1,101 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/models"
+)
+
+// Layout is the shared page chrome. Pages call @Page(shell, body) which wraps
+// their content in this layout.
+templ Layout(s Shell) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ s.Title } · Neo-XNova</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+			<script src="/static/htmx.min.js"></script>
+		</head>
+		<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+			<header class="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+				<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
+					<a href="/" class="text-lg font-bold text-cyan-400">Neo-XNova</a>
+					if s.ActivePlanetID != 0 {
+						<nav class="flex flex-wrap gap-3 text-sm text-slate-300">
+							@navLink(s, "Overview", "/overview/"+pid(s))
+							@navLink(s, "Buildings", "/buildings/"+pid(s))
+							@navLink(s, "Shipyard", "/shipyard/"+pid(s))
+							@navLink(s, "Research", "/research/"+pid(s))
+							@navLink(s, "Fleet", "/fleet/"+pid(s))
+							@navLink(s, "Galaxy", "/galaxy")
+							@navLink(s, "Reports", "/reports/"+pid(s))
+						</nav>
+					}
+					<div class="ml-auto flex items-center gap-3 text-sm">
+						<span class="text-slate-400">{ s.Username }</span>
+						<form method="post" action="/logout">
+							<button type="submit" class="text-rose-400 hover:text-rose-300">Logout</button>
+						</form>
+					</div>
+				</div>
+				if s.ActivePlanetID != 0 {
+					@ResourceBar(s)
+					if len(s.Planets) > 0 {
+						<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 pb-2 text-xs">
+							<span class="text-slate-500">Planets:</span>
+							for _, p := range s.Planets {
+								<a href={ templ.URL("/overview/" + strconv.FormatInt(p.ID, 10)) } class={ planetClass(s, p.ID) }>
+									{ p.Name }{ planetCoords(p) }
+								</a>
+							}
+						</div>
+					}
+				}
+			</header>
+			<main class="mx-auto max-w-6xl px-4 py-6">
+				if s.Flash != "" {
+					<div class="mb-4 rounded border border-emerald-700 bg-emerald-900/40 px-3 py-2 text-sm text-emerald-200">{ s.Flash }</div>
+				}
+				if s.Error != "" {
+					<div class="mb-4 rounded border border-rose-700 bg-rose-900/40 px-3 py-2 text-sm text-rose-200">{ s.Error }</div>
+				}
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ navLink(s Shell, label, href string) {
+	<a href={ templ.URL(href) } class="hover:text-cyan-400">{ label }</a>
+}
+
+templ ResourceBar(s Shell) {
+	<div id="resbar" hx-get={ "/overview/" + pid(s) + "/resources" } hx-trigger="every 2s" hx-swap="outerHTML" class="border-t border-slate-800 bg-slate-950/60">
+		<div class="mx-auto flex max-w-6xl flex-wrap gap-x-6 gap-y-1 px-4 py-2 text-sm">
+			if s.Resources != nil {
+				<span><span class="text-slate-500">Metal</span> <span class="text-amber-300">{ fnumF(s.Resources.MetalCurrent) }</span> <span class="text-slate-600">/ { fnum(s.Resources.MetalLimit) }</span> <span class="text-emerald-500">+{ fnumF(s.Resources.MetalHourlyRate) }/h</span></span>
+				<span><span class="text-slate-500">Crystal</span> <span class="text-sky-300">{ fnumF(s.Resources.CrystalCurrent) }</span> <span class="text-slate-600">/ { fnum(s.Resources.CrystalLimit) }</span> <span class="text-emerald-500">+{ fnumF(s.Resources.CrystalHourlyRate) }/h</span></span>
+				<span><span class="text-slate-500">Deuterium</span> <span class="text-teal-300">{ fnumF(s.Resources.DeutCurrent) }</span> <span class="text-slate-600">/ { fnum(s.Resources.DeutLimit) }</span> <span class="text-emerald-500">+{ fnumF(s.Resources.DeutHourlyRate) }/h</span></span>
+				<span><span class="text-slate-500">Energy</span> <span class="text-yellow-300">{ fnum(int64(s.Resources.EnergyAvailable)) }</span> <span class="text-slate-600">/ { fnum(int64(s.Resources.EnergyMax)) }</span></span>
+			}
+		</div>
+	</div>
+}
+
+func pid(s Shell) string {
+	return strconv.FormatInt(s.ActivePlanetID, 10)
+}
+
+func planetCoords(p models.OwnedCelestial) string {
+	return " " + strconv.Itoa(p.Galaxy) + ":" + strconv.Itoa(p.System) + ":" + strconv.Itoa(p.Position)
+}
+
+func planetClass(s Shell, id int64) string {
+	base := "rounded px-2 py-0.5 "
+	if id == s.ActivePlanetID {
+		return base + "bg-cyan-900/50 text-cyan-300"
+	}
+	return base + "bg-slate-800/60 text-slate-300 hover:text-cyan-300"
+}

@@ -114,9 +114,55 @@ func (h *Handler) PlanetExpandFields(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PlanetsList returns every planet and moon the authenticated account owns
+// (GET /api/v1/planets), so a client can bootstrap its planet switcher.
+func (h *Handler) PlanetsList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	list, err := h.Planets.ListOwnedCelestials(r.Context(), userID)
+	if err != nil {
+		log.Printf("[ERROR] Failed to list planets for user %d: %v", userID, err)
+		writeError(w, http.StatusInternalServerError, "Failed to list planets")
+		return
+	}
+	if list == nil {
+		list = []models.OwnedCelestial{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"planets": list})
+}
+
+// GalaxyScan returns the occupied slots of one system
+// (GET /api/v1/galaxy/{galaxy}/{system}) for the galaxy view.
+func (h *Handler) GalaxyScan(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	galaxy, errG := strconv.Atoi(r.PathValue("galaxy"))
+	system, errS := strconv.Atoi(r.PathValue("system"))
+	if errG != nil || errS != nil || galaxy < 1 || galaxy > 9 || system < 1 || system > 499 {
+		writeError(w, http.StatusBadRequest, "Invalid galaxy/system")
+		return
+	}
+	res, err := h.Planets.GalaxyScan(r.Context(), h.UniverseID, galaxy, system, userID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Universe not found")
+		return
+	}
+	if err != nil {
+		log.Printf("[ERROR] Galaxy scan %d:%d failed: %v", galaxy, system, err)
+		writeError(w, http.StatusInternalServerError, "Failed to scan system")
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
 func (h *Handler) PlanetResources(w http.ResponseWriter, r *http.Request) {
 	planetID := r.PathValue("id")
-
 	state, err := h.Planets.GetResourceState(r.Context(), planetID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

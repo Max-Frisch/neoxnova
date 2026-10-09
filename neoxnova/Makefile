@@ -21,13 +21,23 @@ export REDIS_ADDR
 export REDIS_PASSWORD
 export REDIS_DB
 
-.PHONY: run build test lint migrate seed up down
+.PHONY: run build test lint migrate seed up down web web-gen web-css
 
 run:
 	go run ./cmd/server
 
 build:
 	go build -o bin/server ./cmd/server
+
+# Server-rendered UI assets: Templ generates *_templ.go from *.templ, Tailwind
+# compiles static/app.css. Both outputs are committed; run after editing views.
+web: web-gen web-css
+
+web-gen:
+	"$$(go env GOPATH)/bin/templ" generate
+
+web-css:
+	npx --yes tailwindcss@3 -c tailwind.config.js -i internal/web/static/input.css -o internal/web/static/app.css --minify
 
 test:
 	go test ./...
@@ -48,6 +58,7 @@ migrate:
 	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0011_arsenal.sql
 	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0013_expedition_reports.sql
 	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0014_blueprints.sql
+	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0015_universes_two_galaxies.sql
 
 seed:
 	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) -v ON_ERROR_STOP=1 < migrations/0002_seed.sql

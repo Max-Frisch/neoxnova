@@ -421,6 +421,183 @@ func (s *PlanetStore) GetCoordinates(ctx context.Context, planetID string) (name
 	return
 }
 
+// ListOwnedCelestials returns every planet and moon an account owns, with the
+// homeworld (the account's oldest planet) flagged.
+func (s *PlanetStore) ListOwnedCelestials(ctx context.Context, userID int64) ([]models.OwnedCelestial, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(name, ''), object_type::text, galaxy, system, position
+		FROM celestial_objects
+		WHERE user_id = $1 AND object_type IN ('PLANET', 'MOON')
+		ORDER BY (object_type = 'PLANET') DESC, galaxy, system, position
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var homeID int64
+	out := make([]models.OwnedCelestial, 0)
+	for rows.Next() {
+		var c models.OwnedCelestial
+		var otype string
+		if err := rows.Scan(&c.ID, &c.Name, &otype, &c.Galaxy, &c.System, &c.Position); err != nil {
+			return nil, err
+		}
+		c.Type = models.CelestialType(otype)
+		if c.Type == models.TypePlanet && (homeID == 0 || c.ID < homeID) {
+			homeID = c.ID
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if out[i].ID == homeID {
+			out[i].IsHome = true
+		}
+	}
+	return out, nil
+}
+
+// HomeworldID returns the account's oldest planet id (0 when none exists).
+func (s *PlanetStore) HomeworldID(ctx context.Context, userID int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id FROM celestial_objects
+		WHERE user_id = $1 AND object_type = 'PLANET'
+		ORDER BY id LIMIT 1
+	`, userID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	return id, err
+}
+
+// GalaxyScan returns every occupied slot in a system (planets, moons, debris)
+// plus post-abandon locks, so a client can render the galaxy view and pick
+// targets. selfUserID marks the caller's own holdings.
+func (s *PlanetStore) GalaxyScan(ctx context.Context, universeCode string, galaxy, system int, selfUserID int64) (models.GalaxyScanResponse, error) {
+	var planetsPerSystem int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT planets_per_system FROM universes WHERE code_name = $1
+	`, universeCode).Scan(&planetsPerSystem); err != nil {
+		if err == sql.ErrNoRows {
+			return models.GalaxyScanResponse{}, ErrNotFound
+		}
+		return models.GalaxyScanResponse{}, err
+	}
+	if planetsPerSystem < 1 || planetsPerSystem > game.MaxPlanetSlots {
+		planetsPerSystem = game.MaxPlanetSlots
+	}
+
+	out := models.GalaxyScanResponse{
+		Galaxy: galaxy,
+		System: system,
+		Slots:  make([]models.GalaxySlot, planetsPerSystem),
+	}
+	for i := range out.Slots {
+		out.Slots[i].Position = i + 1
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.object_type::text, c.position, c.user_id, COALESCE(usr.username, ''),
+		       c.metal::bigint, c.crystal::bigint
+		FROM celestial_objects c
+		LEFT JOIN users usr ON usr.id = c.user_id
+		WHERE c.universe_id = (SELECT id FROM universes WHERE code_name = $1)
+		  AND c.galaxy = $2 AND c.system = $3
+		  AND c.object_type IN ('PLANET', 'MOON', 'DEBRIS_FIELD')
+	`, universeCode, galaxy, system)
+	if err != nil {
+		return models.GalaxyScanResponse{}, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			otype   string
+			pos     int
+			owner   sql.NullInt64
+			uname   string
+			metal   sql.NullInt64
+			crystal sql.NullInt64
+		)
+		if err := rows.Scan(&otype, &pos, &owner, &uname, &metal, &crystal); err != nil {
+			return models.GalaxyScanResponse{}, err
+		}
+		idx := pos - 1
+		if idx < 0 || idx >= len(out.Slots) {
+			continue
+		}
+		slot := &out.Slots[idx]
+		switch otype {
+		case "PLANET", "MOON":
+			if !slot.Occupied {
+				slot.Occupied = true
+				slot.Type = models.CelestialType(otype)
+			}
+			if otype == "MOON" {
+				slot.HasMoon = true
+			}
+			if owner.Valid {
+				slot.OwnerID = owner.Int64
+				slot.OwnerName = uname
+				slot.IsOwn = owner.Int64 == selfUserID
+			}
+		case "DEBRIS_FIELD":
+			slot.DebrisMetal = metal.Int64
+			slot.DebrisCrystal = crystal.Int64
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return models.GalaxyScanResponse{}, err
+	}
+
+	lockRows, err := s.db.QueryContext(ctx, `
+		SELECT position FROM coordinate_locks
+		WHERE universe_id = (SELECT id FROM universes WHERE code_name = $1)
+		  AND galaxy = $2 AND system = $3 AND locked_until > NOW()
+	`, universeCode, galaxy, system)
+	if err != nil {
+		return models.GalaxyScanResponse{}, err
+	}
+	defer lockRows.Close()
+	for lockRows.Next() {
+		var pos int
+		if err := lockRows.Scan(&pos); err != nil {
+			return models.GalaxyScanResponse{}, err
+		}
+		if idx := pos - 1; idx >= 0 && idx < len(out.Slots) {
+			out.Slots[idx].Locked = true
+		}
+	}
+	return out, lockRows.Err()
+}
+
+// PlanetShips returns the hangar ship counts (ship code -> quantity) for a
+// celestial.
+func (s *PlanetStore) PlanetShips(ctx context.Context, celestialID int64) (map[string]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT ship_code, quantity FROM planet_ships
+		WHERE celestial_id = $1 AND quantity > 0
+	`, celestialID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var code string
+		var n int64
+		if err := rows.Scan(&code, &n); err != nil {
+			return nil, err
+		}
+		out[code] = n
+	}
+	return out, rows.Err()
+}
+
 func (s *PlanetStore) activeFleets(ctx context.Context, userID int64) ([]models.FleetEventSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, mission, phase, origin_galaxy, origin_system, origin_position, origin_type,

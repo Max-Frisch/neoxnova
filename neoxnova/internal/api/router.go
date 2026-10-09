@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"neoxnova/internal/api/handlers"
+	"neoxnova/internal/web"
 )
 
 func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
@@ -26,6 +28,8 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/logout", h.Logout)
 	mux.HandleFunc("GET /api/v1/auth/me", h.RequireAuth(h.Me))
 	// Authenticated game routes.
+	mux.HandleFunc("GET /api/v1/planets", h.RequireAuth(h.PlanetsList))
+	mux.HandleFunc("GET /api/v1/galaxy/{galaxy}/{system}", h.RequireAuth(h.GalaxyScan))
 	mux.HandleFunc("GET /api/v1/planets/{id}/resources", h.RequireAuth(h.PlanetResources))
 	mux.HandleFunc("GET /api/v1/planets/{id}/overview", h.RequireAuth(h.PlanetOverview))
 	mux.HandleFunc("GET /api/v1/planets/{id}/buildings", h.RequireAuth(h.PlanetBuildings))
@@ -63,6 +67,9 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("POST /api/v1/market/buy", h.RequireAuth(h.MarketBuyLot))
 	mux.HandleFunc("POST /api/v1/market/remove", h.RequireAuth(h.MarketRemoveLot))
 	mux.HandleFunc("GET /dashboard/{id}", h.RequireAuth(h.Dashboard))
+
+	// Server-rendered UI (Templ + htmx + Tailwind). Mutations nudge the scheduler.
+	web.New(db, universeID, func() { h.NotifyScheduler(context.Background()) }).Mount(mux)
 
 	secure := os.Getenv("APP_ENV") != "development"
 	return Logging(Recovery(SecurityHeaders(secure, globalLimit.Middleware(mux))))

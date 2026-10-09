@@ -26,6 +26,17 @@ const (
 	upgradeDeuteriumProduction = 19
 )
 
+// Base (structure-free) production freebie, expressed per unit of the universe's
+// resource_speed so it scales with the server rate. On niburu (resource_speed
+// 10000) this is 30M metal / 20M crystal / 10M deuterium per hour. It is a flat
+// floor: it needs no energy and is not scaled by an energy deficit, so a
+// freshly-founded colony with zero structures still accrues resources.
+const (
+	BaseMetalPerHour   = 3000.0
+	BaseCrystalPerHour = 2000.0
+	BaseDeutPerHour    = 1000.0
+)
+
 // ProductionBonus is an account's Arsenal production bonus in percent for each
 // resource. The zero value adds nothing.
 type ProductionBonus struct {
@@ -70,8 +81,10 @@ func IsProductionUpgrade(code int) bool {
 // from a celestial's structure levels. resourceSpeed is the universe's resource
 // production multiplier (e.g. 10000 on niburuspace.com). bonus is the owner's
 // account-wide Arsenal production bonus. When energy demand exceeds supply, all
-// production is scaled down proportionally.
-func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64, satCount int, bonus ProductionBonus) Economy {
+// mine production is scaled down proportionally. When baseOn is true a flat,
+// energy-free baseline (see Base*PerHour) is added to every resource, so a
+// planet with zero structures still produces.
+func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float64, satCount int, bonus ProductionBonus, baseOn bool) Economy {
 	lvl := func(code string) float64 { return float64(levels[code]) }
 
 	if resourceSpeed <= 0 {
@@ -86,11 +99,6 @@ func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float
 		tempFactor = 0
 	}
 	deut := deutBase * tempFactor * resourceSpeed
-
-	// Arsenal production upgrades: additive percentage on the matching resource.
-	metal *= 1.0 + bonus.Metal/100.0
-	crystal *= 1.0 + bonus.Crystal/100.0
-	deut *= 1.0 + bonus.Deuterium/100.0
 
 	energyUsed := incomeForLevel(10, lvl("metal_mine")) +
 		incomeForLevel(10, lvl("crystal_mine")) +
@@ -107,6 +115,18 @@ func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float
 		crystal *= efficiency
 		deut *= efficiency
 	}
+
+	// The base freebie sits on top of the (deficit-scaled) mine output.
+	if baseOn {
+		metal += BaseMetalPerHour * resourceSpeed
+		crystal += BaseCrystalPerHour * resourceSpeed
+		deut += BaseDeutPerHour * resourceSpeed
+	}
+
+	// Arsenal production upgrades: additive percentage on the matching resource.
+	metal *= 1.0 + bonus.Metal/100.0
+	crystal *= 1.0 + bonus.Crystal/100.0
+	deut *= 1.0 + bonus.Deuterium/100.0
 
 	return Economy{
 		MetalPerHour:   metal,

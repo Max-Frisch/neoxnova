@@ -358,12 +358,13 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	var resourceSpeed float64
 	var baseFields int64
 	var owner sql.NullInt64
+	var objectType string
 	if err := tx.QueryRowContext(ctx, `
-		SELECT c.temp_max, u.resource_speed, c.base_fields_max, c.user_id
+		SELECT c.temp_max, u.resource_speed, c.base_fields_max, c.user_id, c.object_type
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner); err != nil {
+	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner, &objectType); err != nil {
 		return err
 	}
 	var satCount int
@@ -384,7 +385,7 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		}
 		bonus = game.ProductionBonusFor(upgrades)
 	}
-	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus)
+	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
 
 	fieldsUsed := 0
 	for _, lvl := range levels {
@@ -445,6 +446,61 @@ func (s *BuildStore) GetBuildings(ctx context.Context, planetID string) (models.
 		resp.Queue = &q
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return models.BuildingsResponse{}, err
+	}
+
+	return resp, nil
+}
+
+// GetResearch returns empire-wide technology levels, the active research item
+// and the next-level cost for every known tech (for the research page).
+func (s *BuildStore) GetResearch(ctx context.Context, planetID string) (models.ResearchResponse, error) {
+	id, err := strconv.ParseInt(planetID, 10, 64)
+	if err != nil {
+		return models.ResearchResponse{}, ErrNotFound
+	}
+	if _, err := s.db.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, id); err != nil {
+		return models.ResearchResponse{}, err
+	}
+
+	var userID int64
+	if err := s.db.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, id).Scan(&userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.ResearchResponse{}, ErrNotFound
+		}
+		return models.ResearchResponse{}, err
+	}
+
+	rows, err := s.db.QueryContext(ctx, `SELECT tech_code, level FROM user_technologies WHERE user_id = $1`, userID)
+	if err != nil {
+		return models.ResearchResponse{}, err
+	}
+	levels, err := scanLevels(rows)
+	if err != nil {
+		return models.ResearchResponse{}, err
+	}
+
+	resp := models.ResearchResponse{PlanetID: id, Levels: levels, NextCosts: map[string]models.CargoManifest{}}
+	for code := range game.Techs {
+		if c, ok := game.TechCost(code, levels[code]+1); ok {
+			resp.NextCosts[code] = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
+		}
+	}
+
+	var q models.QueueEntrySummary
+	err = s.db.QueryRowContext(ctx, `
+		SELECT id, tech_code, target_level, start_time, end_time
+		FROM research_queues
+		WHERE user_id = $1 AND status = 'IN_PROGRESS'
+		LIMIT 1
+	`, userID).Scan(&q.ID, &q.Code, &q.TargetLevel, &q.StartTime, &q.EndTime)
+	if err == nil {
+		q.RemainingSecs = int64(time.Until(q.EndTime).Seconds())
+		if q.RemainingSecs < 0 {
+			q.RemainingSecs = 0
+		}
+		resp.Queue = &q
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return models.ResearchResponse{}, err
 	}
 
 	return resp, nil

@@ -64,7 +64,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to secure password")
 		return
 	}
-	userID, err := h.Auth.CreateUser(r.Context(), h.UniverseID, req.Username, req.Email, hash)
+	userID, planetID, err := h.Auth.CreateUser(r.Context(), h.UniverseID, req.Username, req.Email, hash)
 	if err != nil {
 		if errors.Is(err, store.ErrUserExists) {
 			writeError(w, http.StatusConflict, "Username or email already registered")
@@ -74,7 +74,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.issueSession(w, r, userID)
-	writeJSON(w, http.StatusCreated, map[string]any{"user_id": userID, "username": req.Username})
+	writeJSON(w, http.StatusCreated, map[string]any{"user_id": userID, "username": req.Username, "planet_id": planetID})
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +123,10 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to load profile")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user_id": userID, "username": username, "email": email})
+	homeID, _ := h.Planets.HomeworldID(r.Context(), userID)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id": userID, "username": username, "email": email, "planet_id": homeID,
+	})
 }
 
 // issueSession creates a session row and sets the hardened cookie.

@@ -174,6 +174,29 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-09: **playable web UI + account onboarding (big).** Core+ PvP/expo scope; moons deferred.
+  - **Onboarding:** registration now creates a homeworld **atomically** (`AuthStore.CreateUser` returns
+    `(userID, planetID)`): random galaxy `1..max_galaxies`, system `1..499`, position band `6..16`,
+    free-slot retry vs `celestial_objects`/`coordinate_locks`; `fields_max = base_fields_max = 700`;
+    starting resources **M100k / C50k / D20k**, cap 100M, 0 structures. `Register` returns `planet_id`.
+    Migration **`0015_universes_two_galaxies.sql`** sets `max_galaxies = 2`; seed updated to match.
+  - **Base production freebie:** `game.RecomputeProduction(..., baseOn bool)` adds a flat, energy-free
+    baseline `game.Base{Metal,Crystal,Deut}PerHour` × `resource_speed` (niburu: **30M/20M/10M per hour**);
+    applied to PLANETs only (`RecomputeCelestial` now reads `object_type`). Survives recompute; not
+    scaled by energy deficit; Arsenal production bonus applies on top. Tests updated + base-toggle test.
+  - **New API:** `GET /api/v1/planets` (owned celestials + `is_home`), `GET /api/v1/galaxy/{g}/{s}`
+    (system scan: occupants/owner/own/moon/debris/locked), `/auth/me` now returns `planet_id`.
+    Store: `PlanetStore.ListOwnedCelestials`/`HomeworldID`/`GalaxyScan`/`PlanetShips`,
+    `BuildStore.GetResearch`. DB integration test asserts the homeworld loadout.
+  - **Front-end (`internal/web`, Templ + htmx + Tailwind):** auth (login/register/logout), overview
+    (htmx 2 s resource poll, queues, active + incoming fleets), buildings, shipyard (ships + defenses),
+    research, fleet (dispatch/recall + incoming), galaxy scan (attack/colonize/recycle deep links),
+    reports (combat/espionage/expedition). Server-rendered forms → store methods; mutations nudge the
+    scheduler (`handlers.NotifyScheduler`). Page CSP in `web.Handler`; API keeps strict CSP.
+    Toolchain: `templ` v0.3.943 + Tailwind v3 CLI; `make web` regenerates `*_templ.go`/`app.css`
+    (both committed). **Known follow-ups:** moon build/overview + `DESTROY_MOON` (deferred); galaxy
+    scan currently returns whole slots (fine at 20); no CSRF token needed (SameSite=Strict).
+    `go build`/`vet`/`test ./...` green; DB integration green with `DATABASE_URL`.
 - 2026-10-09: **research speed modelled — local lab + University + IRN-connected colony labs.**
   `game.TechDuration` now uses `researchSpeed = 1 + 0.10·lab + 0.16·university` (both local to the
   research-starting planet); new pure `game.EffectiveResearchLabLevel(local, irn, colonyLabs)` sums

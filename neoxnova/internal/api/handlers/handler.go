@@ -48,7 +48,7 @@ func New(db *sql.DB, rdb *redis.Client, universeID string) *Handler {
 	}
 }
 
-// notifyScheduler gives the scheduler a low-latency nudge. It is best-effort;
+// NotifyScheduler gives the scheduler a low-latency nudge. It is best-effort;
 // the scheduler polls Postgres regardless, so a Redis failure is harmless.
 func (h *Handler) notifyScheduler(ctx context.Context) {
 	if h.Redis == nil {
@@ -59,6 +59,9 @@ func (h *Handler) notifyScheduler(ctx context.Context) {
 		h.Redis.LTrim(ctx, key, 0, 0)
 	}
 }
+
+// NotifyScheduler exposes the scheduler wake hint to other packages (web UI).
+func (h *Handler) NotifyScheduler(ctx context.Context) { h.notifyScheduler(ctx) }
 
 // secureCookies enables the Secure cookie flag outside local development
 // (which is served over plain HTTP).

@@ -43,14 +43,48 @@ func TestAuthSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	userID, err := as.CreateUser(ctx, codeName, uname, email, hash)
+	userID, planetID, err := as.CreateUser(ctx, codeName, uname, email, hash)
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
+	defer db.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id = $1`, planetID)
 	defer db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
 
+	// A fresh account must have been granted one homeworld in the 6..16 position
+	// band with the 700-field / starting-resource loadout.
+	var (
+		g, s, p         int
+		fieldsMax       int
+		metal, crystal  float64
+		metalProdHourly float64
+		objectType      string
+		planetOwner     int64
+	)
+	if err := db.QueryRowContext(ctx, `
+		SELECT galaxy, system, position, fields_max, metal::float8, crystal::float8,
+		       metal_prod_hourly::float8, object_type, user_id
+		FROM celestial_objects WHERE id = $1
+	`, planetID).Scan(&g, &s, &p, &fieldsMax, &metal, &crystal, &metalProdHourly, &objectType, &planetOwner); err != nil {
+		t.Fatalf("load homeworld: %v", err)
+	}
+	if objectType != "PLANET" || planetOwner != userID {
+		t.Fatalf("homeworld type/owner = %s/%d, want PLANET/%d", objectType, planetOwner, userID)
+	}
+	if p < homeworldMinPosition || p > homeworldMaxPosition {
+		t.Fatalf("homeworld position = %d, want %d..%d", p, homeworldMinPosition, homeworldMaxPosition)
+	}
+	if fieldsMax != homeworldFields {
+		t.Fatalf("homeworld fields_max = %d, want %d", fieldsMax, homeworldFields)
+	}
+	if metal != homeworldStartMetal || crystal != homeworldStartCrystal {
+		t.Fatalf("homeworld start resources = M%v C%v, want M%d C%d", metal, crystal, homeworldStartMetal, homeworldStartCrystal)
+	}
+	if metalProdHourly <= 0 {
+		t.Fatalf("homeworld metal_prod_hourly = %v, want > 0", metalProdHourly)
+	}
+
 	// Duplicate registration must be rejected.
-	if _, err := as.CreateUser(ctx, codeName, uname, email, hash); !errors.Is(err, ErrUserExists) {
+	if _, _, err := as.CreateUser(ctx, codeName, uname, email, hash); !errors.Is(err, ErrUserExists) {
 		t.Fatalf("expected ErrUserExists, got %v", err)
 	}
 

@@ -1,0 +1,538 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/models"
+)
+
+// Page wraps body content in the shared layout.
+templ Page(s Shell, body templ.Component) {
+	@Layout(s) {
+		@body
+	}
+}
+
+templ EmptyPage() {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<title>Neo-XNova</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="min-h-screen bg-slate-950 p-8 text-slate-100">
+			<div class="mx-auto max-w-lg rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+				<h1 class="text-xl font-bold text-cyan-400">No planet found</h1>
+				<p class="mt-2 text-sm text-slate-400">Your account has no celestial object. Register a fresh account or run the seed.</p>
+				<form method="post" action="/logout" class="mt-4">
+					<button class="rounded bg-slate-800 px-3 py-1 text-sm text-rose-300">Logout</button>
+				</form>
+			</div>
+		</body>
+	</html>
+}
+
+templ AuthPage(a AuthView) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ a.Mode } · Neo-XNova</title>
+			<link rel="stylesheet" href="/static/app.css"/>
+		</head>
+		<body class="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-slate-100">
+			<div class="w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+				<h1 class="mb-4 text-2xl font-bold text-cyan-400">Neo-XNova</h1>
+				if a.Error != "" {
+					<div class="mb-4 rounded border border-rose-700 bg-rose-900/40 px-3 py-2 text-sm text-rose-200">{ a.Error }</div>
+				}
+				if a.Mode == "register" {
+					<form method="post" action="/register" class="space-y-3">
+						<label class="block text-sm text-slate-300">Username
+							<input name="username" value={ a.Login } required class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"/>
+						</label>
+						<label class="block text-sm text-slate-300">Email
+							<input name="email" type="email" value={ a.Email } required class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"/>
+						</label>
+						<label class="block text-sm text-slate-300">Password
+							<input name="password" type="password" minlength="10" required class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"/>
+						</label>
+						<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Create account</button>
+						<p class="text-center text-sm text-slate-400">Have an account? <a href="/login" class="text-cyan-400">Log in</a></p>
+					</form>
+				} else {
+					<form method="post" action="/login" class="space-y-3">
+						<label class="block text-sm text-slate-300">Username or email
+							<input name="login" value={ a.Login } required class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"/>
+						</label>
+						<label class="block text-sm text-slate-300">Password
+							<input name="password" type="password" required class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"/>
+						</label>
+						<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Log in</button>
+						<p class="text-center text-sm text-slate-400">No account? <a href="/register" class="text-cyan-400">Register</a></p>
+					</form>
+				}
+			</div>
+		</body>
+	</html>
+}
+
+// ---- Overview body -------------------------------------------------------
+
+templ OverviewBody(sh Shell, d OverviewData) {
+	<div class="grid gap-6 lg:grid-cols-3">
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 lg:col-span-2">
+			<h2 class="text-lg font-semibold text-cyan-300">{ d.Overview.ActivePlanetName }</h2>
+			<p class="mt-1 text-sm text-slate-400">
+				Coordinates { coordStr(d.Overview.Coordinates) } · Diameter { fnum(int64(d.Overview.DiameterKm)) } km ·
+				Temp { strconv.Itoa(d.Overview.TempRange[0]) }°C … { strconv.Itoa(d.Overview.TempRange[1]) }°C
+			</p>
+			<p class="text-sm text-slate-400">Fields { strconv.Itoa(d.Overview.FieldsUsed) } / { strconv.Itoa(d.Overview.FieldsMax) }</p>
+			if d.BuildQueue != nil {
+				<div class="mt-3 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
+					Building <span class="font-semibold">{ displayName(d.BuildQueue.Code) }</span> → level { strconv.Itoa(d.BuildQueue.TargetLevel) } · { dur(d.BuildQueue.RemainingSecs) }
+				</div>
+			}
+			<div class="mt-4 flex flex-wrap gap-2 text-sm">
+				<a href={ templ.URL("/buildings/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Buildings</a>
+				<a href={ templ.URL("/shipyard/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Shipyard</a>
+				<a href={ templ.URL("/research/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Research</a>
+				<a href={ templ.URL("/fleet/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Fleet</a>
+				<a href="/galaxy" class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Galaxy</a>
+			</div>
+		</section>
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="text-md font-semibold text-slate-200">Levels</h3>
+			<p class="mt-1 text-sm text-slate-400">Peaceful L{ strconv.Itoa(d.Overview.Levels.PeacefulLevel) } · Combat L{ strconv.Itoa(d.Overview.Levels.CombatLevel) } ({ fnum(d.Overview.Levels.CombatXP) } XP)</p>
+			<p class="mt-2 text-sm text-slate-400">Rank #{ strconv.Itoa(d.Overview.PlayerRank.Position) } of { strconv.Itoa(d.Overview.PlayerRank.TotalPlayers) } · { fnum(d.Overview.PlayerRank.Points) } pts</p>
+		</section>
+	</div>
+
+	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<h3 class="mb-2 text-md font-semibold text-slate-200">Active fleets</h3>
+		if len(d.Overview.ActiveFleets) == 0 {
+			<p class="text-sm text-slate-500">No fleets in flight.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500">
+						<tr><th class="py-1">Mission</th><th>Phase</th><th>Route</th><th>Arrives in</th><th>Types</th></tr>
+					</thead>
+					<tbody>
+						for _, f := range d.Overview.ActiveFleets {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">{ string(f.Mission) }</td>
+								<td>{ string(f.Phase) }</td>
+								<td>{ coordStr(f.Origin) } → { coordStr(f.Destination) }</td>
+								<td>{ dur(f.RemainingSecs) }</td>
+								<td>{ strconv.Itoa(len(f.ShipManifest)) }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+
+	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<h3 class="mb-2 text-md font-semibold text-slate-200">Incoming</h3>
+		if len(d.Incoming) == 0 {
+			<p class="text-sm text-slate-500">Nothing inbound.</p>
+		} else {
+			<table class="w-full text-left text-sm">
+				<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>From</th><th>Arrives in</th></tr></thead>
+				<tbody>
+					for _, f := range d.Incoming {
+						<tr class="border-t border-slate-800">
+							<td class="py-1">{ f.MissionText }</td>
+							<td>{ coordStr(f.Origin) }</td>
+							<td>{ dur(f.RemainingSecs) }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</section>
+}
+
+// ---- Buildings body ------------------------------------------------------
+
+templ BuildingsBody(sh Shell, d BuildingsData) {
+	<div class="mb-4 flex items-center justify-between">
+		<h2 class="text-lg font-semibold text-cyan-300">Buildings</h2>
+		<span class="text-sm text-slate-400">Fields { strconv.Itoa(d.FieldsUsed) } / { strconv.Itoa(d.FieldsMax) }</span>
+	</div>
+	if d.Queue != nil {
+		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
+			Building <span class="font-semibold">{ displayName(d.Queue.Code) }</span> → level { strconv.Itoa(d.Queue.TargetLevel) } · { dur(d.Queue.RemainingSecs) }
+		</div>
+	}
+	<div class="overflow-x-auto rounded-lg border border-slate-800">
+		<table class="w-full text-left text-sm">
+			<thead class="bg-slate-900/70 text-slate-400">
+				<tr><th class="px-3 py-2">Building</th><th>Level</th><th>Cost</th><th class="px-3">Action</th></tr>
+			</thead>
+			<tbody>
+				for _, it := range d.Items {
+					<tr class="border-t border-slate-800">
+						<td class="px-3 py-2">{ it.Name }</td>
+						<td>{ strconv.Itoa(it.Level) }</td>
+						<td>{ costStr(it.Cost) }</td>
+						<td class="px-3 py-2">
+							if it.Unlocked {
+								<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") }>
+									<input type="hidden" name="code" value={ it.Code }/>
+									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Build</button>
+								</form>
+							} else {
+								<span class="text-xs text-slate-500">{ it.Reason }</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// ---- Shipyard body -------------------------------------------------------
+
+templ ShipyardBody(sh Shell, d ShipyardData) {
+	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Shipyard</h2>
+	if d.Queue != nil {
+		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
+			Building <span class="font-semibold">{ displayName(d.Queue.Code) }</span> × { fnum(d.Queue.Quantity) } · { dur(d.Queue.RemainingSecs) }
+		</div>
+	}
+	<div class="overflow-x-auto rounded-lg border border-slate-800">
+		<table class="w-full text-left text-sm">
+			<thead class="bg-slate-900/70 text-slate-400">
+				<tr><th class="px-3 py-2">Unit</th><th>Have</th><th>Cost / unit</th><th class="px-3">Build</th></tr>
+			</thead>
+			<tbody>
+				for _, it := range d.Ships {
+					<tr class="border-t border-slate-800">
+						<td class="px-3 py-2">{ it.Name }{ defenseTag(it) }</td>
+						<td>{ fnum(it.Count) }</td>
+						<td>{ costStr(it.Cost) }</td>
+						<td class="px-3 py-2">
+							if it.Unlocked {
+								<form method="post" action={ templ.URL("/shipyard/" + pid(sh) + "/build") } class="flex gap-2">
+									<input type="hidden" name="code" value={ it.Code }/>
+									<input name="quantity" type="number" min="1" value="1" class="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Build</button>
+								</form>
+							} else {
+								<span class="text-xs text-slate-500">{ it.Reason }</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// ---- Research body -------------------------------------------------------
+
+templ ResearchBody(sh Shell, d ResearchData) {
+	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Research</h2>
+	if d.Queue != nil {
+		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
+			Researching <span class="font-semibold">{ displayName(d.Queue.Code) }</span> → level { strconv.Itoa(d.Queue.TargetLevel) } · { dur(d.Queue.RemainingSecs) }
+		</div>
+	}
+	<div class="overflow-x-auto rounded-lg border border-slate-800">
+		<table class="w-full text-left text-sm">
+			<thead class="bg-slate-900/70 text-slate-400">
+				<tr><th class="px-3 py-2">Technology</th><th>Level</th><th>Cost</th><th class="px-3">Action</th></tr>
+			</thead>
+			<tbody>
+				for _, it := range d.Items {
+					<tr class="border-t border-slate-800">
+						<td class="px-3 py-2">{ it.Name }</td>
+						<td>{ strconv.Itoa(it.Level) }</td>
+						<td>{ costStr(it.Cost) }</td>
+						<td class="px-3 py-2">
+							if it.Unlocked {
+								<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") }>
+									<input type="hidden" name="code" value={ it.Code }/>
+									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Research</button>
+								</form>
+							} else {
+								<span class="text-xs text-slate-500">{ it.Reason }</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// ---- Fleet body ----------------------------------------------------------
+
+templ FleetBody(sh Shell, d FleetData) {
+	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Fleet command</h2>
+	<div class="grid gap-6 lg:grid-cols-2">
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Dispatch</h3>
+			<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/dispatch") } class="space-y-3 text-sm">
+				<div class="grid grid-cols-2 gap-2">
+					<label class="block text-slate-300">Mission
+						<select name="mission" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+							<option value="TRANSPORT">Transport</option>
+							<option value="DEPLOY">Deploy</option>
+							<option value="ATTACK">Attack</option>
+							<option value="ESPIONAGE">Espionage</option>
+							<option value="RECYCLE">Recycle</option>
+							<option value="COLONIZE">Colonize</option>
+							<option value="EXPEDITION">Expedition</option>
+							<option value="DESTROY_MOON">Destroy moon</option>
+						</select>
+					</label>
+					<label class="block text-slate-300">Target type
+						<select name="target_type" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+							<option value="PLANET">Planet</option>
+							<option value="MOON">Moon</option>
+							<option value="DEBRIS_FIELD">Debris</option>
+							<option value="DEEP_SPACE">Deep space</option>
+						</select>
+					</label>
+				</div>
+				<div class="grid grid-cols-3 gap-2">
+					<label class="block text-slate-300">Galaxy<input name="galaxy" type="number" min="1" max="9" value={ strconv.Itoa(d.TargetG) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+					<label class="block text-slate-300">System<input name="system" type="number" min="1" max="499" value={ strconv.Itoa(d.TargetS) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+					<label class="block text-slate-300">Position<input name="position" type="number" min="1" max="21" value={ strconv.Itoa(d.TargetP) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+				</div>
+				<div class="grid grid-cols-3 gap-2">
+					<label class="block text-slate-300">Speed %<input name="speed_percent" type="number" min="10" max="100" value="100" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+					<label class="block text-slate-300">Hold (h)<input name="holding_hours" type="number" min="0" max="24" value="0" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+					<label class="block text-slate-300">Cargo metal<input name="cargo_metal" type="number" min="0" value="0" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+				</div>
+				<div class="grid grid-cols-2 gap-2">
+					<label class="block text-slate-300">Cargo crystal<input name="cargo_crystal" type="number" min="0" value="0" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+					<label class="block text-slate-300">Cargo deuterium<input name="cargo_deuterium" type="number" min="0" value="0" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+				</div>
+				<div>
+					<p class="mb-1 text-slate-400">Ships</p>
+					<div class="grid grid-cols-2 gap-1">
+						for _, s := range d.Ships {
+							<label class="flex items-center justify-between gap-2 rounded bg-slate-950/60 px-2 py-1">
+								<span class="truncate text-xs text-slate-300">{ s.Name } ({ fnum(s.Count) })</span>
+								<input name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" class="w-20 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right"/>
+							</label>
+						}
+					</div>
+				</div>
+				<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Dispatch fleet</button>
+			</form>
+		</section>
+		<section class="space-y-6">
+			<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Your fleets</h3>
+				if len(d.Fleets) == 0 {
+					<p class="text-sm text-slate-500">No fleets in flight.</p>
+				} else {
+					<table class="w-full text-left text-sm">
+						<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>Phase</th><th>Arrives</th><th></th></tr></thead>
+						<tbody>
+							for _, f := range d.Fleets {
+								<tr class="border-t border-slate-800">
+									<td class="py-1">{ string(f.Mission) }</td>
+									<td>{ string(f.Phase) }</td>
+									<td>{ dur(f.RemainingSecs) }</td>
+									<td>
+										<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/recall") }>
+											<input type="hidden" name="fleet_id" value={ strconv.FormatInt(f.FleetID, 10) }/>
+											<button class="rounded bg-amber-700 px-2 py-0.5 text-xs hover:bg-amber-600">Recall</button>
+										</form>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+			<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Incoming</h3>
+				if len(d.Incoming) == 0 {
+					<p class="text-sm text-slate-500">Nothing inbound.</p>
+				} else {
+					<table class="w-full text-left text-sm">
+						<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>From</th><th>Arrives</th></tr></thead>
+						<tbody>
+							for _, f := range d.Incoming {
+								<tr class="border-t border-slate-800">
+									<td class="py-1">{ f.MissionText }</td>
+									<td>{ coordStr(f.Origin) }</td>
+									<td>{ dur(f.RemainingSecs) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+		</section>
+	</div>
+}
+
+// ---- Galaxy body ---------------------------------------------------------
+
+templ GalaxyBody(sh Shell, d GalaxyData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Galaxy { strconv.Itoa(d.Scan.Galaxy) }:{ strconv.Itoa(d.Scan.System) }</h2>
+		<div class="flex gap-2 text-sm">
+			@galaxyLink("Prev system", d.Scan.Galaxy, d.Scan.System-1)
+			@galaxyLink("Next system", d.Scan.Galaxy, d.Scan.System+1)
+		</div>
+	</div>
+	<div class="mb-4">
+		<form method="get" action="/galaxy" class="flex flex-wrap items-end gap-2 text-sm">
+			<label class="text-slate-300">Galaxy<input name="g" type="number" min="1" max="9" value={ strconv.Itoa(d.Scan.Galaxy) } class="ml-1 w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+			<label class="text-slate-300">System<input name="s" type="number" min="1" max="499" value={ strconv.Itoa(d.Scan.System) } class="ml-1 w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+			<button class="rounded bg-slate-700 px-3 py-1 hover:bg-slate-600">Go</button>
+		</form>
+	</div>
+	<div class="overflow-x-auto rounded-lg border border-slate-800">
+		<table class="w-full text-left text-sm">
+			<thead class="bg-slate-900/70 text-slate-400">
+				<tr><th class="px-3 py-2">Slot</th><th>Occupant</th><th>Owner</th><th>Debris</th><th class="px-3">Actions</th></tr>
+			</thead>
+			<tbody>
+				for _, slot := range d.Scan.Slots {
+					@galaxyRow(sh, slot, d.Scan.Galaxy, d.Scan.System)
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ galaxyRow(sh Shell, slot models.GalaxySlot, g, s int) {
+	<tr class="border-t border-slate-800">
+		<td class="px-3 py-2">{ strconv.Itoa(slot.Position) }</td>
+		<td>
+			if slot.Occupied {
+				<span class="text-slate-200">{ string(slot.Type) }</span>
+				if slot.HasMoon {
+					<span class="ml-1 rounded bg-slate-700 px-1 text-xs">moon</span>
+				}
+			} else if slot.Locked {
+				<span class="text-slate-500">locked</span>
+			} else {
+				<span class="text-slate-600">empty</span>
+			}
+		</td>
+		<td>
+			if slot.Occupied {
+				if slot.IsOwn {
+					<span class="text-cyan-400">{ slot.OwnerName }</span>
+				} else {
+					<span class="text-rose-400">{ slot.OwnerName }</span>
+				}
+			}
+		</td>
+		<td>
+			if slot.DebrisMetal > 0 || slot.DebrisCrystal > 0 {
+				<span class="text-amber-300">{ fnum(slot.DebrisMetal) }</span> / <span class="text-sky-300">{ fnum(slot.DebrisCrystal) }</span>
+			}
+		</td>
+		<td class="px-3 py-2">
+			@slotAction(sh, slot, g, s)
+		</td>
+	</tr>
+}
+
+templ slotAction(sh Shell, slot models.GalaxySlot, g, s int) {
+	if slot.Occupied && !slot.IsOwn {
+		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "PLANET")) } class="rounded bg-rose-800 px-2 py-0.5 text-xs hover:bg-rose-700">Fleet</a>
+	} else if !slot.Occupied && !slot.Locked {
+		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "PLANET")) } class="rounded bg-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-700">Colonize</a>
+	} else if slot.DebrisMetal > 0 || slot.DebrisCrystal > 0 {
+		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "DEBRIS_FIELD")) } class="rounded bg-amber-800 px-2 py-0.5 text-xs hover:bg-amber-700">Recycle</a>
+	}
+}
+
+templ galaxyLink(label string, g, s int) {
+	if s >= 1 && s <= 499 {
+		<a href={ templ.URL("/galaxy/" + strconv.Itoa(g) + "/" + strconv.Itoa(s)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">{ label }</a>
+	}
+}
+
+// ---- Reports body --------------------------------------------------------
+
+templ ReportsBody(sh Shell, d ReportsData) {
+	<div class="grid gap-6">
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Combat reports</h3>
+			if len(d.Combat) == 0 {
+				<p class="text-sm text-slate-500">None.</p>
+			} else {
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500"><tr><th class="py-1">ID</th><th>Where</th><th>Result</th><th>Debris</th><th>When</th></tr></thead>
+					<tbody>
+						for _, rep := range d.Combat {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">#{ strconv.FormatInt(rep.ID, 10) }</td>
+								<td>{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
+								<td>{ rep.Result } ({ strconv.Itoa(rep.Rounds) } rounds)</td>
+								<td>{ fnum(rep.DebrisMetal) } / { fnum(rep.DebrisCrystal) }</td>
+								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Espionage reports</h3>
+			if len(d.Espionage) == 0 {
+				<p class="text-sm text-slate-500">None.</p>
+			} else {
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500"><tr><th class="py-1">ID</th><th>Where</th><th>Probes</th><th>Score</th><th>When</th></tr></thead>
+					<tbody>
+						for _, rep := range d.Espionage {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">#{ strconv.FormatInt(rep.ID, 10) }</td>
+								<td>{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
+								<td>{ strconv.Itoa(rep.ProbesSent) }</td>
+								<td>{ strconv.Itoa(rep.Score) }</td>
+								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Expedition reports</h3>
+			if len(d.Expedition) == 0 {
+				<p class="text-sm text-slate-500">None.</p>
+			} else {
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500"><tr><th class="py-1">Where</th><th>Outcome</th><th>Message</th><th>When</th></tr></thead>
+					<tbody>
+						for _, rep := range d.Expedition {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
+								<td>{ rep.Outcome }</td>
+								<td class="max-w-md">{ rep.Title }</td>
+								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+	</div>
+}
+
+func defenseTag(it ShipItem) string {
+	if it.IsDefense {
+		return " (defense)"
+	}
+	return ""
+}

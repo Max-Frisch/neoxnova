@@ -121,6 +121,38 @@ type FleetEventSummary struct {
 	Cargo         CargoManifest    `json:"cargo"`
 }
 
+// OwnedCelestial is one planet or moon an account owns (GET /api/v1/planets).
+type OwnedCelestial struct {
+	ID       int64         `json:"id"`
+	Name     string        `json:"name"`
+	Type     CelestialType `json:"type"`
+	Galaxy   int           `json:"galaxy"`
+	System   int           `json:"system"`
+	Position int           `json:"position"`
+	IsHome   bool          `json:"is_home"`
+}
+
+// GalaxySlot is one position in a system scan (GET /api/v1/galaxy/{g}/{s}).
+type GalaxySlot struct {
+	Position      int           `json:"position"`
+	Type          CelestialType `json:"type,omitempty"`
+	Occupied      bool          `json:"occupied"`
+	OwnerID       int64         `json:"owner_id,omitempty"`
+	OwnerName     string        `json:"owner_name,omitempty"`
+	IsOwn         bool          `json:"is_own"`
+	HasMoon       bool          `json:"has_moon"`
+	Locked        bool          `json:"locked"`
+	DebrisMetal   int64         `json:"debris_metal"`
+	DebrisCrystal int64         `json:"debris_crystal"`
+}
+
+// GalaxyScanResponse is the body of GET /api/v1/galaxy/{galaxy}/{system}.
+type GalaxyScanResponse struct {
+	Galaxy int          `json:"galaxy"`
+	System int          `json:"system"`
+	Slots  []GalaxySlot `json:"slots"`
+}
+
 // IncomingFleet is one fleet inbound to a defender's celestial, as shown in the
 // incoming-fleet view. The attacker's exact composition is deliberately NOT
 // exposed (only mission, origin, ETA and a threat flag).
@@ -209,6 +241,14 @@ type QueueEntrySummary struct {
 }
 
 type BuildingsResponse struct {
+	PlanetID  int64                    `json:"planet_id"`
+	Levels    map[string]int           `json:"levels"`
+	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
+	NextCosts map[string]CargoManifest `json:"next_costs,omitempty"`
+}
+
+// ResearchResponse is the read model behind the research page.
+type ResearchResponse struct {
 	PlanetID  int64                    `json:"planet_id"`
 	Levels    map[string]int           `json:"levels"`
 	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
