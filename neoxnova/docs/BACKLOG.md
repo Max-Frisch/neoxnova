@@ -158,6 +158,15 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-09: **drain plan = Frigates-only even split (`frig-even-split-v3`).** `drain.mjs` now
+  picks a single configured hull (`mainOrder: ["227"]`, no Battleship fallback) and divides the
+  home Frigate stock **evenly over the free slots** (`per = floor(have/free)`, one fleet per open
+  slot) so slots always refill with roughly equal fleets and never a mega-fleet. Dropped the
+  `minFleetPoints` floor; when frigs < free slots it waits for returns (plan/config updated by
+  hand once too small). Startup log now prints `plan=frig-even-split-v3` so a stale process is
+  obvious. Config: `drain.mainOrder` -> `["227"]`. The earlier `207` duplicate-key clobber is
+  fixed. `node --check` + JSON parse green. Only one VM sender verified (pid, tmux `drain-acc1`);
+  no local processes.
 - 2026-10-09: **drain malformed expo fleets fixed.** `drain.mjs` built the expo set as
   `207:<per>` then appended `...207:1...` (the sub-ship list includes Battleship 207), and
   `httpbot.mjs cmdExpedition` keyed the form by code so the later `207:1` **clobbered** the

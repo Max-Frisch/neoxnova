@@ -26,15 +26,14 @@ const c = cfgAll[acc] || {};
 const d = c.drain || {};
 if (!d.enabled) { console.error(`[drain] ${acc}: drain.enabled is not true`); process.exit(1); }
 
-const PTS = { '202': 4000, '204': 4000, '205': 11000, '206': 26500, '207': 58000, '211': 120000, '213': 125000, '215': 100000, '216': 12500000, '225': 1600000, '226': 5000000, '227': 40000000 };
 const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226'];
+const PLAN_VERSION = 'frig-even-split-v3';
 
 const MAIN_CP = String(d.mainCp || c.mainCp);
 const MAIN_COORDS = String(d.mainCoords || c.mainCoords);
-const ORDER = (d.mainOrder || ['227', '207']).map(String);
+const ORDER = (d.mainOrder || ['227']).map(String);
 const RECY = String(d.recycler || (c.comp && c.comp.recycler) || '219');
 const RECY_PER = Math.max(1, Number(d.recyclerPer || 20));
-const MIN_POINTS = Math.max(1, Number(d.minFleetPoints || 5000)) * 1e6;
 const SLOT_FALLBACK = Math.max(1, Number(d.slots || c.slots || 9));
 const EVERY = Math.max(5, Number(d.intervalSec || 30)) * 1000;
 const SPEED = String(Math.max(1, Math.min(10, Number(d.speed || 10))));
@@ -69,29 +68,31 @@ function refreshMain() {
   return JSON.parse(fs.readFileSync(MAIN_FILE, 'utf8')).ships || {};
 }
 
-const minUnits = (code) => Math.max(1, Math.ceil(MIN_POINTS / (PTS[code] || 1e6)));
-
+// Frigates only, no fallback hull: pick the first configured hull with any
+// ships home (config is `mainOrder: ["227"]`). When the Frigates run out the
+// sender simply waits for returns — the plan is updated by hand once the total
+// becomes too small.
 function pickHull(ships) {
-  for (const code of ORDER) if ((+ships[code] || 0) >= minUnits(code)) return code;
+  for (const code of ORDER) if ((+ships[code] || 0) > 0) return code;
   return null;
 }
 
-// per-fleet size and fleet count both shrink with the home fleet; the floor
-// (minFleetPoints) keeps only fleets worth flying.
+// Divide the home hull stock EVENLY across the free slots (one fleet per open
+// slot, `floor(have/free)` each) so slots always refill with roughly equal
+// fleets — never one mega-fleet, never a 1-ship/recycler-only fleet. Any
+// remainder (< free) stays home for the next cycle.
 function plan(ships, free) {
   const hull = pickHull(ships);
   if (!hull) return null;
-  const floor = minUnits(hull);
   const have = +ships[hull] || 0;
-  let per, nFleets;
-  if (Math.floor(have / free) >= floor) { per = Math.floor(have / free); nFleets = free; }
-  else { per = floor; nFleets = Math.min(free, Math.floor(have / floor)); }
-  if (nFleets < 1) return null;
+  const per = Math.floor(have / free);
+  const nFleets = free;
+  if (per < 1) return null; // fewer hulls home than free slots; wait for returns
   let br = Math.min(Math.max(1, Math.round(per / RECY_PER)), Math.floor((+ships[RECY] || 0) / nFleets));
   if (br < 0) br = 0;
   // Never duplicate the hull (or recycler) as a "1 each" small: the expo form is
   // keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly a
-  // 1-ship/recycler-only fleet when the fallback hull is Battleship 207.
+  // 1-ship/recycler-only fleet when the hull code is also in the small set.
   const smalls = SMALL.filter((code) => code !== hull && code !== RECY && (+ships[code] || 0) >= nFleets);
   const set = [`${hull}:${per}`];
   if (br > 0) set.push(`${RECY}:${br}`);
@@ -101,7 +102,7 @@ function plan(ships, free) {
 
 async function main() {
   fs.mkdirSync(DATA, { recursive: true });
-  log(`drain ${acc} start main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} 1:${RECY_PER} floor=${MIN_POINTS / 1e6}pts every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
+  log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} 1:${RECY_PER} every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
   for (;;) {
     try {
       const { active, slots } = expState();
@@ -117,13 +118,13 @@ async function main() {
       const p = plan(ships, free);
       if (!p) {
         const detail = ORDER.map((code) => `${code}=${+ships[code] || 0}`).join(' ');
-        log(`drained: no hull >= floor on main (${detail}); wait`);
+        log(`no frigs home for a full share (${detail}); wait`);
         if (DRY) return;
         await sleep(EVERY);
         continue;
       }
 
-      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} :: ${p.set}`);
+      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} per=${p.per} br=${p.br} :: ${p.set}`);
       if (DRY) {
         log(`dry: would POST ${p.nFleets}x "httpbot expedition ${p.set} 1 ${TIME} ${SPEED} --cp ${MAIN_CP}"`);
         return;
