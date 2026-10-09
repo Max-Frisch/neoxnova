@@ -158,6 +158,16 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
+  after ~2 days running: 1524 expedition msgs / 772 outcomes, 172 combat reports / 36 expo fights.
+  Findings in `docs/EXPEDITIONS_LIVE_2026-10-06.md` **§11**: (a) **enemy mirror is type-dependent** —
+  pirates 0.60–0.69 (med 0.64), aliens 0.88–0.94 (med ~0.90), vs the single 0.6–0.9 Go roll (aliens
+  under-mirrored); (b) defender W/S/A stays one rolled value (26/26), pirates 12–148 % (med 64),
+  aliens 90–202 %; loss tracks the roll, not the mirror (pirate med loss 23.9 %); (c) outcome mix
+  n=772 (ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 / combat 8.9 / nothing 7.9 / fast 5.1);
+  (d) **fatal BH measured 13/772 = 1.68 %** (vs owner-locked 0.5 %; 15 non-fatal blackhole-loot) —
+  owner call needed; (e) new `unknown` flavours: a **Stardust** artifact find and a "heavy fights with
+  unidentified pirate ships" combat precursor.
 - 2026-10-09: **drain plan = Frigates-only even split (`frig-even-split-v3`).** `drain.mjs` now
   picks a single configured hull (`mainOrder: ["227"]`, no Battleship fallback) and divides the
   home Frigate stock **evenly over the free slots** (`per = floor(have/free)`, one fleet per open
@@ -368,10 +378,11 @@
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
 - Expedition black-hole rate: **RESOLVED 2026-10-08** — the account-asymmetry (acc1 4, acc2 22) is
-  ignored by owner decision; the resolver ships the measured **0.5 %** fatal rate (locked). The
-  "Moa Tikarr demands surrender" text is just the **info message for a pirate/alien expedition
-  combat**, paired 1:1 with a combat report for the same fleet/time (owner confirmed 2026-10-08),
-  not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+  ignored by owner decision; the resolver ships the measured **0.5 %** fatal rate (locked). **RE-OPENED
+  2026-10-09**: the fresh n=772 sample measures **1.68 %** fatal (13/772; `EXPEDITIONS…` §11d) — needs
+  an owner decision whether to re-lock. The "Moa Tikarr demands surrender" text is just the **info
+  message for a pirate/alien expedition combat**, paired 1:1 with a combat report for the same
+  fleet/time (owner confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Aliens are a total-loss risk** even for a winning comp: the enemy's single rolled W/S/A can reach
   ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
   is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.

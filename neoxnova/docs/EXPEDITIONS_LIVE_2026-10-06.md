@@ -396,3 +396,85 @@ attacker/defender losses; now also `profit` (M 1.907 T / C 0.855 T / D 0.759 T),
 yield the achievement name/level/reward (e.g. "Successfull expo 15", "Dark matter
 finder 7", "Upgrade finder 4"). Spy rows (cat 0) yield the sighting
 owner/coords. All categories are `unclassified=0` after the fix.
+
+## 11. Fresh harvest after ~2 days of burn-down (2026-10-09, acc1)
+
+Re-crawled after letting acc1 run: `msg-scan` (578 msgs, top ~40 sites), `exp-log`
+(+200 → **1524** expedition msgs / **772** outcomes) and `exp-report` (+100 → **172**
+cached combat reports). Raw: `data/{messages,expeditions,expedition-reports}.json`
+(VM `~/neoxnova/neoxnova/tools/explorer/data/`). **No Go changed.**
+
+### 11a. Enemy mirror ratio is enemy-type dependent (NEW)
+
+Filtering the 36 expedition fights (attacker `227` hull ≥1000, no 4xx defenses):
+the defender-hull / attacker-hull ratio is **not** one uniform 0.6–0.9 roll — it
+splits cleanly by enemy:
+
+| enemy | n | mirror ratio (def/atk) | notes |
+|---|---|---|---|
+| Pirates | 24 | **0.60–0.69, median 0.64** | very tight |
+| Aliens | 2 (+3 header-less nulls at 0.87/0.94) | **0.88–0.94, median ~0.90** | match the fleet-wipe pair |
+
+The 10 "null" rows split the same way by ratio (0.62–0.69 = pirate, 0.87–0.94 =
+alien). So pirates mirror ≈ `0.60 + rand·0.09`; aliens ≈ `0.85–0.95`. The current
+Go model uses a single 0.6–0.9 roll for both (BACKLOG 1b) — **aliens are under-mirrored**.
+
+### 11b. Enemy single rolled W/S/A (defender `FlatBonusPct`)
+
+Same 26 reports with a parsed header; all 26 show **one value on all three stats**
+(fp==shield==armour, 26/26) — confirmed. Our own displayed firepower bonus (`atkFp`)
+rose 112 → 131 over the day as 120/121/122 leveled (general 109 = 18):
+
+| enemy | n | defFp min / p25 / med / p75 / max |
+|---|---|---|
+| Pirates | 24 | 12 / 48 / **64** / 103 / 148 |
+| Aliens | 2 | 90 / — / 90 / — / **202** |
+
+Pirate roll ≈ 0.1×–1.3× our bonus; the two high pirate rolls (139/148) and the alien
+202 % are the loss drivers. **Attacker loss fraction tracks defFp, not the mirror**:
+pirate losses 5.1–45.5 % (median 23.9 %); the two ≤28 rolls lost 5–6 %, the 139/148
+rolls lost 43–46 %. Aliens: 90 % roll → 58.6 % loss (win); 202 % roll → 100 % (loss).
+All 34 pirate fights won; the only 2 defender wins were aliens.
+
+### 11c. Outcome mix (n = 772 outcomes, 06–09 Oct)
+
+| outcome | n | share | vs 08 Oct §10 |
+|---|---|---|---|
+| ships | 225 | 29.1 % | ↓ 30.7 |
+| resources | 158 | 20.5 % | ≈ 20.7 |
+| darkmatter | 114 | 14.8 % | ↑ 13.7 |
+| delay | 86 | 11.1 % | ↓ 12.5 |
+| combat | 69 | 8.9 % | ↓ 10.0 |
+| nothing | 61 | 7.9 % | ≈ 7.8 |
+| fast | 39 | 5.1 % | ↑ 3.7 |
+| blackhole | 15 | 1.9 % | **↑↑ 0.5** (see 11d) |
+| stardust | 1 | 0.1 % | — |
+| unknown | 4 | 0.5 % | — |
+
+Combat is ~9 % (owner-locked 15 %); BH needs a decision. Ship-find text confirmed
+(predecessor/armada/war-wrecks/starbase flavours); return loot resource-sum
+min/median/max ≈ 30 k / 1.41 B / 236 B, dark matter finds 1,553–7,044.
+
+### 11d. Fatal black-hole rate measured 1.68 %, not 0.5 % — needs owner call
+
+The `blackhole` bucket (15) bundles two flavours. Exact re-classification of the 772
+outcomes by body text:
+- **fatal 13** = 4 "not returned from the hyperspacejump" + 5 "nuclear breach" + 4
+  "Zzzrrt … radio message" → **13/772 = 1.68 %**.
+- **non-fatal 15** = 13 "drawn into the black hole … resources became much more"
+  (`blackhole-loot`) + 2 "close-ups of an opening black hole" (the tool mis-buckets
+  these 2 as fatal because its `blackhole` pattern includes `/opening black hole/`).
+
+This is 3.4× the owner-locked 0.5 % (which came from the smaller n=641 §10 window).
+Two fatal msgs pairs land in the same second (236102/236105, 242405/242406) — likely
+two lost fleets at one return wave, not duplicates. **Flag for owner:** re-lock fatal
+BH to the measured ~1.7 % or keep 0.5 % deliberately.
+
+### 11e. Classifier gaps (tooling; not fixed)
+
+Still `unknown` (4): "Your fleet … came across a rare star … 1 unit of Stardust" and
+"found the destroyed ship of unknown origin … 1 unit of Stardust" (2) — a **new rare
+artifact** like the Arsenal drawings; and "reported heavy fights with unidentified
+pirate ships!" (2) — a **combat precursor** that pairs 1:1 with a fight report (same
+role as "Moa Tikarr demands surrender"). The `blackhole-loot`/`opening black hole`
+overlap in 11d is also a classifier artefact.
