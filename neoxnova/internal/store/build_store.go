@@ -81,6 +81,31 @@ func (s *BuildStore) techLevels(ctx context.Context, tx *sql.Tx, userID int64) (
 	return scanLevels(rows)
 }
 
+// researchLabLevels returns the research-lab levels of the user's other
+// celestials (excluding the origin planet), used to compute how many labs the
+// Intergalactic Research Network connects.
+func (s *BuildStore) researchLabLevels(ctx context.Context, tx *sql.Tx, userID, originID int64) ([]int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT ps.level
+		FROM planet_structures ps
+		JOIN celestial_objects c ON c.id = ps.celestial_id
+		WHERE c.user_id = $1 AND ps.structure_code = 'research_lab' AND c.id <> $2
+	`, userID, originID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var labs []int
+	for rows.Next() {
+		var lvl int
+		if err := rows.Scan(&lvl); err != nil {
+			return nil, err
+		}
+		labs = append(labs, lvl)
+	}
+	return labs, rows.Err()
+}
+
 // EnqueueStructure starts construction of the next level of a building.
 func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code string) (QueueResult, error) {
 	if _, ok := game.Structures[code]; !ok {
@@ -232,7 +257,9 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 }
 
 // EnqueueResearch starts an empire-wide technology. Costs are drawn from the
-// supplied planet, whose research lab gates the target level.
+// supplied planet, whose research lab gates the target level. Research time uses
+// that planet's effective lab level (its own lab plus IRN-connected colony labs)
+// and its local University, which is not shared account-wide.
 func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCode string) (QueueResult, error) {
 	if _, ok := game.Techs[techCode]; !ok {
 		return QueueResult{}, ErrUnknownCode
@@ -256,6 +283,10 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		return QueueResult{}, err
 	}
 	techs, err := s.techLevels(ctx, tx, userID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	colonyLabs, err := s.researchLabLevels(ctx, tx, userID, planetID)
 	if err != nil {
 		return QueueResult{}, err
 	}
@@ -288,7 +319,8 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		return QueueResult{}, ErrInsufficientResources
 	}
 
-	duration := game.TechDuration(techCode, targetLevel, structLevels["research_lab"], gameSpeed)
+	labLevel := game.EffectiveResearchLabLevel(structLevels["research_lab"], techs["intergalactic_research_network"], colonyLabs)
+	duration := game.TechDuration(techCode, targetLevel, labLevel, structLevels["university"], gameSpeed)
 	start := time.Now()
 	end := start.Add(duration)
 

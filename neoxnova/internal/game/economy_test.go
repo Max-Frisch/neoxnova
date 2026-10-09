@@ -111,7 +111,7 @@ func TestDurationsPositive(t *testing.T) {
 	if d := StructureDuration("metal_mine", 1, 0, 0, 1.0); d < 0 {
 		t.Fatalf("structure duration = %v", d)
 	}
-	if d := TechDuration("energy_tech", 1, 0, 1.0); d < 0 {
+	if d := TechDuration("energy_tech", 1, 0, 0, 1.0); d < 0 {
 		t.Fatalf("tech duration = %v", d)
 	}
 	if d := ShipDuration("202", 1, 0, 0, 1.0); d < 0 {

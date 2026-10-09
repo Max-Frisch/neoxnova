@@ -36,10 +36,16 @@ standard factor for each item. Durations are **approximate** (see below).
    University (6) snapshot, so `buildingTimeCalibration` (2.25) is an empirical
    fudge. Needed: captures at several Robotics/Nanite/University levels to solve
    the real exponents. Nanite Factory's own build time does not fit the curve.
-2. **Research duration.** Off by large, inconsistent factors across techs
-   (`researchTimeCalibration` = 0.0156 is a rough median). Likely depends on
-   Research Lab and/or University per tech. Needed: research page at several lab
-   levels, plus University levels.
+2. **Research duration — MODELLED (2026-10-09).** The research page is
+   proportional to cost: every captured tech fits
+   `time_seconds ≈ (metal+crystal) · 7.466e-7` at game_speed 4000, i.e.
+   `researchSpeed = 1 + 0.10·lab + 0.16·university` with
+   `researchTimeCalibration = 0.003617` (`internal/game/catalog.go`). The lab
+   level is the starting planet's own lab plus IRN-connected colony labs
+   (`game.EffectiveResearchLabLevel`); the University is **local only**. The
+   absolute constant is **locked by owner decision (2026-10-09)** — the capture's
+   officers/premium state is unknown, so it is provisional and will be revisited
+   only once the full game is live. Not an open task.
 3. **Ship/defense build times.** Not present in the capture (duration field empty
    for shipyard rows). Needed: a shipyard page while affordable so the duration
    renders, or a started-then-cancelled build.
@@ -58,9 +64,9 @@ standard factor for each item. Durations are **approximate** (see below).
 
 ## Server-custom systems that affect base systems (not yet modelled)
 
-These appear in the capture but their effects are unknown:
+These appear in the capture but their effects are unknown (the University's
+research-time effect is now modelled — see "Confirmed mechanics"):
 
-- **University** (id 6): likely a research booster.
 - **Deuterium Power Plant** (id 12): energy source.
 - **Light/Average/Heavy Conveyor** (ids 71/72/73): the overview mentions
   "small/medium/large production factory" +N units/second — possibly these.
@@ -90,8 +96,17 @@ These appear in the capture but their effects are unknown:
 - **Premium account (24h new-account bonus)**: +1000% resource production,
   +100% research speed, +5 construction/research queue slots, +100% experience.
   The premium page exposes a `pblist` of purchasable bonuses with costs/factors.
-- **Bonus systems**: University +16% research speed; Deuterium Power Plant (energy
-  for deuterium); Light/Average/Heavy conveyor batch-build their unit class;
+- **Bonus systems**: **research speed = 1 + 0.10·researchLab + 0.16·university**,
+  local to the planet where research is started. The starting planet's own
+  Research Lab counts always; the Intergalactic Research Network connects up to
+  `IRN level` further colonies, highest lab level first, but only ones that have a
+  Research Lab built (level 0 contributes nothing, so IRN beyond the number of
+  lab-bearing colonies is wasted). The **University is local only** — it is *not*
+  shared account-wide and does *not* stack via IRN, so a University on another
+  planet does nothing for this one's research (one per research-capable planet is
+  enough; extras are wasted). Modelled in `game.TechDuration` /
+  `game.EffectiveResearchLabLevel`. Deuterium Power Plant (energy for deuterium);
+  Light/Average/Heavy conveyor batch-build their unit class;
   Brotherhood = alliance bank deposit/withdraw limit; Mineral/Semi-Crystals/Fuel
   Research +5% metal/crystal/deuterium production per level; Energy Technology
   +10% energy per level (account-wide); Plasma Technology +2% damage (plasma
@@ -131,6 +146,16 @@ Base build-time constant fitted from the **fresh Bratwurst** account (Robotics 1
 Nanite 0) over 6 samples: `buildingTimeCalibration = 1.20` in
 `internal/game/catalog.go`. The older officer/peaceful-buffed Fogigy capture runs
 **~1.88x faster** than this base — so its durations are not directly comparable.
+
+Research time is proportional to cost with no residual across techs: the captured
+page (Research Lab 24, University 6, game_speed 4000) gave
+`time ≈ (metal+crystal) · 7.466e-7`, fitted by
+`researchTimeCalibration = 0.003617` with
+`researchSpeed = 1 + 0.10·lab + 0.16·university` (additive). The constant is
+**locked by owner decision (2026-10-09)**: the capture's IRN-connected colony labs,
+officers and premium state are unknown, so it is calibrated as if the effective lab
+were the local 24 and treated as provisional until the full game is live. Not an
+open task.
 
 Still unconfirmed: the exact Nanite-Factory speedup exponent (we only have
 Nanite 0 and Nanite 11 samples, and the latter is confounded by officer bonuses).

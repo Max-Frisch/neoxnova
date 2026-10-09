@@ -31,6 +31,9 @@ Live automation + the fleet/combat wizard for niburuspace.com. Referenced from
 - **Only auto-research instant techs** (cards with no `Duration`); slow cards are skipped
   (`EXPLORER_MAX_RESEARCH_SEC`, default 1).
 - **University (6)** needs Robot 20, Research Lab 22, Nanite 4, Computer 12, IRN (123) 3.
+  Its −16 %/level research-time bonus is **local to the planet where research is started**;
+  it does **not** stack account-wide (IRN links Research Labs only). One per research
+  planet is enough — extras are wasted.
 - Plan JSON: `buildings` fixed targets, `gradual` codes bumped +1 until the plan is satisfied,
   `caps` per-code ceiling for gradual (the "done" state; also checked by `verify`),
   `bumpBuilders` (Robot/Nanite: Nanite trails Robot by 11, floor 1), `order` priority,

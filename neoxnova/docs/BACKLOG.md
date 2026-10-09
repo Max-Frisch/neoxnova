@@ -174,6 +174,19 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-09: **research speed modelled — local lab + University + IRN-connected colony labs.**
+  `game.TechDuration` now uses `researchSpeed = 1 + 0.10·lab + 0.16·university` (both local to the
+  research-starting planet); new pure `game.EffectiveResearchLabLevel(local, irn, colonyLabs)` sums
+  the local lab + the `IRN` highest colony labs (level-0 colonies contribute nothing).
+  `store.EnqueueResearch` now queries `researchLabLevels` (all owner celestials except the origin) and
+  passes university + effective lab. Fitted `researchTimeCalibration` 0.0156 → **0.003617** against
+  the captured tech page (Lab 24 / Uni 6 / 4000x): every tech fits `time ≈ cost·7.466e-7` within 0.1 %
+  (`TestTechDurationMatchesCapture`, `TestEffectiveResearchLabLevel`). Docs updated
+  (`BALANCE_DATA_NEEDED`, `AUTO_BUILD_DESIGN`, `MOONS`, `EXPLORER`, `httpbot.mjs`). `go build`,
+  `go vet`, `go test ./internal/game/... ./internal/blueprint/...` green. Bonus rule **additive**
+  confirmed by owner. Absolute constant **locked by owner decision** (capture's IRN colony labs /
+  officers / premium unknown → no lab-0 reference without a fresh account); provisional, revisit only
+  once the full game is live — not an open task.
 - 2026-10-09: **expedition calibration + positive BH implemented (backlog item 8).** `expedition.go`
   reworked: outcome weights (fatal BH **1.68 %**, new positive **blackhole-loot 1.7 %**, live
   ships/resources/DM ratios), NPC mix **84:16**, type-dependent enemy (pirate mirror 0.60–0.69 +

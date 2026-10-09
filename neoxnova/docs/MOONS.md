@@ -30,7 +30,9 @@ are both confirmed working live and modelled.
   `71 Light conveyor 9`, `72/73 = 0`.
 - Defenses on the moon: `401 Missile Launcher` ×43,661,592, `402 Light Laser`
   ×38,739,864. Research shown on the moon page is the **account-wide** research
-  (moons do not research separately). New unit names seen: `502 Interceptor`,
+  (moons do not research separately). Research *speed* is decided on the planet
+  where it is started — its own Research Lab + local University; IRN links labs
+  only, so a University is **not** shared account-wide. New unit names seen: `502 Interceptor`,
   `503 Interplanetary missiles` (not in our catalog yet).
 - Demolition exists on moon buildings (50 % refund).
 

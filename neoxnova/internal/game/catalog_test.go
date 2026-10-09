@@ -140,6 +140,54 @@ func TestStructureDurationRoughlyMatchesCapture(t *testing.T) {
 	}
 }
 
+func TestTechDurationMatchesCapture(t *testing.T) {
+	f := loadFixture(t)
+	const lab, university, gameSpeed = 24, 6, 4000.0 // captured planet's levels
+	techByID := map[int]string{}
+	for key, def := range Techs {
+		techByID[def.ID] = key
+	}
+	checked := 0
+	for _, it := range f.Techs {
+		if it.DurationSec == 0 {
+			continue
+		}
+		key := techByID[it.Code]
+		if key == "" {
+			continue
+		}
+		got := TechDuration(key, it.Level+1, lab, university, gameSpeed).Seconds()
+		want := float64(it.DurationSec)
+		if d := got - want; d > want*0.03 || d < -want*0.03 {
+			t.Errorf("%s L%d duration = %.0fs, fixture %.0fs (>3%% off)", it.Name, it.Level+1, got, want)
+		}
+		checked++
+	}
+	if checked < 10 {
+		t.Fatalf("only %d tech durations checked", checked)
+	}
+}
+
+func TestEffectiveResearchLabLevel(t *testing.T) {
+	cases := []struct {
+		name       string
+		local, irn int
+		colonies   []int
+		want       int
+	}{
+		{"no colonies", 24, 5, nil, 24},
+		{"zero labs ignored", 24, 3, []int{0, 0, 0}, 24},
+		{"irn connects highest", 10, 2, []int{5, 30, 20}, 60}, // 10 + 30 + 20
+		{"irn level caps labs", 10, 1, []int{5, 30, 20}, 40},  // 10 + 30
+		{"more irn than labs", 10, 9, []int{5, 30}, 45},       // 10 + 30 + 5
+	}
+	for _, c := range cases {
+		if got := EffectiveResearchLabLevel(c.local, c.irn, c.colonies); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
 var structKeyByID = func() map[int]string {
 	m := map[int]string{}
 	for key, def := range Structures {

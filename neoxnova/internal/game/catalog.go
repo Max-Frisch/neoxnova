@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"sort"
 	"time"
 )
 
@@ -64,8 +65,20 @@ type UnitDef struct {
 // (officer / peaceful-level bonuses), which is not modelled here.
 const (
 	buildingTimeCalibration = 1.20
-	researchTimeCalibration = 0.0156
 	unitTimeCalibration     = 1.0
+
+	// researchTimeCalibration is fitted against the captured account's research
+	// page (Research Lab 24, University 6, game_speed 4000): every captured tech
+	// followed time_seconds ≈ (metal+crystal) · 7.466e-7, i.e. speed
+	// 1+0.10·24+0.16·6 = 4.36. See docs/BALANCE_DATA_NEEDED.md.
+	researchTimeCalibration = 0.003617
+
+	// Research-speed bonuses, both **local to the planet where the research is
+	// started**: each research-lab level adds 10% and each University level adds
+	// 16%. The University is NOT shared account-wide via IRN — IRN only links
+	// additional research labs (see EffectiveResearchLabLevel).
+	researchLabSpeedPerLevel = 0.10
+	universitySpeedPerLevel  = 0.16
 )
 
 func buildStructures(defs []StructureDef) map[string]StructureDef {
@@ -272,15 +285,39 @@ func StructureDuration(code string, targetLevel, roboticsFactory, naniteFactory 
 	return buildingDuration(cost.Metal+cost.Crystal, roboticsFactory, naniteFactory, gameSpeed, buildingTimeCalibration)
 }
 
-// TechDuration is the research time to reach targetLevel, shortened by the
-// empire's research lab level.
-func TechDuration(code string, targetLevel, labLevel int, gameSpeed float64) time.Duration {
+// EffectiveResearchLabLevel is the research-lab level used for the research-time
+// speed bonus on the planet where research is started. That planet's own lab
+// always counts; the Intergalactic Research Network then connects up to irnLevel
+// further colonies, highest lab level first. A colony without a research lab
+// (level 0) contributes nothing, so IRN levels beyond the number of lab-bearing
+// colonies are wasted. colonyLabs are the lab levels of the *other* celestials.
+func EffectiveResearchLabLevel(localLab, irnLevel int, colonyLabs []int) int {
+	labs := make([]int, 0, len(colonyLabs))
+	for _, l := range colonyLabs {
+		if l > 0 {
+			labs = append(labs, l)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(labs)))
+	total := localLab
+	for i := 0; i < irnLevel && i < len(labs); i++ {
+		total += labs[i]
+	}
+	return total
+}
+
+// TechDuration is the research time to reach targetLevel. The starting planet's
+// effective research-lab level (its own lab plus IRN-connected colony labs) and
+// its University shorten the time: each research-lab level adds 10% research
+// speed and each University level adds 16%, both local to that planet.
+func TechDuration(code string, targetLevel, labLevel, universityLevel int, gameSpeed float64) time.Duration {
 	cost, ok := TechCost(code, targetLevel)
 	if !ok {
 		return time.Second
 	}
 	base := float64(cost.Metal + cost.Crystal)
-	hours := base / (1000.0 * (1.0 + float64(labLevel)))
+	speed := 1.0 + researchLabSpeedPerLevel*float64(labLevel) + universitySpeedPerLevel*float64(universityLevel)
+	hours := base / (1000.0 * speed)
 	if gameSpeed > 0 {
 		hours /= gameSpeed
 	}

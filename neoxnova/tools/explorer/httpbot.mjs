@@ -449,7 +449,8 @@ async function cmdResolve(goalsPath, steps, cpArg) {
   const maxResearch = Number(env.EXPLORER_MAX_RESEARCH_QUEUE || 1);
   const satBatch = Number(env.EXPLORER_ENERGY_SATS || 200);
   const satCooldownMs = Number(env.EXPLORER_SAT_COOLDOWN_MS || 300000);
-  // Only auto-queue research that is (near) instant; long techs need University.
+  // Only auto-queue research that is (near) instant; long techs need a University
+  // on THIS planet (its -16%/level bonus is local, not account-wide via IRN).
   const maxResearchSec = Number(env.EXPLORER_MAX_RESEARCH_SEC ?? 1);
   const SAT = 212, MINE_CODES = new Set([1, 2, 3, 12]);
   let stalls = 0, lastSatAt = 0;
@@ -487,7 +488,8 @@ async function cmdResolve(goalsPath, steps, cpArg) {
     for (const c of ordered) visit(c, goalTargets.get(c));
 
     const energy = energyFromHtml(B.html);
-    // Research whose card shows a Duration is deferred (needs University/colonies);
+    // Research whose card shows a Duration is deferred (needs a local University on
+    // the starting planet / colonies);
     // it must not block the "plan satisfied" check that drives gradual growth.
     const isSlowResearch = (c) => {
       if (allowSlow.has(c)) return false;

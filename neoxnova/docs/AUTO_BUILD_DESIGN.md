@@ -228,6 +228,10 @@ Notes for the implementer:
 - Image-less list with numeric inputs; no icons needed.
 - **Scopes differ:** buildings/ships/defense are per-planet; research is
   account-wide and must be a separate section (one active research per user).
+  Research *speed*, however, is **local**: the starting planet's Research Lab
+  (+10 %/level) and its own University (+16 %/level) apply, plus IRN-connected
+  colony labs. IRN links Research Labs only, so the University does **not** stack
+  account-wide. Modelled in `game.TechDuration` (see `docs/BALANCE_DATA_NEEDED.md`).
 - The mode radio selects a **preset** that fills the advanced fields; the
   "advanced" panel exposes `order`/`gradual`/`caps`/`bumpBuilders`.
 - Per-planet status badge + "next action" and a "why idle" reason.
@@ -252,10 +256,12 @@ Notes for the implementer:
 - **Colony limits & colonize** — `base_colonies`/`max_colonies_hardcap` are
   seeded but unread; `MissionType.COLONIZE` exists (`internal/models/types.go:22`)
   but `resolveFleetEvent` has no case. Needed for auto-colonize (Phase 5).
-- **Custom systems unmodelled** — University (6), conveyors (71/72/73),
-  custom research (125/131/132/133/199), peaceful/combat levels
+- **Custom systems unmodelled** — conveyors (71/72/73), custom research
+  (125/131/132/133/199), peaceful/combat levels
   (`docs/BALANCE_DATA_NEEDED.md:59-126`). Blueprints can still target them, but
-  their effects/optimization are not modeled.
+  their effects/optimization are not modeled. (The University's research-time
+  bonus *is* now modelled in `game.TechDuration`; it is **per-planet/local**, not
+  account-wide via IRN, so it only pays off on a planet where research starts.)
 
 ## 12. Roadmap
 
@@ -271,8 +277,10 @@ Notes for the implementer:
 - **Phase 4 — auto-colonize (later):** colony slots (Astrophysics), Colony Ship
   production, `MissionColonize` in the engine, empty-position selection, and
   auto-assigning a blueprint to newly founded planets.
-- **Phase 5 — unmodelled systems:** University/conveyor/research effects in the
-  economy so blueprints optimize against them.
+- **Phase 5 — unmodelled systems:** conveyor/research effects in the economy so
+  blueprints optimize against them. (Research timing itself is now modelled in
+  `game.TechDuration`: local Research Lab +10 %/level and University +16 %/level,
+  plus IRN-connected colony labs; the planner just does not yet schedule by it.)
 
 Auto-colonize (Phase 4) is what unlocks the full "send it and forget it" story
 for 20–40 colonies; Phases 1b–3 make each existing planet self-managing first.
