@@ -16,12 +16,10 @@ Baseline numbers from §11 (acc1, n=772 outcomes / 36 expo fights, gen≈82 =
 - template counts (36 fights): 203 6–191, 204 1–101, 206 1–92, **207 4–97**, 213 1–46;
   215 1–21 / 216 1–3 only on aliens.
 
-## Blocker / owner decision first
+## Resolved — fatal BH rate (owner, 2026-10-09)
 
-**Fatal black-hole rate.** Live measures 1.68 % (13/772), the code ships 0.5 %
-(owner-locked 2026-10-08 from the smaller n=641 window). Decide before locking the
-weights in item 1: keep 0.5 % or re-lock ~1.7 %. Table below assumes **0.5 %**;
-if re-locked, take the Δ (~1.2 pp) off resources/ships/DM proportionally.
+Owner picked the measured **1.68 %** (13/772) over the old 0.5 % lock ("0.5 % is not
+dangerous enough"). Item 1's table already applies it; **no blocker remains**.
 
 ---
 
@@ -30,23 +28,25 @@ if re-locked, take the Δ (~1.2 pp) off resources/ships/DM proportionally.
 Owner: nothing → 7.9 %, fast → 4.0 %, adjust ships/resources/DM to fit; keep
 combat 15 %; add the new positive BH-loot (item 6); leave delay at the current 6 %.
 
-Ship this table (sums to 1.000), live ships/resources/DM proportions preserved:
+Ship this table (sums to ~1.000; normalize after edit), live ships/resources/DM
+proportions preserved and the fatal BH at the newly chosen **1.68 %**:
 
 | outcome | old | **new** |
 |---|---|---|
-| resources | .310 | **.207** |
-| ships | .210 | **.293** |
+| resources | .310 | **.2028** |
+| ships | .210 | **.2879** |
 | combat | .150 | .150 |
 | nothing | .160 | **.079** |
-| darkmatter | .085 | **.149** |
+| darkmatter | .085 | **.1465** |
 | delay | .060 | .060 |
 | fast | .020 | **.040** |
 | blackhole-loot (new) | — | **.017** |
-| blackhole (fatal) | .005 | .005 |
+| blackhole (fatal) | .005 | **.0168** |
 
-- Update the comment block (`:77`) to the new basis and keep the sum-to-1 assertion.
+- Sums to exactly 1.0000 (ships/resources/DM carry the remainder = live 29.1:20.5:14.8
+  proportions). Update the comment block (`:77`) and keep the sum-to-1 assertion.
 - Optional: use live delay ~10.4 % instead of 6 % (then ships/resources/DM become
-  .278/.196/.141). Flagged, not assumed.
+  .268/.189/.136). Flagged, not assumed.
 
 **Test:** extend/keep the existing weight-sum test; add a distribution test that a
 seeded sample lands within a few % of each target.

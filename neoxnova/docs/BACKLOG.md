@@ -166,8 +166,8 @@
    84:16, type-dependent enemy mirror (pirate 0.60–0.69 / alien 0.85–0.94) + strength rolls (pirates
    skewed weaker, aliens ~same w/ rare tail), wider template bands, **DM scaling on fleet points**,
    **rare positive "resource-multiplying" black hole** (new outcome, engine default path), and the
-   cosmetic flavour catalogue. **Blocker:** owner must pick the fatal-BH rate (live 1.68 % vs locked
-   0.5 %) before locking weights.
+   cosmetic flavour catalogue. **Fatal-BH rate DECIDED 2026-10-09 = 1.68 %** (owner; was 0.5 %) — table
+   in the plan already has it; no blocker left.
 
 ## Done (newest first)
 - 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
@@ -178,8 +178,8 @@
   aliens 90–202 %; loss tracks the roll, not the mirror (pirate med loss 23.9 %); (c) outcome mix
   n=772 (ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 / combat 8.9 / nothing 7.9 / fast 5.1);
   (d) **fatal BH measured 13/772 = 1.68 %** (vs owner-locked 0.5 %; 15 non-fatal blackhole-loot) —
-  owner call needed; (e) new `unknown` flavours: **Stardust** (rare currency) and "heavy fights with
-  unidentified pirate ships" (owner: roleplay flavour of a pirate encounter, not a separate outcome).
+  owner re-locked to **1.68 %** 2026-10-09; (e) new `unknown` flavours: **Stardust** (rare currency) and
+  "heavy fights with unidentified pirate ships" (owner: roleplay flavour of a pirate encounter).
 - 2026-10-09: **drain plan = Frigates-only even split (`frig-even-split-v3`).** `drain.mjs` now
   picks a single configured hull (`mainOrder: ["227"]`, no Battleship fallback) and divides the
   home Frigate stock **evenly over the free slots** (`per = floor(have/free)`, one fleet per open
@@ -389,12 +389,12 @@
 
 ## Open questions / blockers
 - Counter-espionage exact formula unknown (approximation + ships-only detection).
-- Expedition black-hole rate: **RESOLVED 2026-10-08** — the account-asymmetry (acc1 4, acc2 22) is
-  ignored by owner decision; the resolver ships the measured **0.5 %** fatal rate (locked). **RE-OPENED
-  2026-10-09**: the fresh n=772 sample measures **1.68 %** fatal (13/772; `EXPEDITIONS…` §11d) — needs
-  an owner decision whether to re-lock. The "Moa Tikarr demands surrender" text is just the **info
-  message for a pirate/alien expedition combat**, paired 1:1 with a combat report for the same
-  fleet/time (owner confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- Expedition black-hole rate: **FINAL 2026-10-09** — fatal rate re-locked to the measured **1.68 %**
+  (13/772, `EXPEDITIONS…` §11d), replacing the earlier 0.5 % (owner: 0.5 % "not dangerous enough").
+  Implemented as part of backlog item 8 / `docs/EXPEDITIONS_CALIBRATION_PLAN.md`. Account-asymmetry
+  (acc1 4, acc2 22) still ignored by owner decision. The "Moa Tikarr demands surrender" text is just
+  the **info message for a pirate/alien expedition combat**, paired 1:1 with a combat report for the
+  same fleet/time (owner confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
 - **Aliens are a total-loss risk** even for a winning comp: the enemy's single rolled W/S/A can reach
   ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
   is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.
