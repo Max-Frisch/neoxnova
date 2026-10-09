@@ -348,47 +348,139 @@ func rollExpeditionDrop(fleetPoints int64, rng *rand.Rand) int {
 	return code
 }
 
+// Cosmetic message variants, harvested from the live sys_expe_* lang strings
+// (docs/EXPEDITIONS… §10/§11). ExpeditionMessage picks one by res.Flavor.
+var (
+	expeditionResourceFlavors = []string{
+		"Our expedition discovered a small asteroid cluster and won some resources.",
+		"Some easily accessible resource fields were found on a remote planetoid.",
+		"Our expedition found an ancient freighter convoy, fully loaded but deserted.",
+		"An asteroid belt around an unknown planet contained vast amounts of raw materials.",
+	}
+	expeditionResourceEmptyFlavors = []string{
+		"Our expedition found an asteroid belt, but the cargo holds were too small to carry anything home.",
+		"Our expedition discovered a resource field, but there was no room left in the holds.",
+	}
+	expeditionShipFlavors = []string{
+		"We have discovered the remains of a predecessor expedition! Our technicians got some of the wrecks flying again.",
+		"We have found a deserted pirate base; some old ships in the hangar were still usable.",
+		"Our expedition found a planet almost completely destroyed by wars and repaired some drifting wrecks.",
+		"The expedition stumbled upon an old, abandoned starbase and retrieved some ships from its hangar.",
+		"We have found the remains of an armada and repaired some of the partly intact ships.",
+		"We have found a gigantic ship cemetery and got some of the ships operational again.",
+	}
+	expeditionShipEmptyFlavors = []string{
+		"Our expedition found the wreck of a long-lost fleet, but nothing could be salvaged.",
+	}
+	expeditionDelayFlavors = []string{
+		"Your expedition got into a sector with amplified particle storms.",
+		"The star wind of a red giant distorted the jump of the expedition.",
+		"The command ship of your expedition collided with a strange ship.",
+		"A miscalculation of the navigator landed the fleet at a completely wrong place.",
+		"The new navigation module still has a few bugs in it.",
+		"For unknown reasons the jump of the expedition fleet missed its target completely.",
+	}
+	expeditionFastFlavors = []string{
+		"An unforeseen relay in the energy coils of the drive aggregates accelerated the return of the expedition.",
+		"A daring commanding officer used an unstable wormhole as a shortcut home.",
+		"The fleet got into a solar wind on the return flight and returned a bit earlier than expected.",
+	}
+	expeditionNothingFlavors = []string{
+		"A life-form of pure energy made the crew stare at hypnotic symbols for days.",
+		"A nasty yellow fever forced most of the crew into the infirmary and the expedition failed.",
+		"Your expedition took lovely pictures of a supernova, but brought no real new knowledge.",
+		"Red anomalies of class 5 triggered massive hallucinations at the crew. Nothing else was found.",
+		"Your expedition found nothing but the vast emptiness of space.",
+		"Scans of this sector looked promising, but we came back empty-handed.",
+		"A reactor malfunction almost destroyed the expedition; the repairs cost too much time.",
+	}
+	expeditionDarkMatterFlavors = []string{
+		"Our expedition discovered an asteroid core containing dark matter.",
+		"The expedition has succeeded in capturing some dark matter.",
+		"Our expedition discovered a ghost ship that transported a small amount of dark matter.",
+		"We found the remains of an alien ship with a small container of dark matter aboard.",
+		"Our expedition succeeded in a single experiment and won dark matter from a dying star.",
+	}
+	expeditionFatalBlackHoleFlavors = []string{
+		"The expedition fleet has not returned from the hyperspace jump. The fleet seems lost for good.",
+		"A nuclear breach on one of the commanding ships destroyed the complete expedition.",
+		"The only thing left is a garbled radio message: Zzzrrt oh God!...Krrrzzzzt...",
+		"The fleet fell into a black hole and was destroyed completely.",
+	}
+	expeditionBlackHoleLootFlavor = "Your ships were drawn into a black hole; flying through it, some resources aboard became much more."
+	expeditionPirateFlavors       = []string{
+		"A space pirate in despair tried to commandeer our expedition fleet.",
+		"Some primitive barbarians attacked us with spaceships in horrible condition.",
+		"We intercepted radio messages of some very drunk pirates; we are about to be attacked.",
+		"We had to fight pirates who were fortunately outnumbered.",
+		"The expedition fleet reported heavy fights with unidentified pirate ships!",
+		"We flew into an ambush of some star pirates!",
+	}
+	expeditionAlienFlavors = []string{
+		"Your expedition fleet had an uninteresting first contact with new aliens.",
+		"Some strange ships attacked the expedition fleet without early warning!",
+		"The expedition was attacked by a small group of unknown ships!",
+		"The expedition fleet reports contact with unknown ships whose weapons are activating.",
+		"Your expedition violated the territory of a previously unknown, highly aggressive alien race.",
+		"Your expedition has come across an alien invasion fleet and reports massive battles!",
+	}
+)
+
+// expeditionFlavor picks a variant by index, wrapping (and tolerating negatives)
+// so a Flavor rolled before the catalogue grew can never panic.
+func expeditionFlavor(list []string, idx int) string {
+	if len(list) == 0 {
+		return ""
+	}
+	if idx < 0 {
+		idx = -idx
+	}
+	return list[idx%len(list)]
+}
+
 // ExpeditionMessage renders a resolved expedition as a player-facing message,
 // mirroring the live sys_expe_* taxonomy (docs/EXPEDITIONS… §10/§11). It is pure
-// so the engine can persist it verbatim and the API can serve it without the
-// client re-deriving the flavour text.
+// over ExpeditionResult (the cosmetic variant is picked by res.Flavor) so the
+// engine can persist it verbatim and the API can serve it without the client
+// re-deriving the flavour text.
 func ExpeditionMessage(res ExpeditionResult) (title, body string) {
 	switch res.Outcome {
 	case ExpeditionResources:
 		if res.Loot.Metal+res.Loot.Crystal+res.Loot.Deuterium == 0 {
-			return "Expedition", "Our expedition found an asteroid belt, but the cargo holds were too small to carry anything home."
+			return "Expedition", expeditionFlavor(expeditionResourceEmptyFlavors, res.Flavor)
 		}
-		return "Expedition: resources found", "Our expedition discovered an abandoned supply depot and recovered " +
-			formatLoot(res.Loot) + "."
+		return "Expedition: resources found", expeditionFlavor(expeditionResourceFlavors, res.Flavor) +
+			" Recovered: " + formatLoot(res.Loot) + "."
 	case ExpeditionShips:
 		if len(res.Ships) == 0 {
-			return "Expedition", "Our expedition found the wreck of a long-lost fleet, but nothing could be salvaged."
+			return "Expedition", expeditionFlavor(expeditionShipEmptyFlavors, res.Flavor)
 		}
-		return "Expedition: ships found", "Our expedition came across the remains of an ancient battlefield and recovered " +
-			formatShips(res.Ships) + "."
+		return "Expedition: ships found", expeditionFlavor(expeditionShipFlavors, res.Flavor) +
+			" Recovered: " + formatShips(res.Ships) + "."
 	case ExpeditionCombat:
-		who := "pirates"
+		intro := expeditionFlavor(expeditionPirateFlavors, res.Flavor)
 		if res.NPC == NPCAliens {
-			who = "an alien species"
+			intro = expeditionFlavor(expeditionAlienFlavors, res.Flavor)
 		}
 		if res.Combat != nil && res.Combat.Winner == "attacker" {
-			return "Expedition: battle won", "Our expedition was attacked by " + who + " and won the battle. Debris field: " +
+			return "Expedition: battle won", intro + " We won the battle. Debris field: " +
 				formatLoot(Cost{Metal: res.Combat.DebrisMetal, Crystal: res.Combat.DebrisCrystal}) + "."
 		}
-		return "Expedition: battle lost", "Our expedition encountered " + who + " and was destroyed in battle."
+		return "Expedition: battle lost", intro + " The fleet was destroyed in battle."
 	case ExpeditionDarkMatter:
-		return "Expedition: dark matter found", "Our expedition discovered an asteroid core containing dark matter."
+		return "Expedition: dark matter found", expeditionFlavor(expeditionDarkMatterFlavors, res.Flavor)
 	case ExpeditionDelay:
-		return "Expedition: delayed", "Our expedition was delayed on its way home."
+		return "Expedition: delayed", expeditionFlavor(expeditionDelayFlavors, res.Flavor) +
+			" The return is delayed."
 	case ExpeditionFastReturn:
-		return "Expedition: early return", "Our expedition caught a favourable current and will return early."
+		return "Expedition: early return", expeditionFlavor(expeditionFastFlavors, res.Flavor)
 	case ExpeditionBlackHole:
-		return "Expedition: lost", "Our expedition was swallowed by a black hole. The fleet is lost."
+		return "Expedition: lost", expeditionFlavor(expeditionFatalBlackHoleFlavors, res.Flavor)
 	case ExpeditionBlackHoleLoot:
-		return "Expedition: resources found", "Our ships were drawn into a black hole; some resources aboard became much more. Recovered: " +
-			formatLoot(res.Loot) + "."
+		return "Expedition: resources found", expeditionBlackHoleLootFlavor +
+			" Recovered: " + formatLoot(res.Loot) + "."
 	default:
-		return "Expedition", "Our expedition returned without any noteworthy findings."
+		return "Expedition", expeditionFlavor(expeditionNothingFlavors, res.Flavor)
 	}
 }
 

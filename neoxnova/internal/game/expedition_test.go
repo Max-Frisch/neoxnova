@@ -100,6 +100,19 @@ func TestExpeditionMessage(t *testing.T) {
 			t.Errorf("outcome %q produced an empty message", o)
 		}
 	}
+	// Every flavour index must map to a non-empty body for every outcome.
+	for _, o := range []ExpeditionOutcome{
+		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
+		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
+	} {
+		for f := 0; f < 40; f++ {
+			_, body := ExpeditionMessage(ExpeditionResult{Outcome: o, Flavor: f, NPC: NPCPirates})
+			if body == "" {
+				t.Fatalf("outcome %q flavour %d produced an empty body", o, f)
+			}
+		}
+	}
 	_, alien := ExpeditionMessage(ExpeditionResult{
 		Outcome: ExpeditionCombat,
 		NPC:     NPCAliens,
