@@ -156,6 +156,15 @@
    recycler count once the 20 % cap is hit; 8,544 = x=13). Details: `docs/MOONS.md`.
 5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
 6. **Full game-loop integration test** — register→…→abandon.
+7. **Stardust rare currency (small).** Randomly/rarely found on expeditions (owner: rare currency,
+   2026-10-09). Sink = the **debris-based planet/moon diameter + fields increase** (LARGE debris
+   field + 1 Stardust), the optional grind-vs-cashshop path. Scope: `game` currency constant +
+   occasional find in `RollExpedition` + store/API sink. `EXPEDITIONS…` §11e.
+8. **Expo calibration candidates from §11** (beyond combat/BH chance + pirate/alien strength %, which
+   are known): remaining outcome weights (live ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 /
+   nothing 7.9 / fast 5.1 % vs the locked product weights), type-dependent enemy **mirror** (pirate
+   0.64 vs alien 0.90), enemy **template** refinement (203/204/206/207/213 + occasional 211/215/216,
+   aliens larger), and non-fatal `blackhole-loot` as a resources flavour. Owner pick when convenient.
 
 ## Done (newest first)
 - 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
@@ -166,8 +175,8 @@
   aliens 90–202 %; loss tracks the roll, not the mirror (pirate med loss 23.9 %); (c) outcome mix
   n=772 (ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 / combat 8.9 / nothing 7.9 / fast 5.1);
   (d) **fatal BH measured 13/772 = 1.68 %** (vs owner-locked 0.5 %; 15 non-fatal blackhole-loot) —
-  owner call needed; (e) new `unknown` flavours: a **Stardust** artifact find and a "heavy fights with
-  unidentified pirate ships" combat precursor.
+  owner call needed; (e) new `unknown` flavours: **Stardust** (rare currency) and "heavy fights with
+  unidentified pirate ships" (owner: roleplay flavour of a pirate encounter, not a separate outcome).
 - 2026-10-09: **drain plan = Frigates-only even split (`frig-even-split-v3`).** `drain.mjs` now
   picks a single configured hull (`mainOrder: ["227"]`, no Battleship fallback) and divides the
   home Frigate stock **evenly over the free slots** (`per = floor(have/free)`, one fleet per open

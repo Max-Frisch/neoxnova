@@ -473,8 +473,12 @@ BH to the measured ~1.7 % or keep 0.5 % deliberately.
 ### 11e. Classifier gaps (tooling; not fixed)
 
 Still `unknown` (4): "Your fleet … came across a rare star … 1 unit of Stardust" and
-"found the destroyed ship of unknown origin … 1 unit of Stardust" (2) — a **new rare
-artifact** like the Arsenal drawings; and "reported heavy fights with unidentified
-pirate ships!" (2) — a **combat precursor** that pairs 1:1 with a fight report (same
-role as "Moa Tikarr demands surrender"). The `blackhole-loot`/`opening black hole`
-overlap in 11d is also a classifier artefact.
+"found the destroyed ship of unknown origin … 1 unit of Stardust" (2) — **Stardust**
+is a **new rare currency** (owner-confirmed 2026-10-09), randomly and rarely found on
+expeditions; it is spent on the **debris-based planet/moon diameter + fields increase
+function** (costs a LARGE debris field + 1 Stardust) — an optional grind-vs-cashshop
+path. Also "reported heavy fights with unidentified pirate ships!" (2) — owner-confirmed
+to be **roleplay flavour** telling the player a pirate encounter is happening (pairs
+1:1 with the fight report), not a separate outcome. The `blackhole-loot`/`opening
+black hole` overlap in 11d is a classifier artefact (`/opening black hole/` sits in the
+fatal `blackhole` pattern).
