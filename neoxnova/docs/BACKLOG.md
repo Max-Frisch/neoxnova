@@ -158,6 +158,14 @@
 6. **Full game-loop integration test** — register→…→abandon.
 
 ## Done (newest first)
+- 2026-10-09: **drain malformed expo fleets fixed.** `drain.mjs` built the expo set as
+  `207:<per>` then appended `...207:1...` (the sub-ship list includes Battleship 207), and
+  `httpbot.mjs cmdExpedition` keyed the form by code so the later `207:1` **clobbered** the
+  hull count. Whenever the drain fell back to Battleship, fleets flew as `1 BB + N recyclers`
+  (*battlerecs-only*) or `1 BB + 9 smalls` (*1-each-only*) — live fleets `127354`=146.544,
+  `127358`=10, `127365`=19 decode exactly. Fixed: `plan()` excludes the hull/recycler from the
+  smalls, and `cmdExpedition` sums repeated codes instead of overwriting (also protects the
+  parked `run-farm-send.sh`). `node --check` green. **Pending deploy + drain restart.**
 - 2026-10-08: **acc1 migrated to the VM; acc2 retired.** acc2 TheBob's VM tmux sessions
   (`bonus-acc2`, any leftover `farm*/farmw*/farmsend*/expharv-acc2`) were killed and its
   `plans/farm-sites.json` entry removed — acc2 is out of scope (manual-only fallback). acc1 now runs

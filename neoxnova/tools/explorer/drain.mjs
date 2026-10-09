@@ -89,7 +89,10 @@ function plan(ships, free) {
   if (nFleets < 1) return null;
   let br = Math.min(Math.max(1, Math.round(per / RECY_PER)), Math.floor((+ships[RECY] || 0) / nFleets));
   if (br < 0) br = 0;
-  const smalls = SMALL.filter((code) => (+ships[code] || 0) >= nFleets);
+  // Never duplicate the hull (or recycler) as a "1 each" small: the expo form is
+  // keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly a
+  // 1-ship/recycler-only fleet when the fallback hull is Battleship 207.
+  const smalls = SMALL.filter((code) => code !== hull && code !== RECY && (+ships[code] || 0) >= nFleets);
   const set = [`${hull}:${per}`];
   if (br > 0) set.push(`${RECY}:${br}`);
   for (const code of smalls) set.push(`${code}:1`);

@@ -1000,10 +1000,15 @@ async function cmdExpedition(shipsCsv, numArg, timeArg, speedArg, pve, cpArg) {
     exp_speed: String(speedArg || 10),
   };
   if (pve) form.pve = String(pve);
+  const counts = new Map();
   for (const pair of String(shipsCsv || '').split(',')) {
     const [c, n] = pair.split(':');
-    if (c) form['ship2' + c] = String(n);
+    if (!c) continue;
+    // Merge repeated codes instead of overwriting: a duplicate `207:1` after
+    // `207:5000` used to leave only 1 ship flying (the form key is per code).
+    counts.set(c, (counts.get(c) || 0) + (Number(n) || 0));
   }
+  for (const [c, n] of counts) form['ship2' + c] = String(n);
   const html = await postForm('page=fleetTable' + cpq, form);
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(path.join(DATA_DIR, 'expedition-send.html'), html);
