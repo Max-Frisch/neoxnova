@@ -160,11 +160,14 @@
    2026-10-09). Sink = the **debris-based planet/moon diameter + fields increase** (LARGE debris
    field + 1 Stardust), the optional grind-vs-cashshop path. Scope: `game` currency constant +
    occasional find in `RollExpedition` + store/API sink. `EXPEDITIONS…` §11e.
-8. **Expo calibration candidates from §11** (beyond combat/BH chance + pirate/alien strength %, which
-   are known): remaining outcome weights (live ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 /
-   nothing 7.9 / fast 5.1 % vs the locked product weights), type-dependent enemy **mirror** (pirate
-   0.64 vs alien 0.90), enemy **template** refinement (203/204/206/207/213 + occasional 211/215/216,
-   aliens larger), and non-fatal `blackhole-loot` as a resources flavour. Owner pick when convenient.
+8. **Expedition calibration + positive BH (next session).** Full work order with exact values:
+   `docs/EXPEDITIONS_CALIBRATION_PLAN.md` (owner-directed 2026-10-09 from §11). Covers: new outcome
+   weights (nothing 7.9 / fast 4 / ships 29.3 / resources 20.7 / DM 14.9, live-ratio fit), NPC mix
+   84:16, type-dependent enemy mirror (pirate 0.60–0.69 / alien 0.85–0.94) + strength rolls (pirates
+   skewed weaker, aliens ~same w/ rare tail), wider template bands, **DM scaling on fleet points**,
+   **rare positive "resource-multiplying" black hole** (new outcome, engine default path), and the
+   cosmetic flavour catalogue. **Blocker:** owner must pick the fatal-BH rate (live 1.68 % vs locked
+   0.5 %) before locking weights.
 
 ## Done (newest first)
 - 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
@@ -404,6 +407,8 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
+- **Expedition calibration + positive BH — full work order: `docs/EXPEDITIONS_CALIBRATION_PLAN.md`**
+  (backlog item 8). Owner already directed the values; blocker = pick the fatal-BH rate first.
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
   API (Moon base → fields), or `DESTROY_MOON`.
 - **Auto-builder Phase 4 / auto-colonize** or Phase 3 polish (UI needs a client; energy-gate
