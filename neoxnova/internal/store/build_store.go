@@ -81,6 +81,27 @@ func (s *BuildStore) techLevels(ctx context.Context, tx *sql.Tx, userID int64) (
 	return scanLevels(rows)
 }
 
+// combinedLevels merges a planet's structure levels with its owner's research
+// levels. Prerequisite checks must see both: many ships/defenses require a drive
+// or weapons technology (e.g. Light Fighter needs combustion_drive), and some
+// structures need techs too (e.g. Terraformer needs energy_tech).
+func (s *BuildStore) combinedLevels(ctx context.Context, tx *sql.Tx, planetID, userID int64) (map[string]int, error) {
+	levels, err := s.structureLevels(ctx, tx, planetID)
+	if err != nil {
+		return nil, err
+	}
+	techs, err := s.techLevels(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for code, lvl := range techs {
+		if lvl > levels[code] {
+			levels[code] = lvl
+		}
+	}
+	return levels, nil
+}
+
 // researchLabLevels returns the research-lab levels of the user's other
 // celestials (excluding the origin planet), used to compute how many labs the
 // Intergalactic Research Network connects.
@@ -118,14 +139,14 @@ func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code 
 	}
 	defer tx.Rollback()
 
-	_, _, fieldsUsed, fieldsMax, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
+	userID, _, fieldsUsed, fieldsMax, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return QueueResult{}, ErrNotFound
 	} else if err != nil {
 		return QueueResult{}, err
 	}
 
-	levels, err := s.structureLevels(ctx, tx, planetID)
+	levels, err := s.combinedLevels(ctx, tx, planetID, userID)
 	if err != nil {
 		return QueueResult{}, err
 	}
@@ -197,14 +218,14 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 	}
 	defer tx.Rollback()
 
-	_, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
+	userID, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return QueueResult{}, ErrNotFound
 	} else if err != nil {
 		return QueueResult{}, err
 	}
 
-	levels, err := s.structureLevels(ctx, tx, planetID)
+	levels, err := s.combinedLevels(ctx, tx, planetID, userID)
 	if err != nil {
 		return QueueResult{}, err
 	}
@@ -367,9 +388,12 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner, &objectType); err != nil {
 		return err
 	}
+	// A planet that has never built a solar satellite has no row here, so wrap
+	// the lookup in a sub-select: COALESCE over a missing row still yields zero
+	// rows and would fail the scans below.
 	var satCount int
 	if err := tx.QueryRowContext(ctx, `
-		SELECT COALESCE(quantity, 0) FROM planet_ships WHERE celestial_id = $1 AND ship_code = '212'
+		SELECT COALESCE((SELECT quantity FROM planet_ships WHERE celestial_id = $1 AND ship_code = '212'), 0)
 	`, celestialID).Scan(&satCount); err != nil {
 		return err
 	}

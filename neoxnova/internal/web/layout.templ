@@ -2,6 +2,7 @@ package web
 
 import (
 	"strconv"
+	"strings"
 
 	"neoxnova/internal/models"
 )
@@ -14,12 +15,13 @@ templ Layout(s Shell) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="dark"/>
 			<title>{ s.Title } · Neo-XNova</title>
 			<link rel="stylesheet" href="/static/app.css"/>
 			<script src="/static/htmx.min.js"></script>
 		</head>
-		<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
-			<header class="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+		<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-100 antialiased">
+			<header class="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/80 shadow-lg shadow-black/20 backdrop-blur">
 				<div class="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
 					<a href="/" class="text-lg font-bold text-cyan-400">Neo-XNova</a>
 					if s.ActivePlanetID != 0 {
@@ -56,10 +58,14 @@ templ Layout(s Shell) {
 			</header>
 			<main class="mx-auto max-w-6xl px-4 py-6">
 				if s.Flash != "" {
-					<div class="mb-4 rounded border border-emerald-700 bg-emerald-900/40 px-3 py-2 text-sm text-emerald-200">{ s.Flash }</div>
+					<div role="status" class="mb-4 flex items-center gap-2 rounded-lg border border-emerald-700/60 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200 shadow-sm">
+						<span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400"></span>{ s.Flash }
+					</div>
 				}
 				if s.Error != "" {
-					<div class="mb-4 rounded border border-rose-700 bg-rose-900/40 px-3 py-2 text-sm text-rose-200">{ s.Error }</div>
+					<div role="alert" class="mb-4 flex items-center gap-2 rounded-lg border border-rose-700/60 bg-rose-900/30 px-3 py-2 text-sm text-rose-200 shadow-sm">
+						<span class="h-2 w-2 shrink-0 rounded-full bg-rose-400"></span>{ s.Error }
+					</div>
 				}
 				{ children... }
 			</main>
@@ -68,7 +74,17 @@ templ Layout(s Shell) {
 }
 
 templ navLink(s Shell, label, href string) {
-	<a href={ templ.URL(href) } class="hover:text-cyan-400">{ label }</a>
+	<a href={ templ.URL(href) } class={ navClass(s, label) }>{ label }</a>
+}
+
+// navClass highlights the nav item for the current page. Page titles start with
+// the nav label (e.g. "Galaxy 1:1"), so a prefix match is enough.
+func navClass(s Shell, label string) string {
+	base := "rounded-md px-2.5 py-1 transition-colors "
+	if strings.HasPrefix(s.Title, label) {
+		return base + "bg-cyan-900/40 font-medium text-cyan-300"
+	}
+	return base + "text-slate-300 hover:bg-slate-800/70 hover:text-cyan-300"
 }
 
 templ ResourceBar(s Shell) {
