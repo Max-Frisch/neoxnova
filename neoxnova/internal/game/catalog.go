@@ -180,7 +180,7 @@ var Ships = buildUnits([]UnitDef{
 	{Code: "225", Name: "Galleon", BaseCost: Cost{Metal: 900000, Crystal: 700000, Deuterium: 200000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "226", Name: "Destroyer", BaseCost: Cost{Metal: 3000000, Crystal: 2000000, Deuterium: 200000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "227", Name: "Frigate", BaseCost: Cost{Metal: 30000000, Crystal: 10000000, Deuterium: 2000000}, Requires: map[string]int{"shipyard": 1}},
-	{Code: "228", Name: "Black Wanderer", BaseCost: Cost{}, Requires: map[string]int{"shipyard": 1}},
+	{Code: "228", Name: "Black Wanderer", BaseCost: Cost{Metal: 80000000, Crystal: 40000000, Deuterium: 7000000}, Requires: map[string]int{"shipyard": 1}},
 })
 
 // Defenses is the static catalog of defensive units, keyed by server numeric code.
