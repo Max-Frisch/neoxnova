@@ -112,9 +112,9 @@ matches exactly.
 | 11 | Jet engine | engine (light) | +0.6 | `combustion` |
 | 12 | Impulse engine | engine (med) | +0.5 | ? |
 | 13 | Hyperspace engine | engine (heavy) | +0.4 | ? |
-| 14 | Light conveyor | conveyor | +0.6 | ? |
-| 15 | Average conveyor | conveyor | +0.5 | ? |
-| 16 | Heavy conveyor | conveyor | +0.4 | ? |
+| 14 | Light conveyor | conveyor | +0.6 | `l_conveyer` |
+| 15 | Average conveyor | conveyor | +0.5 | `m_conveyer` |
+| 16 | Heavy conveyor | conveyor | +0.4 | `h_conveyer` |
 | 17 | Metal production | production | +0.5 | ? |
 | 18 | Crystal production | production | +0.45 | ? |
 | 19 | Deuterium production | production | +0.4 | ? |
@@ -192,8 +192,9 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 
 > **DONE 2026-10-07** (first three): `parseArsenalPage`/`parseMarketLots` in `parse.mjs`,
 > `httpbot.mjs arsenal|market|activate|sell` (activate/sell dry-run unless `--go`, verified
-> against `data/_live_page_arsenal.html` / `_live_page_market.html`). The `greid` enumeration
-> still needs an owned drawing of each type.
+> against `data/_live_page_arsenal.html` / `_live_page_market.html`). **greid:** `combustion`
+> (11) + `l_conveyer`/`m_conveyer`/`h_conveyer` (14/15/16, 2026-10-09); the rest await an owned
+> drawing.
 
 ## 5. Open questions / risks
 - ~~Confirm **5k/50k/250k** semantics (type pool vs chance vs both).~~ **Resolved 2026-10-07:**
@@ -282,18 +283,29 @@ Worked checks: light L6 -> 144/s fleet, 1728/s defense; medium L5 -> 60/s, 660/s
 main light L15 -> 360/s, 5040/s; heavy L1 -> 2/s fleet and 20/s defense (Photon
 Cannon, owner-measured L1–4 = 20/44/66/88, matching `2L·k(L)`).
 
-**Still unmodelled:** how the Arsenal conveyor upgrades (14/15/16) fold in — no
-items are owned yet to live-verify the output. Mechanism owner-confirmed (below):
-an additive percent on the total conveyor output.
+**Conveyor upgrades (14/15/16) — live-verified 2026-10-09 (acc1).** acc1 owned one of each
+(`httpbot arsenal`: `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`). Activated all three
+(level 0, first 10 ⇒ 100% success): bonus went `0 → 0.6 / 0.5 / 0.4`. Before/after the shipyard +
+defense "Building: N per second" on main `1593` (L71=15, L72=13, L73=12), the **effective** rate
+increase was only ~**half** the advertised percent:
 
-Conveyor heavy-defense check (2026-10-07, after 109/110/111 reached 18/17/18):
-Photon Cannon unlocked; 1593 (73=10) -> 260/s, 1695 (73=5) -> 110/s, matching
-`2·L·k(L)`. Conveyor upgrades (14 Light +0.6, 15 Average +0.5, 16 Heavy +0.4 %/level)
-are **added to the total conveyor output percent** — the same percent sum as the
-monthly premium / cashshop `+x%` bonuses (owner-confirmed). It is a running sum:
-one Average activation = +0.5 %, ten = +5 %; the rate is `base × (1 + total/100)`
-(e.g. 200/s with +0.5 % → 201/s). The magnitude is still unverified live (no items
-owned), but the accumulation semantics are confirmed.
+| guessed class | sample (defense) | before → after | effective |
+|---|---|---:|---:|
+| light (+0.6 nominal) | 401/402 Missile/Light Laser | 5880 → 5898 | +0.31 % |
+| light | 403 Heavy Laser Turret | 9604 → 9633 | +0.30 % |
+| average (+0.5) | 404/405 Gauss/Ion | 3744 → 3753 | +0.24 % |
+| average | 416/417 Hydrogen/Dora | 3172 → 3180 | +0.25 % |
+| heavy (+0.4) | 418 Photon Cannon | 624 → 625 | +0.16 % |
+
+Ships behaved the same (light 202–205 420→421; average 206/209/211/213/215/217 266→267, 207
+326→327, 219 222→223; heavy 214/216/225–228 stayed 48, 227 stayed 76 — too small to show +0.2 %).
+The class map is therefore **confirmed by the deltas**: light `202,203,204,205,212` + `401,402,403`;
+average `206,207,209,211,213,215,217,219` + `404,405,406,416,417` **and `502,503`**; heavy
+`214,216,225,226,227,228` + `418`. Additive-percent semantics (owner-confirmed) still hold, but the
+*total* conveyor-bonus pool already carried ~+100 %, which halves the visible effect — the Go model
+(no premium) applies the full percent, so it over-states the live `acc1` gain ~2×. **Open:** what the
+pre-existing pool is (peaceful-level tooltip only shows flat `+4/+1/+1 units/s` factories), and
+whether a bonus-free account also sees the halving.
 
 ---
 
