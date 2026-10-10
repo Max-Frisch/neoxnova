@@ -177,6 +177,9 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **acc1 colony goal raised again (7 colonies).** `plans/acc1-colo-grow.json`: Research Lab
+  `31` 18→20 and `caps` mines metal 43→45 / crystal 41→44 / deut 38→41 (mines 1/2/3 are in `gradual`,
+  +1 per cycle). Running `colo-1835..1841` daemons re-read the plan each resolve pass.
 - 2026-10-10: **drain BT set to a flat 1 per fleet ("at least 1 each").** The acc1 BT stock is far
   below the 8-per-Frigate ratio, so some expo fleets flew with 0 Battle Transporters (`share()` clamps
   to `floor(home/nFleets)`). `plans/farm-sites.json > acc1.drain` now uses `transporterPerFleet: 1`
