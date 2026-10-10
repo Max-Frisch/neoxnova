@@ -177,6 +177,12 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **drain BT set to a flat 1 per fleet ("at least 1 each").** The acc1 BT stock is far
+  below the 8-per-Frigate ratio, so some expo fleets flew with 0 Battle Transporters (`share()` clamps
+  to `floor(home/nFleets)`). `plans/farm-sites.json > acc1.drain` now uses `transporterPerFleet: 1`
+  instead of `transporterPerHull: 8`; `drain.mjs` honours it (one BT per fleet while the stock lasts)
+  so every expedition carries a BT for the fleet-find rolls. Running `drain-acc1` needs a restart to
+  pick it up (config read at startup). PLAN_VERSION unchanged (`frig-split-v5`).
 - 2026-10-10: **acc1 colony "done" state raised (7 colonies).** `plans/acc1-colo-grow.json` caps
   bumped one level each — metal 42→43 / crystal 40→41 / deut 37→38 — and shipyard `21` 16→18, so the
   7 newest colonies (tmux `colo-1835..1841`) keep growing one more mine level and unlock the yard.

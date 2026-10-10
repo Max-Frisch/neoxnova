@@ -20,7 +20,7 @@
       "recycler": "219",
       "recyclerPerHull": 0.56,
       "transporter": "217",
-      "transporterPerHull": 8,
+      "transporterPerFleet": 1,
       "intervalSec": 30,
       "speed": 10,
       "time": 1

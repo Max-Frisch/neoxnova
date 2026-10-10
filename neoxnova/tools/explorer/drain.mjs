@@ -44,6 +44,10 @@ const TRANS = String(d.transporter || (c.comp && c.comp.transporter) || '217');
 const TRANS_PER_HULL = d.transporterPerHull != null
   ? Number(d.transporterPerHull)
   : 1 / Math.max(1, Number(d.transporterPer || 25));
+// Flat per-fleet count ("at least 1 each"): when the account is too BT-poor to
+// meet a ratio, still put one Battle Transporter in every fleet so the expo
+// fleet-find rolls can yield them. Overrides the ratio when set.
+const TRANS_PER_FLEET = d.transporterPerFleet != null ? Number(d.transporterPerFleet) : null;
 const SLOT_FALLBACK = Math.max(1, Number(d.slots || c.slots || 9));
 const EVERY = Math.max(5, Number(d.intervalSec || 30)) * 1000;
 const SPEED = String(Math.max(1, Math.min(10, Number(d.speed || 10))));
@@ -113,7 +117,9 @@ function plan(ships, free) {
   const nFleets = free;
   if (per < 1) return null; // fewer hulls home than free slots; wait for returns
   const br = share(per, RECY_PER_HULL, ships[RECY], nFleets);
-  const bt = share(per, TRANS_PER_HULL, ships[TRANS], nFleets);
+  const bt = TRANS_PER_FLEET != null
+    ? Math.min(Math.max(1, Math.round(TRANS_PER_FLEET)), Math.floor((+ships[TRANS] || 0) / nFleets))
+    : share(per, TRANS_PER_HULL, ships[TRANS], nFleets);
   // Never duplicate the hull or an auxiliary as a "1 each" small: the expo form
   // is keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly
   // a 1-ship/aux-only fleet when the hull code is also in the small set.
@@ -127,7 +133,7 @@ function plan(ships, free) {
 
 async function main() {
   fs.mkdirSync(DATA, { recursive: true });
-  log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} ${RECY_PER_HULL}/hull trans=${TRANS} ${TRANS_PER_HULL}/hull every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
+  log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} ${RECY_PER_HULL}/hull trans=${TRANS} ${TRANS_PER_FLEET != null ? `${TRANS_PER_FLEET}/fleet` : `${TRANS_PER_HULL}/hull`} every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
   for (;;) {
     try {
       const { active, slots } = expState();
