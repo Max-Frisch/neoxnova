@@ -27,8 +27,10 @@ const c = cfgAll[acc] || {};
 const d = c.drain || {};
 if (!d.enabled) { console.error(`[drain] ${acc}: drain.enabled is not true`); process.exit(1); }
 
-const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226'];
-const PLAN_VERSION = 'frig-split-v5';
+// One of each "weak" su—the sub-hull ships plus a Frigate (227), excluding the
+// Black Moon (216) and the current hull/aux (filtered in plan()).
+const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226', '227'];
+const PLAN_VERSION = 'bwlean-split-v6';
 
 const MAIN_CP = String(d.mainCp || c.mainCp);
 const MAIN_COORDS = String(d.mainCoords || c.mainCoords);
@@ -49,6 +51,9 @@ const TRANS_PER_HULL = d.transporterPerHull != null
 // fleet-find rolls can yield them. Overrides the ratio when set.
 const TRANS_PER_FLEET = d.transporterPerFleet != null ? Number(d.transporterPerFleet) : null;
 const SLOT_FALLBACK = Math.max(1, Number(d.slots || c.slots || 9));
+// Fraction of the home hull stock actually split across the fleets (leaves a
+// small buffer home). Default 1; config `hullSplitFrac` (e.g. 0.97).
+const SPLIT_FRAC = d.hullSplitFrac != null ? Math.min(1, Math.max(0, Number(d.hullSplitFrac))) : 1;
 const EVERY = Math.max(5, Number(d.intervalSec || 30)) * 1000;
 const SPEED = String(Math.max(1, Math.min(10, Number(d.speed || 10))));
 const TIME = String(Math.max(1, Math.min(10, Number(d.time || 1))));
@@ -97,6 +102,7 @@ function pickHull(ships) {
 // `floor(home / nFleets)` — the sender stays honest as the auxiliary stock is
 // attrited. Returns 0 when nothing is home (the fleet just flies without it).
 function share(hullPerFleet, perHull, home, nFleets) {
+  if (!(perHull > 0)) return 0; // ratio of 0 disables the auxiliary entirely
   const want = Math.max(1, Math.round(hullPerFleet * perHull));
   const avail = Math.floor((+home || 0) / nFleets);
   return Math.max(0, Math.min(want, avail));
@@ -113,9 +119,11 @@ function plan(ships, free) {
   const hull = pickHull(ships);
   if (!hull) return null;
   const have = +ships[hull] || 0;
-  const per = Math.floor(have / free);
+  // Split only SPLIT_FRAC of the home stock (default 100%), floored so no
+  // fractional ships; the remainder stays home as a buffer.
+  const per = Math.floor((have * SPLIT_FRAC) / free);
   const nFleets = free;
-  if (per < 1) return null; // fewer hulls home than free slots; wait for returns
+  if (per < 1) return null; // not enough hulls home for a full share; wait
   const br = share(per, RECY_PER_HULL, ships[RECY], nFleets);
   const bt = TRANS_PER_FLEET != null
     ? Math.min(Math.max(1, Math.round(TRANS_PER_FLEET)), Math.floor((+ships[TRANS] || 0) / nFleets))

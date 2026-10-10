@@ -16,11 +16,12 @@
     },
     "drain": {
       "enabled": true,
-      "mainOrder": ["227"],
+      "mainOrder": ["228"],
       "recycler": "219",
-      "recyclerPerHull": 0.56,
+      "recyclerPerHull": 0.5,
       "transporter": "217",
-      "transporterPerFleet": 1,
+      "transporterPerHull": 0,
+      "hullSplitFrac": 0.97,
       "intervalSec": 30,
       "speed": 10,
       "time": 1
