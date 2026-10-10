@@ -102,12 +102,15 @@
    `httpbot card`/`cards`), weapon/armor/shield folded additively into the tech bonus
    (`DerivedStatBonus`), production 17/18/19 into `RecomputeProduction`, engine 11/12/13 into
    `FleetMaxSpeed`; resolver/`RecomputeCelestial`/`Dispatch` load `account_upgrades` and activation
-   recomputes planets. OPEN: conveyor 14–16 — building 71/72/73 effect now measured
-   (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7: fleet `unitRate·L`, defense `·k(L)`,
-   k=10+⌊(L+2)/4⌋); the upgrade folds in as a running additive percent on the total conveyor output
-   (one Average +0.5%, ten = +5%) — semantics owner-confirmed 2026-10-07, only the live magnitude
-   unverified (no items owned);
-   (d) `greid` keys for upgrades other than `combustion`; (e) `httpbot arsenal|market|activate|sell`
+   recomputes planets. **Conveyor 14–16 magnitude MEASURED live 2026-10-09** (acc1 owned one of
+   each; activated at level 0 ⇒ 100%): advertised +0.6/+0.5/+0.4 % gave only ~**half** effective
+   (~+0.30/+0.25/+0.20 % on the factory "per second", main 1593) — the upgrade % is additive into an
+   existing total conveyor-bonus pool that already sits ~+100 % (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md`
+   §7). Class map confirmed by the deltas (light 202–205/212/401–403; avg 206/207/209/211/213/215/217/219/
+   404–406/416/417 + **502/503**; heavy 214/216/225–228/418). OPEN: what the pre-existing pool is (peaceful
+   tooltip shows only flat `+4/+1/+1 units/s`) and whether a bonus-free account also halves;
+   (d) `greid` keys for upgrades other than `combustion` — PARTIAL 2026-10-09: conveyor keys
+   found (`l_conveyer`/`m_conveyer`/`h_conveyer`); (e) `httpbot arsenal|market|activate|sell`
    — DONE 2026-10-07 (`parseArsenalPage`/`parseMarketLots` + the four commands, dry unless `--go`).
 1d. **Combat bonus model — per-weapon techs** — DONE 2026-10-07. `combat.go` `DerivedAttack`
    walks each unit's card weapon components: per component `base·(1+(weaponTech+arsenalWeapon)/100)`
@@ -174,6 +177,28 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **web end-to-end test + two build-store bug fixes.** New
+  `internal/web/e2e_integration_test.go` drives the server-rendered UI end to end through the real
+  HTML forms (`httptest` + cookie jar) against a new **fast sandbox universe**
+  (`migrations/0016_test_universe.sql`: `universe_test`, 50000× rates, two seeded neighbours
+  `webtest_a`/`webtest_b`, password `commander-dev-pass`, wired into `make migrate`). The in-process
+  durable scheduler resolves builds, shipyard, research, espionage, transport+recall, attack and
+  colonize; the test asserts overview/buildings/shipyard/research/fleet/galaxy/reports and resets the
+  sandbox first, so it is repeatable. Skipped unless `DATABASE_URL` is set and 0016 is applied.
+  The loop uncovered and fixed two latent `internal/store/build_store.go` bugs: (a) `RecomputeCelestial`
+  used `SELECT COALESCE(quantity,0) … WHERE …`, which returns **no rows** when a planet never built a
+  solar satellite → every build failed to recompute (sub-select fix); (b) `EnqueueStructure`/
+  `EnqueueShipyard` checked prerequisites against **structure levels only**, so any tech-gated ship or
+  defense (e.g. Light Fighter → `combustion_drive`) always returned "prerequisites not met" (new
+  `combinedLevels` merges the owner's research). Shell polish: active-nav highlight, nicer
+  status/alert boxes, subtle depth gradient. `go test ./...` green hermetic and with `DATABASE_URL`.
+- 2026-10-09: **Arsenal conveyor upgrades activated + magnitude measured (acc1).** Owned one of each
+  (expedition finds). `httpbot arsenal` verified `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`;
+  activated all three → bonus `0.6/0.5/0.4` (100% at level 0). Before/after shipyard + defense
+  "Building: N per second" on main `1593`: effective increase is only ~**half** the advertised %
+  (light def 401 5880→5898, avg def 404 3744→3753, heavy def 418 624→625). Class map confirmed
+  (incl. 502/503 in average). Pre-existing ~+100% conveyor-bonus pool suspected; uncertain. Docs
+  `ARSENAL_UPGRADES_IMPLEMENTATION.md` §2 (greid) / §7 (measurement).
 - 2026-10-09: **playable web UI + account onboarding (big).** Core+ PvP/expo scope; moons deferred.
   - **Onboarding:** registration now creates a homeworld **atomically** (`AuthStore.CreateUser` returns
     `(userID, planetID)`): random galaxy `1..max_galaxies`, system `1..499`, position band `6..16`,
@@ -456,6 +481,10 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
+- **Rebuild the acc1 Frigate line (from §12d).** Stay on Frigate 227 (do not switch hulls);
+  scrape crystal by scrapping the dead free stockpile (LF/LC/HF) via the ship trader, then
+  rebuild Frigates. Optionally set `drain.mainOrder` → `["227","207","215","213","206"]` as a
+  burnable interim so slots don't idle. Keep 109/110/111 at floor.
 - **Stardust rare currency (item 7)**: `game` currency constant + occasional find in `RollExpedition`
   + the debris-based planet/moon diameter/fields sink (`EXPEDITIONS…` §11e).
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
