@@ -118,6 +118,16 @@ type Combatant struct {
 	// AcademyDamagePct is a legacy flat attack bonus (kept for callers that only
 	// have an aggregate figure). Prefer Academy.
 	AcademyDamagePct float64
+	// AcademyShieldPct / AcademyHullPct are the flat defence-branch academy
+	// bonuses (e.g. Defensive strategy +18%, Defence class A +5%, Weapons Class A
+	// -8% shields/armour): an additive percent folded into the same shield/hull
+	// bonus pool as the general research and Arsenal.
+	AcademyShieldPct float64
+	AcademyHullPct   float64
+	// AcademyRFReductionPct reduces the rapid fire THIS side suffers (academy
+	// "Heavy Armour: -X% destruction of rapid fire"), applied to an attacker's
+	// rapid-fire quota aimed at this side.
+	AcademyRFReductionPct float64
 	// FlatBonusPct is a single additive percent applied to attack, shield and
 	// hull alike. Expedition NPCs (Pirates/Aliens) mirror the player's fleet but
 	// their combat report shows ONE rolled Weapons/Shield/Armour value on all
@@ -303,6 +313,9 @@ type combatInstance struct {
 
 type combatSide struct {
 	instances []*combatInstance
+	// rfReduction is the percent by which this side reduces incoming rapid fire
+	// (academy "Heavy Armour").
+	rfReduction float64
 }
 
 func (s *combatSide) removeAt(i int) {
@@ -314,7 +327,7 @@ func (s *combatSide) removeAt(i int) {
 func isShipCode(code string) bool { return len(code) == 3 && code[0] == '2' }
 
 func buildSide(c Combatant) (*combatSide, SideReport) {
-	side := &combatSide{}
+	side := &combatSide{rfReduction: c.AcademyRFReductionPct}
 	report := SideReport{Initial: map[string]int64{}, Lost: map[string]int64{}, Remaining: map[string]int64{}}
 	// Iterate codes in a stable order so a given seed always produces the same
 	// battle regardless of Go's randomised map iteration.
@@ -336,8 +349,8 @@ func buildSide(c Combatant) (*combatSide, SideReport) {
 		ct := &combatType{
 			code:   code,
 			attack: DerivedAttack(stats.Attack, classes, c),
-			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))+c.FlatBonusPct),
-			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))+c.FlatBonusPct),
+			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))+c.FlatBonusPct+c.AcademyShieldPct),
+			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))+c.FlatBonusPct+c.AcademyHullPct),
 			isShip: isShipCode(code),
 		}
 		if c.FlatBonusPct != 0 {
@@ -454,7 +467,14 @@ func shoot(s *combatInstance, targets *combatSide, rng *rand.Rand, lost map[stri
 		}
 		t, killed := hit(s, targets, rng, lost, res)
 		if i == 0 {
-			if rf := rapidFire[s.def.code][t.def.code]; rf > shots {
+			rf := rapidFire[s.def.code][t.def.code]
+			if rf > 0 && targets.rfReduction > 0 {
+				rf -= int(math.Round(float64(rf) * targets.rfReduction / 100.0))
+				if rf < 1 {
+					rf = 1
+				}
+			}
+			if rf > shots {
 				shots = rf
 			}
 		}

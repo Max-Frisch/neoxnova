@@ -177,6 +177,22 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **Frigate 227 vs Black Wanderer 228 — full player bonus stack vs a base+research-only
+  enemy (decision: STAY ON FRIGATE).** Extended `game.Combatant` with academy layers the engine
+  lacked (`AcademyShieldPct`, `AcademyHullPct`, `AcademyRFReductionPct`; zero-default,
+  backward-compatible; `go test/vet ./internal/game` green) so the sim can include: Arsenal
+  (laser 1.5 / ion 3 / plasma 5.25 / grav 2.25 / heavy armor 0.8 / heavy shield 0.4 %), academy flat
+  atk +26 % (Weaponry19+ClassA16+Empire1−DefClassA10), shield +16 %, hull +14 %, Heavy Armour 1308
+  −16 % enemy RF, plus 1103/1109 procs. Enemy = base + ONE rolled general W/S/A (the existing
+  `FlatBonusPct` mirror; no specific/Arsenal/academy). Results: **normal fights (pirate/alien-med)
+  both hulls win at <2 % loss (BW marginally lower, 0.0–0.5 % vs 0.7–1.7 %); at the alien tail
+  Frigate is clearly more resilient — 2.2×: 5.3 % vs 7.0 %, 2.5×: 8.8 % vs 19.2 %, 3.0×: 80 % vs
+  99.5 %.** BW still wins an equal-point head-to-head 0/60 for Frigate and shreds a 227/BR/BT plan
+  (Frigate has no RF vs BR 219; BW RF 10). Crystal economy decides it: Frigate 4.0 fleet-pts/crystal
+  vs BW 3.0 (+33 %). Live battle-sim cross-check: per-unit stats match the engine exactly; the
+  simulator is one random sample per call and bimodal at the tail, and it does NOT expose the flat
+  academy skills (1101/1102/1211/1301/1302), so it understates the player. Caveats: flat-atk stacking
+  (additive vs multiplicative) unverified; 1108/1110/1111/1303/1311 still unmodelled. See session.
 - 2026-10-10: **acc1 colony goal raised again (7 colonies).** `plans/acc1-colo-grow.json`: Research Lab
   `31` 18→20 and `caps` mines metal 43→45 / crystal 41→44 / deut 38→41 (mines 1/2/3 are in `gradual`,
   +1 per cycle). Running `colo-1835..1841` daemons re-read the plan each resolve pass.
