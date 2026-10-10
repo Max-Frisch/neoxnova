@@ -10,7 +10,7 @@
   `run-drain.sh` (config `plans/farm-sites.json > acc1.drain`, log `data/drain-acc1.log`) and
   `bonus-acc1` = `run-bonus.sh` (clicks the Online Bonus page). It keeps every slot busy with main hull
   Frigate `227` (fallback Battleship `207` once home Frigates < `minFleetPoints`=5000 ≈125) + `219` at
-  1:20 + 1 of each sub-Frigate ship while on main (Black Moon `216` dropped). Per-fleet size AND fleet
+  0.56/hull + `217` at 8/hull + 1 of each sub-Frigate ship while on main (Black Moon `216` dropped). Per-fleet size AND fleet
   count auto-scale to the home fleet, so it never stalls as ships are lost. DRY: `node drain.mjs acc1 --dry`.
 - **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** The legacy build/pool/send loops
   (`run-farm-*.sh`, `run-farm.ps1`) are PARKED (not running). Shipyard = `Building: N per second`
@@ -177,6 +177,14 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **acc1 drain comp aligned to TheBob's expo ratio (configured, not yet relaunched).**
+  Two live Hall-of-Fame reports (Aliens + Pirates) show one fixed attacking template — **50,000 Frigates
+  `227` + 400,000 Battle Transporters `217` + 28,000 Battle Recyclers `219`**, i.e. **8 BT + 0.56 BR per
+  Frigate** (BT:BR:Frig = 100:7:12.5). `drain.mjs` now takes the ratio directly as *units per hull*
+  (`recyclerPerHull`=0.56, `transporterPerHull`=8 in `plans/farm-sites.json > acc1.drain`), keeping the
+  legacy one-per-N `recyclerPer`/`transporterPer` as fallback; `share()` is `round(hull×perHull)`, min 1
+  (so one BR still triggers debris collection) and clamped to the even home share. Running `drain-acc1`
+  keeps the old ratio until restarted (expos deliberately **not** relaunched). BT 400M / BR 200M cargo.
 - 2026-10-10: **acc1 7 newest colonies put on the colony builder (live).** Launched one detached
   `run-one-colony.sh <cp> plans/acc1-colo-grow.json` daemon per new colony on the VM (`azure-bot`,
   tmux `colo-1835..1841` = KB `3:127:9/10`, `3:128:10`, `3:129:9/10`, `3:130:9`, `3:131:9`). Rewrote

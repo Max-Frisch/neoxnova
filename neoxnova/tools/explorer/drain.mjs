@@ -28,15 +28,22 @@ const d = c.drain || {};
 if (!d.enabled) { console.error(`[drain] ${acc}: drain.enabled is not true`); process.exit(1); }
 
 const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226'];
-const PLAN_VERSION = 'frig-split-v4-brbt';
+const PLAN_VERSION = 'frig-split-v5';
 
 const MAIN_CP = String(d.mainCp || c.mainCp);
 const MAIN_COORDS = String(d.mainCoords || c.mainCoords);
 const ORDER = (d.mainOrder || ['227']).map(String);
 const RECY = String(d.recycler || (c.comp && c.comp.recycler) || '219');
-const RECY_PER = Math.max(1, Number(d.recyclerPer || 5));
+// Units of each auxiliary per hull in a sent fleet. Give the ratio directly with
+// `recyclerPerHull`/`transporterPerHull` (e.g. 0.56 = 0.56 BR per Frigate), or the
+// legacy one-per-N divisor (`recyclerPer`/`transporterPer`, e.g. 5 = 1 BR per 5 hulls).
+const RECY_PER_HULL = d.recyclerPerHull != null
+  ? Number(d.recyclerPerHull)
+  : 1 / Math.max(1, Number(d.recyclerPer || 5));
 const TRANS = String(d.transporter || (c.comp && c.comp.transporter) || '217');
-const TRANS_PER = Math.max(1, Number(d.transporterPer || 25));
+const TRANS_PER_HULL = d.transporterPerHull != null
+  ? Number(d.transporterPerHull)
+  : 1 / Math.max(1, Number(d.transporterPer || 25));
 const SLOT_FALLBACK = Math.max(1, Number(d.slots || c.slots || 9));
 const EVERY = Math.max(5, Number(d.intervalSec || 30)) * 1000;
 const SPEED = String(Math.max(1, Math.min(10, Number(d.speed || 10))));
@@ -81,11 +88,12 @@ function pickHull(ships) {
 }
 
 // Even share of a home stock across the fleets being sent: the dynamic ratio
-// wants `Math.round(per / divisor)` (at least 1) but never promises more than
+// wants `Math.round(hullPerFleet * perHull)` (at least 1, so a single unit still
+// flies to trigger debris collection) but never promises more than
 // `floor(home / nFleets)` — the sender stays honest as the auxiliary stock is
 // attrited. Returns 0 when nothing is home (the fleet just flies without it).
-function share(per, divisor, home, nFleets) {
-  const want = Math.max(1, Math.round(per / divisor));
+function share(hullPerFleet, perHull, home, nFleets) {
+  const want = Math.max(1, Math.round(hullPerFleet * perHull));
   const avail = Math.floor((+home || 0) / nFleets);
   return Math.max(0, Math.min(want, avail));
 }
@@ -95,8 +103,8 @@ function share(per, divisor, home, nFleets) {
 // fleets — never one mega-fleet, never a 1-ship/aux-only fleet. Any remainder
 // (< free) stays home for the next cycle. The recycler/transporter counts are
 // dynamic: scaled off the per-fleet hull count and clamped to the even share of
-// the home stock (BR ~ 1/5 hull, BT ~ 1/25 hull by default; config
-// `recyclerPer` / `transporterPer`).
+// the home stock (config `recyclerPerHull`/`transporterPerHull`, or the legacy
+// one-per-N `recyclerPer`/`transporterPer`).
 function plan(ships, free) {
   const hull = pickHull(ships);
   if (!hull) return null;
@@ -104,8 +112,8 @@ function plan(ships, free) {
   const per = Math.floor(have / free);
   const nFleets = free;
   if (per < 1) return null; // fewer hulls home than free slots; wait for returns
-  const br = share(per, RECY_PER, ships[RECY], nFleets);
-  const bt = share(per, TRANS_PER, ships[TRANS], nFleets);
+  const br = share(per, RECY_PER_HULL, ships[RECY], nFleets);
+  const bt = share(per, TRANS_PER_HULL, ships[TRANS], nFleets);
   // Never duplicate the hull or an auxiliary as a "1 each" small: the expo form
   // is keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly
   // a 1-ship/aux-only fleet when the hull code is also in the small set.
@@ -119,7 +127,7 @@ function plan(ships, free) {
 
 async function main() {
   fs.mkdirSync(DATA, { recursive: true });
-  log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} 1:${RECY_PER} every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
+  log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} ${RECY_PER_HULL}/hull trans=${TRANS} ${TRANS_PER_HULL}/hull every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
   for (;;) {
     try {
       const { active, slots } = expState();

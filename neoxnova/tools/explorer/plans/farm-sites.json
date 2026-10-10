@@ -18,9 +18,9 @@
       "enabled": true,
       "mainOrder": ["227"],
       "recycler": "219",
-      "recyclerPer": 5,
+      "recyclerPerHull": 0.56,
       "transporter": "217",
-      "transporterPer": 25,
+      "transporterPerHull": 8,
       "intervalSec": 30,
       "speed": 10,
       "time": 1
