@@ -482,3 +482,106 @@ to be **roleplay flavour** telling the player a pirate encounter is happening (p
 1:1 with the fight report), not a separate outcome. The `blackhole-loot`/`opening
 black hole` overlap in 11d is a classifier artefact (`/opening black hole/` sits in the
 fatal `blackhole` pattern).
+
+## 12. Fresh review after the burn-down (2026-10-10, acc1) — dashboard
+
+Re-harvested the VM (`expeditions.json` n=873 outcomes, `expedition-reports.json` 198,
+`expedition-runs.json` 1458) over **06 Oct 12:01 → 09 Oct 15:30** (server UTC+3). Rendered
+as a self-contained dashboard: `docs/expedition-dashboard-2026-10-10.html`. **No Go changed.**
+
+### 12a. Outcome mix (n = 873) — stable
+
+| outcome | share | vs §11c (n=772) |
+|---|---:|---|
+| ships | 29.6 % | ≈ 29.1 |
+| resources | 19.8 % | ≈ 20.5 |
+| darkmatter | 14.5 % | ≈ 14.8 |
+| delay | 11.5 % | ≈ 11.1 |
+| combat | 9.3 % | ≈ 8.9 |
+| nothing | 7.8 % | = 7.9 |
+| fast | 5.2 % | = 5.1 |
+| **blackhole** | **1.7 %** | **= 1.68 (owner-locked 1.68 %)** |
+| unknown | 0.6 % | roleplay flavours |
+| stardust | 0.1 % | rare |
+
+The owner-locked **1.68 % fatal-BH** rate holds at n=873 (15/873 = 1.72 %). Combat is
+~9 % (owner kept 15 % in the Go resolver). Mix is stable — the resolver weights need no
+further calibration on this window.
+
+### 12b. Combat splits cleanly by NPC, and the alien tail owns the attrition
+
+109 expedition fights (attacker ships only, no 4xx). Filtering `defenderInfo.name`:
+
+| NPC | n | W/D/L | win | mirror (def/atk) | enemy W/S/A roll | our loss (med) | loss points |
+|---|---:|---|---:|---|---:|---:|---:|
+| Pirates | 83 | 72/5/6 | **86.7 %** | 0.60–0.69 (med **0.64**) | 11–152 % (med **64 %**) | **17.8 %** | 2.10 T |
+| Aliens | 26 | 12/10/4 | **46.2 %** | 0.84–0.94 (med **0.91**) | 51–202 % (med **111 %**) | **51.5 %** | 2.09 T |
+
+Aliens are only 24 % of fights but cause **half the total loss points** (§11a/§11b
+confirmed at scale). Binning our loss by the enemy's rolled W/S/A:
+
+| enemy roll | pirates | aliens |
+|---|---|---|
+| 0–40 % | 12 % loss (23/27 W) | — |
+| 40–90 % | 10.8 % (29/31) | 39.6 % (5/10) |
+| 90–150 % | 30.4 % (20/24) | 60.0 % (6/11) |
+| 150–300 % | 46.8 % (0/1) | **83.8 % (1/5)** |
+
+**Loss tracks the roll, not the mirror** — the same conclusion as §8/§11b, now with
+n=109. Frigate attrition in the window: **84,640 Frigates lost** in reported fights.
+
+### 12c. The new headline: ship finds are a firehose of free warships
+
+258 ship-find events delivered **≈ 921 B points** of hulls in 4 days — 58.8 M Light Cargo,
+36.2 M Light Fighter, 15.7 M Heavy Fighter, 6.9 M Cruiser, 1.6 M Battleship, 2.6 M Heavy
+Cargo, 336 k Battle Cruiser, 190 k Star Fighter, 105 k Planet Bomber, 5.2 k Battle
+Recycler. Home-fleet snapshots (VM `drain-main-acc1.json` / `levels.json`):
+
+| hull | Oct 8 13:54 | Oct 9 12:34 | Oct 10 00:59 |
+|---|---:|---:|---:|
+| Frigate **227** | 63,565 | — | **984** |
+| Light Cargo 202 | 53.8 M | 90.8 M | 104.7 M |
+| Light Fighter 204 | 35.3 M | 78.8 M | 88.9 M |
+| Heavy Fighter 205 | 19.2 M | 46.9 M | 53.6 M |
+| Cruiser 206 | 6.1 M | 15.4 M | 17.8 M |
+| Battleship 207 | 5.9 M | 8.0 M | 9.1 M |
+
+The **Frigate line bleeds out while the free lines explode** (~150 M free ships gained in
+35 h). The account is being handed a fleet faster than it can build one. Resource loot
+over the window: **M 2.25 T / C 0.88 T / D 51.6 B, DM 512,320** (851 returns, 219 carrying
+loot; resource-return median 1.29 B / p90 38.6 B / max 236.4 B).
+
+### 12d. Ship recommendation for expeditions (owner request)
+
+Live shipyard-18 build rates (`_live_sy1593.html`, 2026-10-10): **heavy tier 22/s**
+(214/216/225/226/227), mid 144/s (206/207/209/211/213/215/217/219), light 390/s
+(202–205/212). Throughput = (M+C) × rate:
+
+| hull | points | build | points/s | crystal/pt | specific×gen (eff. atk ×) | hard-alien loss / win |
+|---|---:|---:|---:|---:|---:|---:|
+| **Frigate 227** | 40 M | 22/s | **8.8e8** | **0.25** | 2.75 | **8 % / 100 %W** |
+| Black Moon 216 | 12 M | 22/s | 2.6e8 | 0.333 | 2.51 | 91 % / 25 %W |
+| Battle Fortress 214 | 9.5 M | 22/s | 2.1e8 | 0.368 | 2.43 | 100 % / 0 %W |
+| Destroyer 226 | 5 M | 22/s | 1.1e8 | 0.400 | 2.91 | 100 % / 0 %W |
+| Galleon 225 | 1.6 M | 22/s | 3.5e7 | 0.438 | 2.93 | 100 % / 0 %W |
+| Battle Cruiser 215 | 90 k | 144/s | 1.3e7 | 0.444 | 2.96 | 64 % / 100 %W |
+| Star Fighter 213 | 110 k | 144/s | 1.6e7 | 0.455 | 2.92 | 74 % / 100 %W |
+| Battleship 207 | 58 k | 144/s | 8.4e6 | 0.293 | 2.96 | 100 % / 0 %W |
+| Cruiser 206 | 24.5 k | 144/s | 3.5e6 | 0.388 | 2.89 | 55 % / 100 %W |
+
+A corrected hull sweep on the real combat engine (live shipyard rates, mirror 0.90 +
+flat 198 %, ~250-frigate fleet, 16 seeds) resolves the question: **do NOT switch hulls.** Against the hard-alien tail that actually wipes fleets, the Frigate loses only
+**8 % and wins 100 %**, while every other hull loses 55–100 % and several are annihilated
+(0 % win). So an analytic “BB/BC have a higher multiplier” is a trap — the engine's
+shield/overkill/rapidfire dynamics make the Frigate the most survivable *and* its
+build throughput is 3.4× the next hull with the lowest crystal intensity.
+
+**Recommendation:** keep Frigate 227 as the focus. The real constraint is **crystal**
+(rebuilding 84.6 k Frigates ≈ 846 B crystal vs ~119 B on hand), so **scrap the free
+stockpile** (88 M LF / 58 M LC / 53 M HF — standard weapons, no specific-tech bonus,
+dead weight) via the black-market ship trader (50 %) to fund Frigates; keep Battle
+Recyclers 219 for cargo. Interim only, let `drain.mainOrder` fall back to the free
+laser/ion hulls (207/215/213/206) so no slot idles, accepting they are far more
+expendable. Keep 109/110/111 at the floor (currently 18/18/18 vs Frigate floor 16/16/17)
+and invest in attacker-only Laser/Ion/Plasma + Arsenal. Black Wanderer 228 is
+techtree-unlocked but its build cost/rate is uncaptured.

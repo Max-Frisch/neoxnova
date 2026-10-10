@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Acc1 Expedition Review — 2026-10-10</title>
+<style>
+  :root{--bg:#0b1020;--panel:#131a2e;--line:#243050;--txt:#e2e8f0;--muted:#8093b5;--acc:#38bdf8}
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0b1020,#0d1428 60%,#0b1020);color:var(--txt);font:14px/1.5 'Segoe UI',system-ui,sans-serif;padding:28px}
+  h1{font-size:24px;margin:0 0 2px} h2{font-size:16px;margin:0 0 12px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.06em}
+  .sub{color:var(--muted);margin-bottom:22px}
+  .grid{display:grid;gap:16px} .g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:1000px){.g4,.g3{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kpi .v{font-size:26px;font-weight:700;margin-top:2px}.kpi .l{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  .span2{grid-column:span 2}
+  section{margin-bottom:22px}
+  .barrow{display:flex;align-items:center;gap:10px;margin:5px 0}
+  .bl{width:130px;flex:none;font-size:13px}.btrack{flex:1;height:16px;background:#0a0f1e;border-radius:8px;overflow:hidden;position:relative}
+  .bfill{height:100%;border-radius:8px;transition:width .3s}
+  .btrack.sm{height:10px;display:inline-block;width:120px;vertical-align:middle;margin-right:8px}
+  .bv{width:150px;flex:none;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .muted{color:var(--muted)} .up{color:#4ade80}.down{color:#f87171}
+  table.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.tbl th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.tbl td{padding:7px 8px;border-bottom:1px solid #1b2540}
+  table.tbl tr.hl,table.tbl tr.hl td{background:rgba(56,189,248,.10)}
+  table.tbl tr.tot td{font-weight:700;border-top:2px solid var(--line)}
+  .chart{width:100%;height:240px}
+  .ax{fill:var(--muted);font-size:10px}
+  .card.fight .ftitle{font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+  .card.fight .big{font-size:30px;font-weight:700;margin:4px 0}
+  .winbar{height:8px;background:#0a0f1e;border-radius:6px;overflow:hidden;margin-bottom:12px}
+  .winbar>div{height:100%}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:13px}
+  .stats div{display:flex;justify-content:space-between;border-bottom:1px dashed #1e2946;padding:3px 0}
+  .stats span{color:var(--muted)}
+  .rec{border-left:4px solid var(--acc);background:rgba(56,189,248,.07);padding:14px 18px;border-radius:0 10px 10px 0;margin-bottom:12px}
+  .rec h3{margin:0 0 6px;font-size:15px}
+  .pill{display:inline-block;background:#0a0f1e;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;margin:2px 2px 0 0}
+  .warn{border-left-color:#fbbf24;background:rgba(251,191,36,.07)}
+  .bad{border-left-color:#f87171;background:rgba(248,113,113,.07)}
+  footer{color:var(--muted);font-size:12px;margin-top:26px;border-top:1px solid var(--line);padding-top:12px}
+  code{background:#0a0f1e;padding:1px 5px;border-radius:5px;border:1px solid var(--line)}
+</style></head>
+<body>
+  <h1>Expedition Review — account1 <span class="muted">Bratwurst</span></h1>
+  <div class="sub">Live harvest 06. Oct 2026, 12:01:09 → 09. Oct 2026, 15:30:40 (server clock UTC+3) · 873 outcomes · 109 fights · 1458 expedition sends · generated 2026-10-10 01:40Z</div>
+
+  <section class="grid g4">
+    <div class="card kpi"><div class="l">Outcomes logged</div><div class="v">873</div><div class="muted">851 returns</div></div>
+    <div class="card kpi"><div class="l">Loot hauled (M+C+D)</div><div class="v">3.18T</div><div class="muted">M 2.25T · C 882.92B · D 51.65B</div></div>
+    <div class="card kpi"><div class="l">Dark matter found</div><div class="v">512,320</div><div class="muted">med 3586 · max 20587</div></div>
+    <div class="card kpi"><div class="l">Free ships found</div><div class="v">122.45M</div><div class="muted">≈ 921.31B points of hulls</div></div>
+  </section>
+
+  <section class="grid g2">
+    <div class="card"><h2>Outcome mix</h2>
+    <div class="barrow">
+      <div class="bl">Ships</div>
+      <div class="btrack"><div class="bfill" style="width:100.0%;background:#4ade80"></div></div>
+      <div class="bv">29.6% <span class="muted">(258)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Resources</div>
+      <div class="btrack"><div class="bfill" style="width:66.9%;background:#38bdf8"></div></div>
+      <div class="bv">19.8% <span class="muted">(173)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Dark Matter</div>
+      <div class="btrack"><div class="bfill" style="width:49.0%;background:#a78bfa"></div></div>
+      <div class="bv">14.5% <span class="muted">(127)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Delay</div>
+      <div class="btrack"><div class="bfill" style="width:38.9%;background:#fbbf24"></div></div>
+      <div class="bv">11.5% <span class="muted">(100)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Combat</div>
+      <div class="btrack"><div class="bfill" style="width:31.4%;background:#f87171"></div></div>
+      <div class="bv">9.3% <span class="muted">(81)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Nothing</div>
+      <div class="btrack"><div class="bfill" style="width:26.4%;background:#64748b"></div></div>
+      <div class="bv">7.8% <span class="muted">(68)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Fast return</div>
+      <div class="btrack"><div class="bfill" style="width:17.6%;background:#22d3ee"></div></div>
+      <div class="bv">5.2% <span class="muted">(45)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Black hole</div>
+      <div class="btrack"><div class="bfill" style="width:5.7%;background:#7f1d1d"></div></div>
+      <div class="bv">1.7% <span class="muted">(15)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Unknown</div>
+      <div class="btrack"><div class="bfill" style="width:2.0%;background:#94a3b8"></div></div>
+      <div class="bv">0.6% <span class="muted">(5)</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Stardust</div>
+      <div class="btrack"><div class="bfill" style="width:0.3%;background:#f472b6"></div></div>
+      <div class="bv">0.1% <span class="muted">(1)</span></div>
+    </div></div>
+    <div class="card"><h2>Outcomes per day (UTC)</h2><svg viewBox="0 0 640 220" class="chart"><rect x="59.7" y="188.4" width="91.5" height="5.6" fill="#4ade80"><title>2026-10-06 ships: 15</title></rect><rect x="59.7" y="184.3" width="91.5" height="4.1" fill="#38bdf8"><title>2026-10-06 resources: 11</title></rect><rect x="59.7" y="180.6" width="91.5" height="3.7" fill="#a78bfa"><title>2026-10-06 darkmatter: 10</title></rect><rect x="59.7" y="179.4" width="91.5" height="1.1" fill="#fbbf24"><title>2026-10-06 delay: 3</title></rect><rect x="59.7" y="177.9" width="91.5" height="1.5" fill="#f87171"><title>2026-10-06 combat: 4</title></rect><rect x="59.7" y="176.8" width="91.5" height="1.1" fill="#64748b"><title>2026-10-06 nothing: 3</title></rect><rect x="59.7" y="176.5" width="91.5" height="0.4" fill="#22d3ee"><title>2026-10-06 fast: 1</title></rect><rect x="59.7" y="176.1" width="91.5" height="0.4" fill="#7f1d1d"><title>2026-10-06 blackhole: 1</title></rect><rect x="59.7" y="175.7" width="91.5" height="0.4" fill="#94a3b8"><title>2026-10-06 unknown: 1</title></rect><text x="105.5" y="212" class="ax" text-anchor="middle">10-06</text><text x="105.5" y="171.7" class="ax" text-anchor="middle">49</text><rect x="202.7" y="145.1" width="91.5" height="48.9" fill="#4ade80"><title>2026-10-07 ships: 131</title></rect><rect x="202.7" y="111.5" width="91.5" height="33.6" fill="#38bdf8"><title>2026-10-07 resources: 90</title></rect><rect x="202.7" y="86.8" width="91.5" height="24.6" fill="#a78bfa"><title>2026-10-07 darkmatter: 66</title></rect><rect x="202.7" y="65.2" width="91.5" height="21.7" fill="#fbbf24"><title>2026-10-07 delay: 58</title></rect><rect x="202.7" y="49.1" width="91.5" height="16.1" fill="#f87171"><title>2026-10-07 combat: 43</title></rect><rect x="202.7" y="33.8" width="91.5" height="15.3" fill="#64748b"><title>2026-10-07 nothing: 41</title></rect><rect x="202.7" y="23.7" width="91.5" height="10.1" fill="#22d3ee"><title>2026-10-07 fast: 27</title></rect><rect x="202.7" y="20.4" width="91.5" height="3.4" fill="#7f1d1d"><title>2026-10-07 blackhole: 9</title></rect><rect x="202.7" y="20.0" width="91.5" height="0.4" fill="#94a3b8"><title>2026-10-07 unknown: 1</title></rect><text x="248.5" y="212" class="ax" text-anchor="middle">10-07</text><text x="248.5" y="16.0" class="ax" text-anchor="middle">466</text><rect x="345.7" y="167.1" width="91.5" height="26.9" fill="#4ade80"><title>2026-10-08 ships: 72</title></rect><rect x="345.7" y="146.2" width="91.5" height="20.9" fill="#38bdf8"><title>2026-10-08 resources: 56</title></rect><rect x="345.7" y="132.4" width="91.5" height="13.8" fill="#a78bfa"><title>2026-10-08 darkmatter: 37</title></rect><rect x="345.7" y="123.1" width="91.5" height="9.3" fill="#fbbf24"><title>2026-10-08 delay: 25</title></rect><rect x="345.7" y="114.8" width="91.5" height="8.2" fill="#f87171"><title>2026-10-08 combat: 22</title></rect><rect x="345.7" y="108.5" width="91.5" height="6.3" fill="#64748b"><title>2026-10-08 nothing: 17</title></rect><rect x="345.7" y="104.8" width="91.5" height="3.7" fill="#22d3ee"><title>2026-10-08 fast: 10</title></rect><rect x="345.7" y="102.9" width="91.5" height="1.9" fill="#7f1d1d"><title>2026-10-08 blackhole: 5</title></rect><rect x="345.7" y="102.1" width="91.5" height="0.7" fill="#94a3b8"><title>2026-10-08 unknown: 2</title></rect><rect x="345.7" y="101.8" width="91.5" height="0.4" fill="#f472b6"><title>2026-10-08 stardust: 1</title></rect><text x="391.5" y="212" class="ax" text-anchor="middle">10-08</text><text x="391.5" y="97.8" class="ax" text-anchor="middle">247</text><rect x="488.7" y="179.1" width="91.5" height="14.9" fill="#4ade80"><title>2026-10-09 ships: 40</title></rect><rect x="488.7" y="173.1" width="91.5" height="6.0" fill="#38bdf8"><title>2026-10-09 resources: 16</title></rect><rect x="488.7" y="167.9" width="91.5" height="5.2" fill="#a78bfa"><title>2026-10-09 darkmatter: 14</title></rect><rect x="488.7" y="162.6" width="91.5" height="5.2" fill="#fbbf24"><title>2026-10-09 delay: 14</title></rect><rect x="488.7" y="158.2" width="91.5" height="4.5" fill="#f87171"><title>2026-10-09 combat: 12</title></rect><rect x="488.7" y="155.5" width="91.5" height="2.6" fill="#64748b"><title>2026-10-09 nothing: 7</title></rect><rect x="488.7" y="152.9" width="91.5" height="2.6" fill="#22d3ee"><title>2026-10-09 fast: 7</title></rect><rect x="488.7" y="152.6" width="91.5" height="0.4" fill="#94a3b8"><title>2026-10-09 unknown: 1</title></rect><text x="534.5" y="212" class="ax" text-anchor="middle">10-09</text><text x="534.5" y="148.6" class="ax" text-anchor="middle">111</text></svg>
+      <div class="muted" style="margin-top:8px">Fatal black holes this window: <b>15</b> (1.7%) · Stardust finds: 1</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Combat — the alien tail is the attrition driver</h2>
+    <div class="grid g2">
+    <div class="card fight">
+      <div class="ftitle" style="color:#fbbf24">Pirates</div>
+      <div class="big">83 <span class="muted">fights</span></div>
+      <div class="winbar"><div style="width:86.7%;background:#fbbf24"></div></div>
+      <div class="stats">
+        <div><span>Win rate</span><b>86.7%</b></div>
+        <div><span>W / D / L</span><b>72/5/6</b></div>
+        <div><span>Mirror (def/atk)</span><b>0.6–0.69 <span class="muted">med 0.64</span></b></div>
+        <div><span>Enemy W/S/A roll</span><b>11–152% <span class="muted">med 64%</span></b></div>
+        <div><span>Our W/S/A</span><b>112%</b></div>
+        <div><span>Our losses (median)</span><b>17.8%</b></div>
+        <div><span>Loss points</span><b>2.10T</b></div>
+      </div>
+    </div>
+    <div class="card fight">
+      <div class="ftitle" style="color:#f87171">Aliens</div>
+      <div class="big">26 <span class="muted">fights</span></div>
+      <div class="winbar"><div style="width:46.2%;background:#f87171"></div></div>
+      <div class="stats">
+        <div><span>Win rate</span><b>46.2%</b></div>
+        <div><span>W / D / L</span><b>12/10/4</b></div>
+        <div><span>Mirror (def/atk)</span><b>0.841–0.94 <span class="muted">med 0.91</span></b></div>
+        <div><span>Enemy W/S/A roll</span><b>51–202% <span class="muted">med 111%</span></b></div>
+        <div><span>Our W/S/A</span><b>112%</b></div>
+        <div><span>Our losses (median)</span><b>51.5%</b></div>
+        <div><span>Loss points</span><b>2.09T</b></div>
+      </div>
+    </div></div>
+    <div class="card" style="margin-top:16px"><h2 style="margin-top:0">Loss scales with the enemy roll</h2><table class="tbl"><tr><th>Enemy roll (defFp)</th><th>Fights</th><th>Median our loss</th><th>Wins</th></tr>
+    <tr class="hl"><td colspan="4" class="muted" style="padding-top:10px">Pirates</td></tr><tr><td>0–40%</td><td>27</td><td>12%</td><td>23/27</td></tr><tr><td>40–90%</td><td>31</td><td>10.8%</td><td>29/31</td></tr><tr><td>90–150%</td><td>24</td><td>30.4%</td><td>20/24</td></tr><tr><td>150–300%</td><td>1</td><td>46.8%</td><td>0/1</td></tr>
+    <tr class="hl"><td colspan="4" class="muted" style="padding-top:10px">Aliens</td></tr><tr><td>40–90%</td><td>10</td><td>39.6%</td><td>5/10</td></tr><tr><td>90–150%</td><td>11</td><td>60%</td><td>6/11</td></tr><tr><td>150–300%</td><td>5</td><td>83.8%</td><td>1/5</td></tr></table>
+      <div class="muted" style="margin-top:8px">Below 40% enemy roll we lose ~12%; above 90% (pirates) / 150% (aliens) the loss is catastrophic. The mirror barely moves; the rolled W/S/A decides.</div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="muted">Our hull losses across 109 fights: total <b>4.20T</b> points destroyed; enemy <b>13.54T</b>; debris recovered M 6.44T + C 2.42T.
+      Frigates lost: <b>84,640</b>. The deciding variable is the enemy's single rolled W/S/A (med 64% pirates vs 111% aliens) — not the mirror.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Loot by day</h2>
+    <table class="tbl"><tr><th>Day (UTC)</th><th>Metal</th><th>Crystal</th><th>Deuterium</th><th>Dark Matter</th><th>Resources</th></tr><tr><td>2026-10-06</td><td>8.94B</td><td>4.42B</td><td>931.52M</td><td>22.7k</td><td>14.30B</td></tr><tr><td>2026-10-07</td><td>463.29B</td><td>383.95B</td><td>20.67B</td><td>276.8k</td><td>867.91B</td></tr><tr><td>2026-10-08</td><td>1.01T</td><td>284.98B</td><td>28.82B</td><td>154.9k</td><td>1.32T</td></tr><tr><td>2026-10-09</td><td>767.53B</td><td>209.56B</td><td>1.23B</td><td>58.0k</td><td>978.31B</td></tr><tr class="tot"><td>Total</td><td>2.25T</td><td>882.92B</td><td>51.65B</td><td>512.3k</td><td>3.18T</td></tr></table>
+    <div class="muted" style="margin-top:8px">Resource-return size: median 1.29B, p90 38.59B, max 236.42B. 219 of 851 returns carried loot; 632 came home empty.</div>
+  </section>
+
+  <section class="grid g2">
+    <div class="card"><h2>Free warships recovered (ship finds)</h2>
+    <div class="barrow">
+      <div class="bl">Light Cargo <span class="muted">#202</span></div>
+      <div class="btrack"><div class="bfill" style="width:100.0%;background:#4ade80"></div></div>
+      <div class="bv">58.84M <span class="muted">≈235.38B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Heavy Fighter <span class="muted">#205</span></div>
+      <div class="btrack"><div class="bfill" style="width:73.2%;background:#4ade80"></div></div>
+      <div class="bv">15.66M <span class="muted">≈172.30B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Cruiser <span class="muted">#206</span></div>
+      <div class="btrack"><div class="bfill" style="width:71.9%;background:#4ade80"></div></div>
+      <div class="bv">6.91M <span class="muted">≈169.20B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Light Fighter <span class="muted">#204</span></div>
+      <div class="btrack"><div class="bfill" style="width:61.5%;background:#4ade80"></div></div>
+      <div class="bv">36.17M <span class="muted">≈144.67B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Battleship <span class="muted">#207</span></div>
+      <div class="btrack"><div class="bfill" style="width:39.8%;background:#4ade80"></div></div>
+      <div class="bv">1.62M <span class="muted">≈93.77B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Heavy Cargo <span class="muted">#203</span></div>
+      <div class="btrack"><div class="bfill" style="width:13.3%;background:#4ade80"></div></div>
+      <div class="bv">2.62M <span class="muted">≈31.39B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Battle Cruiser <span class="muted">#215</span></div>
+      <div class="btrack"><div class="bfill" style="width:12.9%;background:#4ade80"></div></div>
+      <div class="bv">336.2k <span class="muted">≈30.25B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Star Fighter <span class="muted">#213</span></div>
+      <div class="btrack"><div class="bfill" style="width:8.9%;background:#4ade80"></div></div>
+      <div class="bv">190.0k <span class="muted">≈20.90B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Planet Bomber <span class="muted">#211</span></div>
+      <div class="btrack"><div class="bfill" style="width:5.1%;background:#4ade80"></div></div>
+      <div class="bv">104.8k <span class="muted">≈12.05B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Battle Recycler <span class="muted">#219</span></div>
+      <div class="btrack"><div class="bfill" style="width:3.6%;background:#4ade80"></div></div>
+      <div class="bv">5.2k <span class="muted">≈8.40B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Galleon <span class="muted">#225</span></div>
+      <div class="btrack"><div class="bfill" style="width:0.8%;background:#4ade80"></div></div>
+      <div class="bv">1.1k <span class="muted">≈1.81B pts</span></div>
+    </div>
+    <div class="barrow">
+      <div class="bl">Destroyer <span class="muted">#226</span></div>
+      <div class="btrack"><div class="bfill" style="width:0.3%;background:#4ade80"></div></div>
+      <div class="bv">126 <span class="muted">≈630.00M pts</span></div>
+    </div>
+      <div class="muted" style="margin-top:8px">258 ship-find events → ≈<b>921.31B</b> points of hulls, delivered free.</div>
+    </div>
+    <div class="card"><h2>Home fleet snapshots</h2><table class="tbl"><tr><th>Hull</th><th>Oct 8 13:54</th><th>Oct 9 12:34</th><th>Oct 10 00:59</th><th>Δ (Oct8→Oct10)</th></tr><tr><td><b>202</b> <span class="muted"></span></td><td>53.83M</td><td>90.85M</td><td>104.74M</td><td class="up">+50.91M</td></tr><tr><td><b>204</b> <span class="muted"></span></td><td>35.31M</td><td>78.85M</td><td>88.88M</td><td class="up">+53.57M</td></tr><tr><td><b>205</b> <span class="muted"></span></td><td>19.21M</td><td>46.92M</td><td>53.55M</td><td class="up">+34.34M</td></tr><tr><td><b>206</b> <span class="muted">Cruiser</span></td><td>6.12M</td><td>15.38M</td><td>17.84M</td><td class="up">+11.72M</td></tr><tr><td><b>207</b> <span class="muted">Battleship</span></td><td>5.94M</td><td>8.03M</td><td>9.07M</td><td class="up">+3.13M</td></tr><tr><td><b>215</b> <span class="muted">Battle Cruiser</span></td><td>411.5k</td><td>1.23M</td><td>1.45M</td><td class="up">+1.04M</td></tr><tr><td><b>213</b> <span class="muted">Star Fighter</span></td><td>198.5k</td><td>575.0k</td><td>755.7k</td><td class="up">+557.2k</td></tr><tr><td><b>219</b> <span class="muted"></span></td><td>151.9k</td><td>144.3k</td><td>145.4k</td><td class="down">-6.5k</td></tr><tr><td><b>226</b> <span class="muted">Destroyer</span></td><td>3.4k</td><td>3.6k</td><td>3.7k</td><td class="up">+312</td></tr><tr><td><b>227</b> <span class="muted">Frigate</span></td><td>63.6k</td><td>—</td><td>984</td><td class="down">-62.6k</td></tr></table>
+      <div class="muted" style="margin-top:8px">The Frigate line bleeds out while the free Light Cargo / Light Fighter / HF / Cruiser / Battleship lines explode. The account is being handed a fleet faster than it can build one.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Ship economics — what to build for expos</h2>
+    <table class="tbl">
+    <tr><th>Hull</th><th>Points</th><th>Rate</th><th>Points/sec</th><th>Crystal/pt</th><th>Eff. atk ×</th><th>Hard-alien loss / win</th></tr><tr class="hl"><td><b>227</b> Frigate</td><td>40.00M</td><td>22/s</td><td><div class="btrack sm"><div class="bfill" style="width:100.0%;background:#38bdf8"></div></div>880.00M</td><td>0.25</td><td>2.747×</td><td style="color:#4ade80">8% / 100%W</td></tr><tr><td><b>216</b> Black Moon</td><td>12.00M</td><td>22/s</td><td><div class="btrack sm"><div class="bfill" style="width:30.0%;background:#38bdf8"></div></div>264.00M</td><td>0.333</td><td>2.512×</td><td style="color:#fbbf24">91% / 25%W</td></tr><tr><td><b>214</b> Battle Fortress</td><td>9.50M</td><td>22/s</td><td><div class="btrack sm"><div class="bfill" style="width:23.8%;background:#38bdf8"></div></div>209.00M</td><td>0.368</td><td>2.432×</td><td style="color:#f87171">100% / 0%W</td></tr><tr><td><b>226</b> Destroyer</td><td>5.00M</td><td>22/s</td><td><div class="btrack sm"><div class="bfill" style="width:12.5%;background:#38bdf8"></div></div>110.00M</td><td>0.4</td><td>2.911×</td><td style="color:#f87171">100% / 0%W</td></tr><tr><td><b>225</b> Galleon</td><td>1.60M</td><td>22/s</td><td><div class="btrack sm"><div class="bfill" style="width:4.0%;background:#38bdf8"></div></div>35.20M</td><td>0.438</td><td>2.926×</td><td style="color:#f87171">100% / 0%W</td></tr><tr><td><b>213</b> Star Fighter</td><td>110.0k</td><td>144/s</td><td><div class="btrack sm"><div class="bfill" style="width:1.8%;background:#38bdf8"></div></div>15.84M</td><td>0.455</td><td>2.916×</td><td style="color:#4ade80">74% / 100%W</td></tr><tr><td><b>215</b> Battle Cruiser</td><td>90.0k</td><td>144/s</td><td><div class="btrack sm"><div class="bfill" style="width:1.5%;background:#38bdf8"></div></div>12.96M</td><td>0.444</td><td>2.964×</td><td style="color:#4ade80">64% / 100%W</td></tr><tr><td><b>207</b> Battleship</td><td>58.0k</td><td>144/s</td><td><div class="btrack sm"><div class="bfill" style="width:0.9%;background:#38bdf8"></div></div>8.35M</td><td>0.293</td><td>2.964×</td><td style="color:#f87171">100% / 0%W</td></tr><tr><td><b>206</b> Cruiser</td><td>24.5k</td><td>144/s</td><td><div class="btrack sm"><div class="bfill" style="width:0.4%;background:#38bdf8"></div></div>3.53M</td><td>0.388</td><td>2.888×</td><td style="color:#4ade80">55% / 100%W</td></tr></table>
+    <div class="muted" style="margin-top:8px">“Points/sec” = (metal+crystal) × live shipyard rate (heavy tier 22/s, mid 144/s, light 390/s). “Eff. atk ×” = specific-weapon-tech boost × general Weapons 109 (+90%), the part the NPC does <i>not</i> mirror. “Hard-alien” = a corrected hull sweep on the real combat engine (mirror 0.90 + 198% roll, ~250-frigate fleet, 16 seeds).</div>
+  </section>
+
+  <section>
+    <h2>Recommendation</h2>
+    <div class="rec"><h3>1 · STAY on the Frigate (227) — do not switch hulls</h3>
+      It is both the highest-throughput build (<b>8.8×10⁸ pts/s</b>, 3.4× the next hull; lowest crystal intensity <b>0.25/pt</b>) <b>and</b> uniquely resilient to the alien high-roll tail that actually kills fleets: at ~250 ships the hard-alien case costs the Frigate <b>8%</b> (100% win) while every other hull loses <b>55–100%</b> and several are wiped outright (0% win). The earlier “switch to BB/BC” idea is wrong — those get annihilated by the tail.</div>
+    <div class="rec warn"><h3>2 · The real problem is crystal, not the hull</h3>
+      Rebuilding 84.6k Frigates needs ~846 B crystal; the account holds ~119 B. Scrap the useless free stockpile for crystal via the black-market ship trader (50% loss) — <b>88 M LF + 58 M LC + 53 M HF</b> are dead weight (standard weapons, no specific-tech bonus, and they get wiped). Reserve Battle Recyclers (219) for cargo.</div>
+    <div class="rec"><h3>3 · Interim: keep slots flying from the free stockpile, but burnable</h3>
+      While Frigates rebuild, let <code>drain.mainOrder</code> fall back to the free laser/ion hulls (<b>207 / 215 / 213 / 206</b>) so no slot idles — but expect them to be far more expendable to aliens than the Frigate. Prefer them over standard-weapon fodder (LF 204 / HF 205).</div>
+    <div class="rec bad"><h3>4 · Do NOT raise general research 109/110/111</h3>
+      They sit at <b>18/18/18</b> but the Frigate techtree floor is 16/16/17. Every general level raises the alien's single rolled W/S/A roll too. Put future research into the attacker-only weapon techs (Laser/Ion/Plasma) and Arsenal, never the mirrored generals.</div>
+  </section>
+
+  <footer>
+    Source: VM <code>~/neoxnova/neoxnova/tools/explorer/data/{expeditions,expedition-reports,expedition-runs}.json</code> + <code>drain-main-acc1.json</code>.
+    Combat = reports with defender <i>Pirates</i>/<i>Aliens</i> only (player raids excluded). Loss points use base (metal+crystal) cost.
+  </footer>
+</body></html>

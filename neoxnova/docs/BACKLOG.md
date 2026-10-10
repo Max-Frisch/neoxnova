@@ -192,6 +192,20 @@
   defense (e.g. Light Fighter → `combustion_drive`) always returned "prerequisites not met" (new
   `combinedLevels` merges the owner's research). Shell polish: active-nav highlight, nicer
   status/alert boxes, subtle depth gradient. `go test ./...` green hermetic and with `DATABASE_URL`.
+- 2026-10-10: **acc1 full expo review + dashboard (no Go changed).** Fresh VM harvest
+  (`expeditions.json` n=873 / 198 reports / 1458 runs, 06–09 Oct) → self-contained
+  `docs/expedition-dashboard-2026-10-10.html`; details `docs/EXPEDITIONS…` **§12**.
+  Mix stable (ships 29.6 / res 19.8 / DM 14.5 / combat 9.3 / fatal BH **1.7 %**). Combat
+  split by NPC: pirates 83 fights 86.7 % win (mirror 0.64, enemy roll med 64 %, loss med
+  17.8 %), aliens 26 fights **46.2 %** (mirror 0.91, roll med 111 %, loss med 51.5 %);
+  **loss tracks the enemy W/S/A roll, not the mirror**; **84,640 Frigates lost** in-window.
+  **Ship finds are a firehose** — 258 events ≈ **921 B pts** of free hulls (58.8 M LC,
+  36.2 M LF, 15.7 M HF, 6.9 M Cr, 1.6 M BB) while the Frigate line 63.5 k → 984. Loot
+  M 2.25 T / C 0.88 T / D 51.6 B / DM 512 k. **Recommendation (§12d):** **do NOT switch
+  hulls — stay on Frigate 227** (best throughput 8.8e8 pts/s @22/s, lowest crystal 0.25/pt,
+  AND uniquely resilient to the hard-alien tail: 8 % loss / 100 % win vs 55–100 % loss / 0 %
+  win for every other hull — real-engine hull sweep). Real bottleneck is crystal: scrap the
+  dead free stockpile (88 M LF/58 M LC/53 M HF) for Frigates; keep 109/110/111 at floor.
 - 2026-10-09: **Arsenal conveyor upgrades activated + magnitude measured (acc1).** Owned one of each
   (expedition finds). `httpbot arsenal` verified `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`;
   activated all three → bonus `0.6/0.5/0.4` (100% at level 0). Before/after shipyard + defense
@@ -481,10 +495,15 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
-- **Rebuild the acc1 Frigate line (from §12d).** Stay on Frigate 227 (do not switch hulls);
-  scrape crystal by scrapping the dead free stockpile (LF/LC/HF) via the ship trader, then
-  rebuild Frigates. Optionally set `drain.mainOrder` → `["227","207","215","213","206"]` as a
-  burnable interim so slots don't idle. Keep 109/110/111 at floor.
+- **acc1 dynamic expo comp prepared, awaiting owner launch (2026-10-10).** Owner does crystal
+  (mine + ship-trader scrap) manually, then launch the endless run. `drain.mjs` v4 `frig-split-v4-brbt`:
+  BR ratio `recyclerPer` 20→5 + new Battle Transporter `217` at `transporterPer`=25, both dynamic
+  (scaled off the per-fleet hull count and clamped to `floor(home/nFleets)`); the 1-each type-trigger
+  smalls (excl. 216) and the Hostail-ghost filter are unchanged. `plans/farm-sites.json` `comp` synced
+  (`recyclerPoints` 200e6, `cargo`=217, `cargoPoints` 1000e6). Validated `node --check` + local plan
+  sim; **not deployed/restarted** — pending owner command (deploy = commit→push→VM reset, then restart
+  `drain-acc1`). Stay on Frigate 227; keep 109/110/111 at floor. Rationale: BRs die ~80 %/fight
+  (one-shot) and won-fight debris (med 145 B) exceeds sent BR cargo (med 95 B) → cargo now rate-limiting.
 - **Stardust rare currency (item 7)**: `game` currency constant + occasional find in `RollExpedition`
   + the debris-based planet/moon diameter/fields sink (`EXPEDITIONS…` §11e).
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview

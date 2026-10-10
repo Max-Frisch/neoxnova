@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // drain.mjs - burn-down expedition sender for one account. Flies a single
-// combat hull (Frigate, falling back when depleted) plus Battle Recyclers for
-// debris and one of each sub-Frigate ship while still on main. No rebuilding.
-// The per-fleet size and the number of fleets auto-scale to what is home on
-// main, so the sender never stalls as the fleet is attrited to zero.
+// combat hull (Frigate, falling back when depleted) plus Battle Recyclers and
+// Battle Transporters for debris/cargo and one of each sub-Frigate ship while
+// still on main. No rebuilding. The per-fleet hull size, the number of fleets
+// AND the recycler/transporter counts all auto-scale to what is home on main, so
+// the sender never stalls as the fleet is attrited to zero.
 //
 //   node drain.mjs acc1 [--dry]
 //
@@ -27,13 +28,15 @@ const d = c.drain || {};
 if (!d.enabled) { console.error(`[drain] ${acc}: drain.enabled is not true`); process.exit(1); }
 
 const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226'];
-const PLAN_VERSION = 'frig-even-split-v3';
+const PLAN_VERSION = 'frig-split-v4-brbt';
 
 const MAIN_CP = String(d.mainCp || c.mainCp);
 const MAIN_COORDS = String(d.mainCoords || c.mainCoords);
 const ORDER = (d.mainOrder || ['227']).map(String);
 const RECY = String(d.recycler || (c.comp && c.comp.recycler) || '219');
-const RECY_PER = Math.max(1, Number(d.recyclerPer || 20));
+const RECY_PER = Math.max(1, Number(d.recyclerPer || 5));
+const TRANS = String(d.transporter || (c.comp && c.comp.transporter) || '217');
+const TRANS_PER = Math.max(1, Number(d.transporterPer || 25));
 const SLOT_FALLBACK = Math.max(1, Number(d.slots || c.slots || 9));
 const EVERY = Math.max(5, Number(d.intervalSec || 30)) * 1000;
 const SPEED = String(Math.max(1, Math.min(10, Number(d.speed || 10))));
@@ -77,10 +80,23 @@ function pickHull(ships) {
   return null;
 }
 
+// Even share of a home stock across the fleets being sent: the dynamic ratio
+// wants `Math.round(per / divisor)` (at least 1) but never promises more than
+// `floor(home / nFleets)` — the sender stays honest as the auxiliary stock is
+// attrited. Returns 0 when nothing is home (the fleet just flies without it).
+function share(per, divisor, home, nFleets) {
+  const want = Math.max(1, Math.round(per / divisor));
+  const avail = Math.floor((+home || 0) / nFleets);
+  return Math.max(0, Math.min(want, avail));
+}
+
 // Divide the home hull stock EVENLY across the free slots (one fleet per open
 // slot, `floor(have/free)` each) so slots always refill with roughly equal
-// fleets — never one mega-fleet, never a 1-ship/recycler-only fleet. Any
-// remainder (< free) stays home for the next cycle.
+// fleets — never one mega-fleet, never a 1-ship/aux-only fleet. Any remainder
+// (< free) stays home for the next cycle. The recycler/transporter counts are
+// dynamic: scaled off the per-fleet hull count and clamped to the even share of
+// the home stock (BR ~ 1/5 hull, BT ~ 1/25 hull by default; config
+// `recyclerPer` / `transporterPer`).
 function plan(ships, free) {
   const hull = pickHull(ships);
   if (!hull) return null;
@@ -88,16 +104,17 @@ function plan(ships, free) {
   const per = Math.floor(have / free);
   const nFleets = free;
   if (per < 1) return null; // fewer hulls home than free slots; wait for returns
-  let br = Math.min(Math.max(1, Math.round(per / RECY_PER)), Math.floor((+ships[RECY] || 0) / nFleets));
-  if (br < 0) br = 0;
-  // Never duplicate the hull (or recycler) as a "1 each" small: the expo form is
-  // keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly a
-  // 1-ship/recycler-only fleet when the hull code is also in the small set.
-  const smalls = SMALL.filter((code) => code !== hull && code !== RECY && (+ships[code] || 0) >= nFleets);
+  const br = share(per, RECY_PER, ships[RECY], nFleets);
+  const bt = share(per, TRANS_PER, ships[TRANS], nFleets);
+  // Never duplicate the hull or an auxiliary as a "1 each" small: the expo form
+  // is keyed by ship code, so a later `207:1` would clobber `207:<per>` and fly
+  // a 1-ship/aux-only fleet when the hull code is also in the small set.
+  const smalls = SMALL.filter((code) => code !== hull && code !== RECY && code !== TRANS && (+ships[code] || 0) >= nFleets);
   const set = [`${hull}:${per}`];
   if (br > 0) set.push(`${RECY}:${br}`);
+  if (bt > 0) set.push(`${TRANS}:${bt}`);
   for (const code of smalls) set.push(`${code}:1`);
-  return { hull, per, nFleets, br, set: set.join(',') };
+  return { hull, per, nFleets, br, bt, set: set.join(',') };
 }
 
 async function main() {
@@ -124,7 +141,7 @@ async function main() {
         continue;
       }
 
-      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} per=${p.per} br=${p.br} :: ${p.set}`);
+      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} per=${p.per} br=${p.br} bt=${p.bt} :: ${p.set}`);
       if (DRY) {
         log(`dry: would POST ${p.nFleets}x "httpbot expedition ${p.set} 1 ${TIME} ${SPEED} --cp ${MAIN_CP}"`);
         return;

@@ -9,14 +9,18 @@
     "comp": {
       "main": "207",
       "recycler": "219",
-      "recyclerPoints": 800000000,
+      "recyclerPoints": 200000000,
+      "cargo": "217",
+      "cargoPoints": 1000000000,
       "ramp": { "code": "227", "per": 690 }
     },
     "drain": {
       "enabled": true,
       "mainOrder": ["227"],
       "recycler": "219",
-      "recyclerPer": 20,
+      "recyclerPer": 5,
+      "transporter": "217",
+      "transporterPer": 25,
       "intervalSec": 30,
       "speed": 10,
       "time": 1
