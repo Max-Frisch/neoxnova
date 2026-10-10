@@ -177,6 +177,16 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **acc1 7 newest colonies put on the colony builder (live).** Launched one detached
+  `run-one-colony.sh <cp> plans/acc1-colo-grow.json` daemon per new colony on the VM (`azure-bot`,
+  tmux `colo-1835..1841` = KB `3:127:9/10`, `3:128:10`, `3:129:9/10`, `3:130:9`, `3:131:9`). Rewrote
+  `plans/acc1-colo-grow.json` to the "usual" progression: bootstrap Robot 11 / Nanite 1, storages
+  22/23/24 to 10/9/8, mines 1/2/3 to 24/22/19, shipyard 21→16, Research Lab 31→18 last; then
+  `gradual` runs mines + Robot(14)/Nanite(15), one level per cycle, up to caps **metal 42 / crystal 40
+  / deut 37, Robot 21, Nanite 10** (Nanite trails at Robot−11, floor 1 via `bumpBuilders`). Energy stays on Solar Satellite
+  top-ups (`ships 212:200` + `EXPLORER_ENERGY_SATS`); `bumpBuilders` raises Robot/Nanite when the next
+  mine build would exceed `EXPLORER_BUILDER_BUMP_SEC` (360 s). `verify` stops each daemon at the caps.
+  Drain is main-only, so colony sats are untouched. No Go changed.
 - 2026-10-10: **web end-to-end test + two build-store bug fixes.** New
   `internal/web/e2e_integration_test.go` drives the server-rendered UI end to end through the real
   HTML forms (`httptest` + cookie jar) against a new **fast sandbox universe**
