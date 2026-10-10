@@ -495,15 +495,18 @@
   mine/trader work only — automation must NOT build mines.
 
 ## Next session (pick one)
-- **acc1 dynamic expo comp prepared, awaiting owner launch (2026-10-10).** Owner does crystal
-  (mine + ship-trader scrap) manually, then launch the endless run. `drain.mjs` v4 `frig-split-v4-brbt`:
-  BR ratio `recyclerPer` 20→5 + new Battle Transporter `217` at `transporterPer`=25, both dynamic
-  (scaled off the per-fleet hull count and clamped to `floor(home/nFleets)`); the 1-each type-trigger
-  smalls (excl. 216) and the Hostail-ghost filter are unchanged. `plans/farm-sites.json` `comp` synced
-  (`recyclerPoints` 200e6, `cargo`=217, `cargoPoints` 1000e6). Validated `node --check` + local plan
-  sim; **not deployed/restarted** — pending owner command (deploy = commit→push→VM reset, then restart
-  `drain-acc1`). Stay on Frigate 227; keep 109/110/111 at floor. Rationale: BRs die ~80 %/fight
-  (one-shot) and won-fight debris (med 145 B) exceeds sent BR cargo (med 95 B) → cargo now rate-limiting.
+- **acc1 dynamic expo comp v4 DEPLOYED, awaiting owner restart (2026-10-10).** `edeb9e8` is live on
+  the VM; the running `drain-acc1` is still v3 (config is read at startup). **Next session: owner gives
+  the Go, then `bash run-drain.sh stop acc1 && bash run-drain.sh start acc1`** to launch v4. Owner does
+  the crystal work (mine + ship-trader scrap) manually first. v4 `frig-split-v4-brbt`: BR ratio
+  `recyclerPer` 20→5 + new Battle Transporter `217` at `transporterPer`=25, both dynamic (scaled off the
+  per-fleet hull count, clamped to `floor(home/nFleets)`); the 1-each type-trigger smalls (excl. 216) and
+  the Hostail-ghost filter are unchanged. `farm-sites.json` `comp` synced (`recyclerPoints` 200e6,
+  `cargo`=217, `cargoPoints` 1000e6). Stay on Frigate 227; keep 109/110/111 at floor. Rationale: BRs die
+  ~80 %/fight (one-shot) and won-fight debris (med 145 B) exceeds sent BR cargo (med 95 B); collection
+  tracks *surviving* BR cargo (~2.86 T) vs 7.67 T available → cargo is rate-limiting, BR spend only
+  ~2.7 % of the frigate burn. Follow-up idea: the **academy middle branch** (production/energy/research)
+  may lift crystal income (or cargo) — check `httpbot academy-map`.
 - **Stardust rare currency (item 7)**: `game` currency constant + occasional find in `RollExpedition`
   + the debris-based planet/moon diameter/fields sink (`EXPEDITIONS…` §11e).
 - **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
