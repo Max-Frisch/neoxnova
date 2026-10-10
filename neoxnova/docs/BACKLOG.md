@@ -177,6 +177,10 @@
    REMAINING: live calibration only (real runs vs model); stardust still item 7.
 
 ## Done (newest first)
+- 2026-10-10: **acc1 colony "done" state raised (7 colonies).** `plans/acc1-colo-grow.json` caps
+  bumped one level each — metal 42→43 / crystal 40→41 / deut 37→38 — and shipyard `21` 16→18, so the
+  7 newest colonies (tmux `colo-1835..1841`) keep growing one more mine level and unlock the yard.
+  No Go changed; running daemons re-read the plan each resolve pass.
 - 2026-10-10: **acc1 drain comp aligned to TheBob's expo ratio (configured, not yet relaunched).**
   Two live Hall-of-Fame reports (Aliens + Pirates) show one fixed attacking template — **50,000 Frigates
   `227` + 400,000 Battle Transporters `217` + 28,000 Battle Recyclers `219`**, i.e. **8 BT + 0.56 BR per
