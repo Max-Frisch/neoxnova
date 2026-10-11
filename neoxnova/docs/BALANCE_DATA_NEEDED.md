@@ -55,9 +55,13 @@ standard factor for each item. Durations are **approximate** (see below).
    `information&id=<code>` dialog for every unit, and a few `battleSimulator`
    runs. This also lets us replace the hardcoded `baseSpeed := 10000` in
    `internal/store/fleet_store.go`.
-5. **Prerequisites / requirements.** The build pages used don't expose the
-   requirement tree. We currently use standard OGame prerequisites. Needed:
-   the building/tech detail dialogs (`Dialog.info`) or the techtree page data.
+5. **Prerequisites / requirements — CAPTURED (2026-10-08, re-verified 2026-10-11).**
+   The full requirement graph is parsed read-only from `page=techtree` into
+   `tools/explorer/data/techtree-graph.json` (114 items) and ported to
+   `internal/game/techtree.go` (`TechTree`), which `init()` back-fills into every
+   `Requires` map. A fresh live capture on 2026-10-11 matched the committed graph
+   with **0 diffs**. Reminder: the Research Lab only *unlocks* techs (prerequisite
+   levels); it does **not** cap the research level.
 6. **Shipyard/tech code coverage.** Custom units with zero cost in the capture
    (`218` Avatar, `221`, `222`, `227`, `228`, several defenses) may require
    special resources/events. Needed: a capture when they are buildable.
@@ -70,12 +74,14 @@ research-time effect is now modelled — see "Confirmed mechanics"):
 - **Deuterium Power Plant** (id 12): energy source.
 - **Light/Average/Heavy Conveyor** (ids 71/72/73): the overview mentions
   "small/medium/large production factory" +N units/second — possibly these.
-- **Brother Hood** (tech 125), **Mineral / Semi-Crystals / Fuel Research**
-  (techs 131/132/133), **Graviton Research** (199).
+- **Brother Hood** (tech 125), **Graviton Research** (199). (Mineral/
+  Semi-Crystals/Fuel Research 131/132/133 are now modelled as +5%/level
+  production — see "Confirmed mechanics".)
 - **Peaceful / Combat levels** with bonuses (+% energy, +units/second, combat %).
 - **"Basic Production"** flat bonus (30,000,000 / 20,000,000 / 10,000,000 per hour).
 - **Energy Technology / Plasma Technology** production bonuses.
-- **Storage capacities** and **field** growth (Terraformer).
+- **Storage capacities** — modelled: `5000·floor(2.5·e^(20·level/33))·resource_speed`
+  (level 0 = 100,000,000 on niburu; level 10 = 53,550,000,000, matching the capture).
 - **Debris field** generation/recycling at 50%.
 
 ## Confirmed mechanics (owner-provided + captured)
@@ -108,7 +114,9 @@ research-time effect is now modelled — see "Confirmed mechanics"):
   `game.EffectiveResearchLabLevel`. Deuterium Power Plant (energy for deuterium);
   Light/Average/Heavy conveyor batch-build their unit class;
   Brotherhood = alliance bank deposit/withdraw limit; Mineral/Semi-Crystals/Fuel
-  Research +5% metal/crystal/deuterium production per level; Energy Technology
+  Research +5% metal/crystal/deuterium production per level (modelled in
+  `game.ResearchProductionBonus`, account-wide, additive with Arsenal upgrades);
+  Energy Technology
   +10% energy per level (account-wide); Plasma Technology +2% damage (plasma
   weapons); Graviton Research +4% damage and costs the planet's max energy;
   Terraformer +7 fields/level (also moons); "Basic Production" is a static

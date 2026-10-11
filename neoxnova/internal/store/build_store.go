@@ -278,9 +278,10 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 }
 
 // EnqueueResearch starts an empire-wide technology. Costs are drawn from the
-// supplied planet, whose research lab gates the target level. Research time uses
-// that planet's effective lab level (its own lab plus IRN-connected colony labs)
-// and its local University, which is not shared account-wide.
+// supplied planet. The research lab only *unlocks* technologies (via each tech's
+// Requires) and shortens research time; it does not cap the target level. Time
+// uses that planet's effective lab level (its own lab plus IRN-connected colony
+// labs) and its local University, which is not shared account-wide.
 func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCode string) (QueueResult, error) {
 	if _, ok := game.Techs[techCode]; !ok {
 		return QueueResult{}, ErrUnknownCode
@@ -323,9 +324,6 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 	}
 
 	targetLevel := techs[techCode] + 1
-	if structLevels["research_lab"] < targetLevel {
-		return QueueResult{}, ErrPrerequisites
-	}
 
 	var busy bool
 	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM research_queues WHERE user_id = $1 AND status = 'IN_PROGRESS')`, userID).Scan(&busy); err != nil {
@@ -407,7 +405,11 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		if err != nil {
 			return err
 		}
-		bonus = game.ProductionBonusFor(upgrades)
+		techs, err := s.techLevels(ctx, tx, owner.Int64)
+		if err != nil {
+			return err
+		}
+		bonus = game.ProductionBonusFor(upgrades).Plus(game.ResearchProductionBonus(techs))
 	}
 	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
 
@@ -418,13 +420,65 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	// Terraformer adds 7 fields per level on top of the colonisation roll.
 	fieldsMax := baseFields + 7*int64(levels["terraformer"])
 
+	metalCap := game.StorageCapacity(levels["metal_storage"], resourceSpeed)
+	crystalCap := game.StorageCapacity(levels["crystal_storage"], resourceSpeed)
+	deutCap := game.StorageCapacity(levels["deuterium_storage"], resourceSpeed)
+
 	_, err = tx.ExecContext(ctx, `
 		UPDATE celestial_objects
 		SET metal_prod_hourly = $1, crystal_prod_hourly = $2, deuterium_prod_hourly = $3,
-		    energy_used = $4, energy_max = $5, fields_used = $6, fields_max = $7
-		WHERE id = $8
-	`, eco.MetalPerHour, eco.CrystalPerHour, eco.DeutPerHour, int(eco.EnergyUsed), int(eco.EnergyMax), fieldsUsed, fieldsMax, celestialID)
+		    energy_used = $4, energy_max = $5, fields_used = $6, fields_max = $7,
+		    metal_capacity = $8, crystal_capacity = $9, deuterium_capacity = $10
+		WHERE id = $11
+	`, eco.MetalPerHour, eco.CrystalPerHour, eco.DeutPerHour, int(eco.EnergyUsed), int(eco.EnergyMax), fieldsUsed, fieldsMax,
+		metalCap, crystalCap, deutCap, celestialID)
 	return err
+}
+
+// RecomputeAccountProduction banks every owned planet's accrued resources and
+// rewrites its cached production/energy/field/capacity columns with the
+// account's current bonuses (Arsenal upgrades plus extraction research). It runs
+// in one transaction so the whole account flips atomically, and is called when
+// an account-wide production source (an Arsenal upgrade or Mineral/
+// Semi-Crystals/Fuel Research) changes.
+func (s *BuildStore) RecomputeAccountProduction(ctx context.Context, accountID int64) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id FROM celestial_objects WHERE user_id = $1 AND object_type = 'PLANET'
+	`, accountID)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, id := range ids {
+		if _, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, id); err != nil {
+			return err
+		}
+		if err := s.RecomputeCelestial(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // GetBuildings returns structure levels, the active construction item and the

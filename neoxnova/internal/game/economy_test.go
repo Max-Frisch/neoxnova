@@ -118,6 +118,27 @@ func TestProductionBonusFor(t *testing.T) {
 	}
 }
 
+func TestResearchProductionBonus(t *testing.T) {
+	b := ResearchProductionBonus(map[string]int{
+		TechMineralResearch:      4,
+		TechSemiCrystalsResearch: 2,
+		TechFuelResearch:         3,
+		"energy_tech":            9,
+	})
+	if b.Metal != 20 || b.Crystal != 10 || b.Deuterium != 15 {
+		t.Fatalf("ResearchProductionBonus = %+v, want {20 10 15}", b)
+	}
+	if got := (ProductionBonus{Metal: 12.5, Crystal: 3}).Plus(b); got.Metal != 32.5 || got.Crystal != 13 || got.Deuterium != 15 {
+		t.Fatalf("Plus = %+v", got)
+	}
+	if !IsProductionResearch(TechFuelResearch) {
+		t.Fatal("fuel_research should be a production research")
+	}
+	if IsProductionResearch("energy_tech") {
+		t.Fatal("energy_tech is not a production research")
+	}
+}
+
 func TestDurationsPositive(t *testing.T) {
 	if d := StructureDuration("metal_mine", 1, 0, 0, 1.0); d < 0 {
 		t.Fatalf("structure duration = %v", d)

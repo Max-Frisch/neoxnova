@@ -26,6 +26,15 @@ const (
 	upgradeDeuteriumProduction = 19
 )
 
+// Extraction research codes. Each level adds ResearchProductionPerLevel percent
+// to the matching resource's production account-wide.
+const (
+	TechMineralResearch        = "mineral_research"
+	TechSemiCrystalsResearch   = "semi_crystals_research"
+	TechFuelResearch           = "fuel_research"
+	ResearchProductionPerLevel = 5.0
+)
+
 // Base (structure-free) production freebie, expressed per unit of the universe's
 // resource_speed so it scales with the server rate. On niburu (resource_speed
 // 10000) this is 30M metal / 20M crystal / 10M deuterium per hour. It is a flat
@@ -65,12 +74,54 @@ func ProductionBonusFor(upgrades map[int]float64) ProductionBonus {
 	return b
 }
 
+// ResearchProductionBonus extracts the account-wide extraction bonus from the
+// three production researches (Mineral/Semi-Crystals/Fuel Research): +5% to the
+// matching resource per level. The zero value adds nothing.
+func ResearchProductionBonus(techs map[string]int) ProductionBonus {
+	b := ProductionBonus{
+		Metal:     ResearchProductionPerLevel * float64(techs[TechMineralResearch]),
+		Crystal:   ResearchProductionPerLevel * float64(techs[TechSemiCrystalsResearch]),
+		Deuterium: ResearchProductionPerLevel * float64(techs[TechFuelResearch]),
+	}
+	if b.Metal < 0 {
+		b.Metal = 0
+	}
+	if b.Crystal < 0 {
+		b.Crystal = 0
+	}
+	if b.Deuterium < 0 {
+		b.Deuterium = 0
+	}
+	return b
+}
+
+// Plus adds two production bonuses percentage-wise (the sources are additive).
+func (b ProductionBonus) Plus(o ProductionBonus) ProductionBonus {
+	return ProductionBonus{
+		Metal:     b.Metal + o.Metal,
+		Crystal:   b.Crystal + o.Crystal,
+		Deuterium: b.Deuterium + o.Deuterium,
+	}
+}
+
 // IsProductionUpgrade reports whether an Arsenal code affects resource
 // production and therefore requires the cached production columns to be
 // recomputed when it changes.
 func IsProductionUpgrade(code int) bool {
 	switch code {
 	case upgradeMetalProduction, upgradeCrystalProduction, upgradeDeuteriumProduction:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsProductionResearch reports whether a completed technology changes
+// account-wide resource production and therefore requires every owned planet's
+// cached production columns to be recomputed.
+func IsProductionResearch(code string) bool {
+	switch code {
+	case TechMineralResearch, TechSemiCrystalsResearch, TechFuelResearch:
 		return true
 	default:
 		return false

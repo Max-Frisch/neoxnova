@@ -624,6 +624,13 @@ func (e *EventEngine) resolveResearch(ctx context.Context, queueID int64) {
 		return
 	}
 	log.Printf("[EVENT RESOLVED] Research queue #%d: %s -> level %d for user %d", queueID, techCode, targetLevel, userID)
+	// The extraction researches raise account-wide production, so refresh every
+	// owned planet's cached rates now rather than waiting for its next build.
+	if game.IsProductionResearch(techCode) {
+		if err := e.builds.RecomputeAccountProduction(ctx, userID); err != nil {
+			log.Printf("[WARN] Failed to recompute production after research %s for user %d: %v", techCode, userID, err)
+		}
+	}
 	e.AdvanceBlueprint(ctx, celestialID)
 }
 

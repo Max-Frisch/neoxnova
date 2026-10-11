@@ -32,7 +32,6 @@ const (
 	homeworldStartMetal   = 100000
 	homeworldStartCrystal = 50000
 	homeworldStartDeut    = 20000
-	homeworldStartCap     = 100000000
 	homeworldMinPosition  = 6
 	homeworldMaxPosition  = 16
 	homeworldSlotAttempts = 50
@@ -136,7 +135,7 @@ func createHomeworld(ctx context.Context, tx *sql.Tx, universeCode string, userI
 		`, universeCode, userID, name, g, sys, p,
 			int(math.Round(1000*math.Sqrt(homeworldFields))), homeworldFields, spec.TempMin, spec.TempMax,
 			homeworldStartMetal, homeworldStartCrystal, homeworldStartDeut,
-			homeworldStartCap,
+			game.StorageCapacity(0, resourceSpeed),
 			metalProd, crystalProd, deutProd).Scan(&planetID)
 		if errors.Is(err, sql.ErrNoRows) {
 			continue // slot taken by a concurrent insert; roll another

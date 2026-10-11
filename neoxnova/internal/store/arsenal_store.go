@@ -145,46 +145,10 @@ func (s *ArsenalStore) Activate(ctx context.Context, accountID int64, code int, 
 
 // recomputeAccountProduction banks each owned planet's accrued resources and
 // rewrites its cached production columns with the account's current Arsenal
-// bonuses. Runs in one transaction so the whole account flips atomically.
+// bonuses. Delegates to BuildStore so the extraction-research bonus is applied
+// too.
 func (s *ArsenalStore) recomputeAccountProduction(ctx context.Context, accountID int64) error {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id FROM celestial_objects WHERE user_id = $1 AND object_type = 'PLANET'
-	`, accountID)
-	if err != nil {
-		return err
-	}
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return err
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-
-	builds := NewBuildStore(s.db)
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	for _, id := range ids {
-		if _, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, id); err != nil {
-			return err
-		}
-		if err := builds.RecomputeCelestial(ctx, tx, id); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
+	return NewBuildStore(s.db).RecomputeAccountProduction(ctx, accountID)
 }
 
 // AddUpgradeItems credits un-activated drawings to an account. It runs on the

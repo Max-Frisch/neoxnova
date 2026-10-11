@@ -79,7 +79,8 @@ JOIN users usr ON usr.id = c.user_id AND usr.username IN ('webtest_a', 'webtest_
 CROSS JOIN (VALUES
     ('metal_mine', 20), ('crystal_mine', 20), ('deuterium_synthesizer', 20),
     ('solar_plant', 25), ('robotics_factory', 10), ('shipyard', 12),
-    ('research_lab', 10), ('nanite_factory', 2), ('university', 1)
+    ('research_lab', 10), ('nanite_factory', 2), ('university', 1),
+    ('metal_storage', 20), ('crystal_storage', 20), ('deuterium_storage', 20)
 ) AS s(code, lvl)
 WHERE c.object_type = 'PLANET' AND c.galaxy = 1 AND c.system = 1
 ON CONFLICT (celestial_id, structure_code) DO NOTHING;
