@@ -61,6 +61,39 @@ Expeditions are **not** in the fleet wizard; use the `#expfleet` panel on
 leaks ghost fleets (counted in fleetTable, never resolve). Findings + black-hole
 status: `docs/EXPEDITIONS_LIVE_2026-10-06.md`.
 
+## Black-hole study (`analyze-bh.mjs`)
+Joins every sent expedition (`data/expedition-runs.json` — send time, fleet
+**points** = Metal+Crystal, and the fleet's exact `arrival`/`back` times captured
+from the send response) to its outcome message, then tests whether the black-hole
+roll is a clean uniform draw.
+- `node analyze-bh.mjs [--calibrate] [--window-min N] [--model-window-min N]`
+  → console report + `data/bh-study.json`.
+- Join keys, strongest first: **`back`** (report at the fleet's return-home time)
+  → **`arrival`** (report at the expedition point) → **`model`** (legacy rows with
+  neither: send + a calibrated constant delay; `--calibrate` prints the delta
+  histogram to read that delay).
+- Tests: overall rate vs the 1.68 % model (binomial tail); rate by **resolve
+  hour** (χ²); **weak-seed** test (fleets sent together sharing an outcome =
+  coarse time seed / batched pre-roll); rate vs **fleet points** (size
+  dependence); resolve-**minute clustering** + BH-family adjacent same-minute.
+- `cmdExpedition` marks rejected sends `ok:false` (they never fly, so no outcome
+  is attributed) and stores `sentTotal`/`arrival`/`back`. Rejected sends are
+  excluded from the study.
+- First run (21 fatal / 16 loot over 6–11 Oct, n=1150): overall **1.83 %**
+  (p=0.38 vs model), **hour uniform** (χ²=23.6, p=0.43), **no size trend**
+  (0.9–2.6 % across point quartiles), **no weak-seed excess** (112/118
+  send-minute groups agree vs 115.1 expected). The earlier "BW 3.4 %" was noise.
+  A solid verdict needs a few hundred events (continuous `run-msgharvest.sh`).
+
+## Expedition slots = Astrophysics
+`slots = floor(astrophysics(124) / 2)` — the research card states *"Every 2 levels
+of this technology adds 1 more simultaneous expedition slot"* (also raises the
+max colonization position by 1/level). Extra slots are **purchasable in the
+premium menu** (`page=premium`, item `prem_count_expiditeon` / "The number of
+expeditions"); `premium_speed_expedi` = "Number of Expeditions". Computer tech is
+*not* the lever (it governs general fleet slots). Slots are read live as the
+`N/M expedition` counter.
+
 ## Messages (`msg-scan` / `msg-stats`)
 The inbox has 12 categories (sidebar `Message.getMessages(id)`): 0 spy, 1 player,
 2 alliance, 3 combat, 4 system, 5 transport, 15 expedition, 50 game,

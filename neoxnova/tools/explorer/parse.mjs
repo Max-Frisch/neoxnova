@@ -12,6 +12,45 @@ export function num(s) {
   return Number.isNaN(n) ? 0 : n;
 }
 
+// Base Metal+Crystal value per ship code, matching internal/game/catalog.go and
+// game.FleetPoints (the expedition scale input). Used to turn a sent ship CSV
+// into "fleet points" for the black-hole study.
+export const SHIP_POINTS = {
+  '202': 4000, '203': 12000, '204': 4000, '205': 11000, '206': 24500, '207': 58000,
+  '208': 450000, '209': 16000, '210': 7500, '211': 115000, '212': 4000, '213': 110000,
+  '214': 9500000, '215': 90000, '216': 12000000, '217': 55000, '219': 1600000,
+  '220': 130000000, '225': 1600000, '226': 5000000, '227': 40000000, '228': 120000000,
+};
+
+// "code:count,..." -> { code: count } (duplicates summed).
+export function parseShipCsv(csv) {
+  const m = {};
+  for (const pair of String(csv || '').split(',')) {
+    const [c, n] = pair.split(':');
+    if (c) m[c] = (m[c] || 0) + (Number(n) || 0);
+  }
+  return m;
+}
+
+// Metal+Crystal value of a sent fleet, from its "code:count,..." CSV.
+export function fleetPoints(csv) {
+  const u = parseShipCsv(csv);
+  let total = 0;
+  for (const c of Object.keys(u)) total += (SHIP_POINTS[c] || 0) * u[c];
+  return total;
+}
+
+// Parse a game timestamp "DD. Mon YYYY, HH:MM:SS" (server-local) to epoch ms UTC.
+// The server clock runs at UTC+tzMin (measured +180 = UTC+3); the bot host is UTC,
+// so subtract tzMin. Central helper so every tool normalizes times identically.
+const SERVER_MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+export function parseServerDate(s, tzMin = 180) {
+  const m = /(\d{1,2})\.\s*(\w{3})\s*(\d{4}),\s*(\d{2}):(\d{2}):(\d{2})/.exec(s || '');
+  if (!m) return null;
+  const t = Date.UTC(+m[3], SERVER_MONTHS[m[2]], +m[1], +m[4], +m[5], +m[6]);
+  return Number.isNaN(t) ? null : t - tzMin * 60000;
+}
+
 export function parseDurationSec(s) {
   const m = /(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?/.exec(String(s));
   if (!m) return 0;

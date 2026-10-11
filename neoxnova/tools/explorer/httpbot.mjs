@@ -19,7 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, parseArsenalPage, parseMarketLots, parsePhalanx, stripTags, num } from './parse.mjs';
+import { parseBuildPage, parseTechtreeGraph, parseQueue, parseCombatReport, parseInfoCard, parseArsenalPage, parseMarketLots, parsePhalanx, stripTags, num, fleetPoints, parseServerDate } from './parse.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SECRETS = path.resolve(__dirname, '../../secrets/explorer.env');
@@ -1016,15 +1016,35 @@ async function cmdExpedition(shipsCsv, numArg, timeArg, speedArg, pve, cpArg) {
   fs.writeFileSync(path.join(DATA_DIR, 'expedition-send.html'), html);
   const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
   const slots = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
-  console.log(`[expedition] cmd=${form.cmd} num=${form.exp_num} time=${form.exp_time} speed=${form.exp_speed} ships=${shipsCsv}${pve ? ' pve=' + pve : ''}`);
+  // A rejected send returns the game's "You cant start more expeditions!" (or a
+  // like error) and no new fleet. Record it as ok:false so the BH study never
+  // attributes an outcome to a fleet that never flew.
+  const ok = !/cant start more expeditions|not enough|not possible|too little|you can.?t|error/i.test(txt);
+  console.log(`[expedition] cmd=${form.cmd} num=${form.exp_num} time=${form.exp_time} speed=${form.exp_speed} ships=${shipsCsv}${pve ? ' pve=' + pve : ''}${ok ? '' : ' [REJECTED]'}`);
   console.log(`[expedition] slots now ${slots ? slots[0].trim() : '? (page saved to data/expedition-send.html)'}`);
+  // Identify the fleet we just sent in the response fleetTable (match by its
+  // total-ship count, newest first) and capture its exact Arrival(destination)
+  // and Back timestamps — the precise key the BH study joins outcomes on.
+  const sentTotal = [...counts.values()].reduce((s, n) => s + n, 0);
+  const mine = parseFleetRows(html)
+    .filter((r) => num(r.number) === sentTotal)
+    .sort((a, b) => (parseServerDate(b.arrival) || 0) - (parseServerDate(a.arrival) || 0));
+  const sent = mine[0] || null;
   // Record what we sent so outcome reports can be attributed to a composition.
   const runPath = path.join(DATA_DIR, 'expedition-runs.json');
   const runs = fs.existsSync(runPath) ? JSON.parse(fs.readFileSync(runPath, 'utf8')) : [];
   runs.push({
+    seq: runs.length,
     at: new Date().toISOString(), account: USER, cp: cpArg || null, pve: pve || null,
     ships: shipsCsv, num: Number(form.exp_num), time: Number(form.exp_time), speed: Number(form.exp_speed),
+    // Metal+Crystal fleet value (game.FleetPoints) — the expedition scale input,
+    // so the BH study can test whether the black-hole rate depends on fleet size.
+    points: fleetPoints(shipsCsv),
+    sentTotal,
+    arrival: sent ? sent.arrival : null,
+    back: sent ? sent.back : null,
     slotsAfter: slots ? `${slots[1]}/${slots[2]}` : null,
+    ok,
   });
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(runPath, JSON.stringify(runs, null, 2));
@@ -1052,11 +1072,9 @@ async function cmdTrade(buy, giveArg, cpArg) {
 }
 
 // List outgoing fleets from fleetTable (ID / mission / destination / objective / eta).
-async function cmdExpState() {
-  await login();
-  const html = await (await getPage('page=fleetTable')).text();
-  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
-  const cap = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
+// `parseFleetRows` is shared with the expedition sender so a freshly sent fleet's
+// exact Arrival(destination)/Back timestamps can be captured as a join key.
+function parseFleetRows(html) {
   const rows = [];
   const start = html.indexOf('Arrival(Destination)');
   const end = start >= 0 ? html.indexOf('Automatically send an expedition', start) : -1;
@@ -1068,6 +1086,15 @@ async function cmdExpState() {
       rows.push({ fleetID: id, mission: cells[1], number: cells[2], start: cells[3], arrival: cells[4], destination: cells[5], back: cells[6] || '', eta: cells[7] || '' });
     }
   }
+  return rows;
+}
+
+async function cmdExpState() {
+  await login();
+  const html = await (await getPage('page=fleetTable')).text();
+  const txt = stripTags(html.replace(/<script[\s\S]*?<\/script>/gi, ''));
+  const cap = /(\d+)\s*\/\s*(\d+)\s*expedition/i.exec(txt);
+  const rows = parseFleetRows(html);
   console.log(JSON.stringify({ expeditionSlots: cap ? cap[2] : null, used: cap ? cap[1] : null, fleets: rows }, null, 2));
   return rows;
 }
