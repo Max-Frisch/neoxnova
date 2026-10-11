@@ -585,3 +585,51 @@ laser/ion hulls (207/215/213/206) so no slot idles, accepting they are far more
 expendable. Keep 109/110/111 at the floor (currently 18/18/18 vs Frigate floor 16/16/17)
 and invest in attacker-only Laser/Ion/Plasma + Arsenal. Black Wanderer 228 is
 techtree-unlocked but its build cost/rate is uncaptured.
+
+## 13. Lean-BW run, post-relaunch window (2026-10-11, acc1)
+
+Drain `bwlean-split-v7` relaunched at **05:01Z** (hull 228 Black Wanderer + 0.5 Battle
+Recycler/hull + 1 BT/fleet, 11 live slots). Source: forward `msg-scan` into
+`data/messages-bwlean.json` (**10 Oct 16:39Z → 11 Oct 11:29Z**, server UTC+3) + `analyze-bh.mjs`.
+No code changed.
+
+### 13a. Outcome mix (n = 206)
+
+| outcome | share |
+|---|---:|
+| ships | 27.7 % |
+| resources | 20.9 % |
+| darkmatter | 16.0 % |
+| delay | 16.0 % |
+| combat | 6.3 % |
+| nothing | 5.8 % |
+| fast | 2.9 % |
+| **blackhole (fatal)** | **2.9 % (6)** |
+| unknown | 1.5 % (incl. Stardust) |
+
+All 6 fatal black holes landed **overnight (21:17–02:50Z), before the relaunch** — the
+pre-top-up cluster. **Zero fatals since 05:01Z.** Ship finds still dominant (57 events).
+
+### 13b. Black-hole study (n = 1181 runs → outcomes)
+
+`analyze-bh.mjs`: **fatal BH 21/1181 = 1.78 %** (P(X≥k) = 0.43 vs the 1.68 % model);
+resolve-hour uniform (χ²=23.6, df=23, p=0.43); **no size trend** (1.0–3.0 % across point
+quartiles); no weak-seed / same-batch excess. The overnight "3.4 %" remains noise; the
+1.68 % model holds.
+
+### 13c. Combat since relaunch (13 fights, all profitable)
+
+13 fight reports (cat 3) between 05:52Z and 11:23Z. Our (attacker) M+C losses **771.9 B**;
+debris recovered **2.683 T** ⇒ **+1.911 T gross** / **+2.04 T net at the −17 % academy
+rebuild** (owner correction: Standardisation is **17 %**, not the 13 % used earlier in this
+doc). Worst single fight 167.7 B (~17 % of a fleet); no wipes, no alien disaster this
+window.
+
+### 13d. Fleet accounting — slow hull bleed
+
+Home BW **8,639** + in-flight **~67.6 k** (drain's live `exp-state` reconstruction) ≈
+**~76 k**, down from **98,891 at the 05:01Z relaunch** (≈ −23 k / −23 % over 6.5 h). No
+fatal BH in-window, so the drawdown is combat attrition (debris converts to resources, not
+hulls) plus reconstruction noise. Manageable, but keep an eye on it / top up if it keeps
+sliding. General research 109/110/111 is **18/18/18** (1–2 above the Frigate floor 16/16/17)
+— the §12d rule (hold at floor, invest in attacker-only techs) still applies.

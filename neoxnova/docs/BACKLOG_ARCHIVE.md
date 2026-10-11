@@ -1,0 +1,684 @@
+> **Archive.** Frozen copy of `BACKLOG.md` as of 2026-10-11, before it was slimmed to a
+> kanban. Kept for the session-by-session history; not maintained. Live board: `BACKLOG.md`.
+
+# BACKLOG / status — read first; update at task end; keep < 80 lines
+
+## Live state
+- Stack: `docker compose`; run `go`/`make` from `neoxnova/`. **Deploy = local commit → push →
+  VM `ssh -F neoxnova/secrets/ssh/config azure-bot 'git -C ~/neoxnova reset --hard origin/main'`.**
+- **acc1 MOVED TO VM, BURN-DOWN ONLINE (2026-10-08).** acc2 TheBob **RETIRED from scope** (served its
+  purpose for player-vs-player data; reusable manually if ever needed) — its VM tmux sessions were
+  killed and its `plans/farm-sites.json` entry removed. acc1 runs entirely on Azure VM `azure-bot` in
+  tmux, **no local processes, no ship rebuild**: `drain-acc1` = isolated `drain.mjs acc1` via
+  `run-drain.sh` (config `plans/farm-sites.json > acc1.drain`, log `data/drain-acc1.log`) and
+  `bonus-acc1` = `run-bonus.sh` (clicks the Online Bonus page). It keeps every slot busy with main hull
+  Frigate `227` (fallback Battleship `207` once home Frigates < `minFleetPoints`=5000 ≈125) + `219` at
+  0.56/hull + `217` at 8/hull + 1 of each sub-Frigate ship while on main (Black Moon `216` dropped). Per-fleet size AND fleet
+  count auto-scale to the home fleet, so it never stalls as ships are lost. DRY: `node drain.mjs acc1 --dry`.
+- **Ship building is SHIP-ONLY; mines/conveyors are MANUAL.** The legacy build/pool/send loops
+  (`run-farm-*.sh`, `run-farm.ps1`) are PARKED (not running). Shipyard = `Building: N per second`
+  (`perSec` in `parse.mjs`); `resolve` sizes each order to `EXPLORER_UNIT_SECONDS`(90 s) and re-submits
+  ~2.5 s after completion. **Optional ratio gate (account-wide, only when `comp.wall` is set):** the plan
+  sums main + sites + in-flight (`st.active`) and builds ONLY the deficient type. Currently OFF (wall-free meta).
+  **Workers re-read the plan every resolve pass** (was once at startup → sites kept building a stale
+  HC plan while `farm-plan` said `gate=BB`; restart or session-error was the only refresh).
+- **Expo send (`run-farm-send.sh`, 30 s):** slots = LIVE `expeditionSlots` (config fallback; acc1/acc2
+  = 9). `active` = `/Expedition/` rows **not `/Hostail/`** (a real fleet flips A→R with `fleetID:null`
+  on return). acc1 carries **6 permanent Hostail ghosts** — `used` double-counts them; ignore.
+- **S sizing = whole-fleet/slots (accurate, no ratchet):** `farm-plan sent --active N --inflight-ships M`
+  sums the WHOLE fleet (main + all site files + the in-flight MAIN recovered from each airborne fleet's
+  live `exp-state` ship count) and sets `S = ⌊fleet/slots⌋` so exactly `slots` fleets cover the account.
+  The old run-log reconstruction over-counted (failed sends logged, `num`/stale S) and ratcheted S ~2x
+  too high → half the slots idle; that ratchet is gone. Build targets = `S · growth` (`growth`=3).
+  Sends are **one fleet per POST** (`exp_num>1` was unreliable). Loop skips a cycle when the main
+  `levels` refresh is stale.
+- **Worker stall fix:** pending unit stored `{base,exp,until}`, dropped when `have < base` (pool drain)
+  or the ETA passes, so a drained colony re-submits instead of deadlocking.
+- **`httpbot trade <buy> <code:amt,...>`:** value 1:2:4 (deut→crystal = 1:2), **250 DM/call → big lumps**.
+- acc1 Bratwurst `3:125:12` (moon); sites = `1593` + `1655/1656/1657` (`3:125:9-11`) +
+  `1690/1692/1693` (`3:124:9-11`). **All shipyards upgraded to 18 (2026-10-08) → Frigate unlocked
+  everywhere.** acc2 TheBob `2:188:16` (sites `1598` + `1672/1673/1674/1675/1676`) is RETIRED.
+- **Expo set = `227:S,219:br` + 1 each of every sub-Frigate ship `202/204/205/206/207/211/213/215/216/225/226`
+  (no Spy Probe `210`; slot 21 errors). 2026-10-08: added the 7 heavies (207 BS, 211 PB, 213 SF, 215 BC,
+  216 BM, 225 Galleon, 226 Destroyer) to inflate the expedition's fleet value/found scale — built on main
+  only, one per fleet; the send gate now requires all 11 present.**
+  Composition is config-driven in `plans/farm-sites.json` `comp` (`main`/`wall`/`cargo`/`recycler`/`ramp`);
+  freighter/recycler ratios are **point-based** (`recyclerPoints`) so they survive a hull flip. `S` resets
+  to capacity whenever `comp` changes; otherwise it ratchets. The optional wall ratio-gate is OFF.
+- **Wall-free meta (2026-10-08):** the enemy mirrors our fleet ×~0.66 + a small template, so a fodder wall
+  only absorbs our own alpha strike and inflates enemy HP — sim `cmd/exposim` shows `BB+5HC` loses 12.9%/fight
+  vs **0.0%** wall-free (matches live ~1M HC/fight). Only Weapons/Shield/Armour research (109/110/111) is
+  mirrored; specific weapon techs (120/121/122/199), arsenal, academy and governors are **attacker-only**.
+- **Enemy W/S/A is ONE rolled value on all three stats, ~2.2× our 109 for aliens** (2026-10-08, report
+  headers). Player shows three distinct values (acc1 +112/+85/+94); Pirates roll ~0.1–1.5× our 109 bonus,
+  Aliens plateaud at **+202%** (acc1) / **+159%** (acc2). **Rule: keep 109/110/111 at the techtree floor**
+  (Frigate 227 → 16/16/17; Battle Recycler 219 → 15/15/15) and invest in the non-mirrored bonuses, else the
+  alien scales with us and its ~2.2× roll wipes the fleet (both accounts lost a full fleet ~1 min apart).
+  Header now captured (`parseCombatReport.attackerInfo/defenderInfo` → `expedition-reports.json`); Go model
+  `game.Combatant.FlatBonusPct`. Details `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- **Battleship → Frigate phase:** both accounts auto-flipped `main` to `227` once the Frigate fleet matched
+  the BB fleet by points (`ramp.per`=690). Frigate is the best unlocked hull (crystal 0.25/pt vs HC 0.5,
+  build tier 20/s ⇒ ~800M pts/s vs BB 7.7M). Recycler count is point-based (`recyclerPoints=800e6`
+  = **20 Frigates : 1 Battle Recycler** since 2026-10-08; was 2:1). BB/HC fleet is
+  now surplus — **scrap via the black-market ship trader (50% loss) once no longer flying**.
+
+## Open backlog (ordered; one item per session)
+0. **EXPAND BUILD SITES — DONE both** (acc1 7, acc2 6).
+1. **Expedition resolver (Go)** — DONE 2026-10-08. `game/expedition.go`: pure `RollExpedition`
+   (weighted outcome mix, cargo-capped loot, ship finds, dark matter, delay/fast ETA shift, black
+   hole) using the item 1b enemy (mirror×0.6–0.9 + template, single rolled W/S/A via
+   `Combatant.FlatBonusPct`); resolved by the combat engine. `engine.resolveExpedition` persists it
+   at the HOLDING→RETURNING transition: combat reports, losses, deep-space debris, dark-matter
+   credit, Arsenal draw, `RESOLVED` on a wipe/black hole. `cmd=2` is never needed server-side.
+   Mix (owner-locked 2026-10-08, rescaled open-codebase defaults): BH **2 %**, combat **15 %**
+   (pirates 70 / aliens 30 — only these two exist), resources 30, ships 20, nothing 17, DM 8,
+   delay 6, fast 2. Enemy scales ONLY on general W/S/A research 109/110/111
+   (`MirroredResearchBonus`); never specific weapon techs/arsenal/academy.
+    **Outcome surfacing DONE 2026-10-08**: every outcome (incl. combat/BH) now writes an
+   `expedition_reports` row (migration 0013) with `title`/`message` (`game.ExpeditionMessage`),
+   loot/ships/DM/upgrade, `combat_report_id` for fights; served by `GET /api/v1/expeditions/reports/{id}`
+   and `GET /api/v1/planets/{id}/expedition-reports`. **Owner re-locked the mix 2026-10-08: combat 15 %,
+   fatal black hole 0.5 %** (was 2 %); freed weight → resources .31/ships .21/DM .085, nothing .16.
+   REMAINING: live calibration only. Notes: `docs/EXPEDITIONS…` §8/§9/§10.
+   **Full message scan 2026-10-08** (§10): corrected live mix n=641 = ships 30.7 %, resources 20.7 %,
+   darkmatter 13.7 %, delay 12.5 %, combat 10.0 % (pirates 49/aliens 15), nothing 7.8 %, fast 3.7 %,
+   fatal black hole 0.5 %, stardust 0.3 %. The vanilla `MissionCaseExpedition.php` is a reference
+   only (uniform 1/9 ⇒ 11 % BH / 33 % nothing); live is custom. Owner chose to keep combat 15 % and
+   adopt the measured **0.5 % BH**.
+1b. **Expedition enemy formula — DONE 2026-10-08.** Enemy = **mirror of the sent fleet × a single
+    per-fleet roll ~0.6–0.9 (median 0.66) + a small random template** (LF/Cruiser/Star Fighter, tens
+    to hundreds). Verified to S=814,397 BB (far past the old 503-pt ceiling); uniform across shared
+    types ⇒ one roll per fleet. Small fleets sit on the template (old 2–40× ratios). **Enemy W/S/A is
+    a second roll** — one value on all three stats, ~2.2× our mirrored 109 for aliens (see live-state
+    bullet + §8). Data + tables: `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+1c. **Arsenal upgrades (Go model)** — DONE 2026-10-07 (catalog, tiers 5k/50k/250k, activation rules,
+   store, market, API, lot expiry, "Your Auctions"/remove, tests). Catalog re-verified against
+   `docs/screenshots_arsenal/` (all 19 names/order/brackets match). REMAINING: (a) wire the
+   ~10%-of-combat-win drop into the expedition resolver (item 1) via
+   `game.DropPool`/`RollDrop`/`AddUpgradeItems` — **DONE 2026-10-08** (`rollExpeditionDrop`
+   called from `RollExpedition` on a win + a ship find, credited via `store.AddUpgradeItems`);
+   (b) tier gates the type pool ONLY — DONE
+   2026-10-07: exact light/medium/heavy sets in `arsenal.go` (`RollDrop` added; chance stays
+   flat ~10%). ~~confirm tier gates the type pool vs the drop chance~~;
+   (c) **apply bonuses to production/combat** — DONE 2026-10-07:
+   `internal/game/unit_classes.go` (from live cards, fixture `testdata/niburus_unit_classes.json`,
+   `httpbot card`/`cards`), weapon/armor/shield folded additively into the tech bonus
+   (`DerivedStatBonus`), production 17/18/19 into `RecomputeProduction`, engine 11/12/13 into
+   `FleetMaxSpeed`; resolver/`RecomputeCelestial`/`Dispatch` load `account_upgrades` and activation
+   recomputes planets. **Conveyor 14–16 magnitude MEASURED live 2026-10-09** (acc1 owned one of
+   each; activated at level 0 ⇒ 100%): advertised +0.6/+0.5/+0.4 % gave only ~**half** effective
+   (~+0.30/+0.25/+0.20 % on the factory "per second", main 1593) — the upgrade % is additive into an
+   existing total conveyor-bonus pool that already sits ~+100 % (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md`
+   §7). Class map confirmed by the deltas (light 202–205/212/401–403; avg 206/207/209/211/213/215/217/219/
+   404–406/416/417 + **502/503**; heavy 214/216/225–228/418). OPEN: what the pre-existing pool is (peaceful
+   tooltip shows only flat `+4/+1/+1 units/s`) and whether a bonus-free account also halves;
+   (d) `greid` keys for upgrades other than `combustion` — PARTIAL 2026-10-09: conveyor keys
+   found (`l_conveyer`/`m_conveyer`/`h_conveyer`); (e) `httpbot arsenal|market|activate|sell`
+   — DONE 2026-10-07 (`parseArsenalPage`/`parseMarketLots` + the four commands, dry unless `--go`).
+1d. **Combat bonus model — per-weapon techs** — DONE 2026-10-07. `combat.go` `DerivedAttack`
+   walks each unit's card weapon components: per component `base·(1+(weaponTech+arsenalWeapon)/100)`
+   with `weaponTech` = 2%·Laser/Ion/Plasma (120/121/122), 4%·Graviton (199), 0 Standard; the sum is
+   then `× (1+TechBonus(109)/100)`. Hull/shield keep arsenal armor/shield additive with 111/110.
+   `CombatTechs` carries Laser/Ion/Plasma/Graviton, `loadCombatTechs` reads 120/121/122/199, seed
+   includes them. Tests replay `real-big-acc1-acc2.report.json` (82/246/853/1538/3077) + the
+   `unitStats.Attack == Σ base_w` invariant. Details: ARSENAL doc §8.
+2. **Incoming-fleet view** (transport/attack/espionage) — DONE 2026-10-07:
+   `GET /api/v1/planets/{id}/incoming-fleets` returns inbound OUTBOUND fleets with
+   `mission_text`/`colour`/`hostile` (owner-checked, composition hidden); `game.MissionDisplayFor`
+   maps missions to live labels. **Colours finalised 2026-10-08** from the live overview sample:
+   hostility is now OWNERSHIP-based (any fleet not owned by the planet owner is hostile, incl.
+   foreign espionage) and the palette is enemy attack red `#ff4d4d`, enemy spy orange `#ff9900`,
+   own inbound green `#4caf50` (`MissionDisplayFor(mission, hostile)`).
+3. **Auto-builder base (Go)** — DONE 2026-10-08. `internal/game/techtree.go` ports the live
+   prerequisite graph (back-fills every def's `Requires`, fixing the old nanite entry);
+   `internal/blueprint` is the pure planner (`Spec`/`State`/`Action`, `Advance` one action per free
+   scope, prereq closure, order/gradual/caps/bumpBuilders, energy deficit, min-reserve, done/idle);
+   migration `0014_blueprints.sql` + `store.BlueprintStore` (CRUD, `LoadState`, `ListEnabled`);
+   engine `AdvanceBlueprint` fires after every construction/shipyard/research completion and a ~5 s
+   `sweepBlueprints` catches cold starts; account-scope research is merged into each planet plan.
+   API: `GET/POST/DELETE /api/v1/planets/{id}/blueprint`, `POST …/blueprint/preview`,
+   `GET/POST /api/v1/blueprints/account`, `GET /api/v1/blueprints` (owner-or-ADMIN gated).
+   **Phase 2 (scale) DONE 2026-10-08** (backend/API only): built-in templates
+   (`internal/blueprint/presets.go` + `GET /api/v1/blueprints/templates`), apply-to-all
+   (`POST /api/v1/blueprints/apply`, `all`/`celestial_ids`, cap 100), per-planet status
+   (`GET /api/v1/blueprints/status`), sweep throttle (50/sweep, priority-ordered);
+   `ListOwnedPlanets`; preset + store tests. REMAINING: UI (no frontend in repo),
+   auto-colonize, energy-gate. `docs/AUTO_BUILD_DESIGN.md` §15.
+4. **Moons** — PARTIAL 2026-10-07. Live acc1 moon `cp=1725` @ `3:125:12`: diameter 8,426 km,
+   created by combat at 20%, fields 62/63, Moon base 20. `game/moon.go` now holds the pure model:
+   creation chance (`combat.MoonChance`), diameter, `MoonFieldsMax` (3/level; base 0; not classic
+   `(d/1000)²`), `PhalanxRange` (L²−1), `JumpgateCooldown` (1h at L1, halved per level), `MoonDestruction`
+   (`(100−√S)·√D`) + Moon-base reduction (3%/2 levels), and the moon catalog (`moon_base` 41,
+   `phalanx_sensor` 42, `jumpgate` 43 + moon-legal planet buildings). **Creation wired**
+   (`resolveAttack` rolls `MoonCreation(res.MoonChance, seed)` on a player planet; inserts a MOON at
+   the coords with `ON CONFLICT DO NOTHING`, recorded in the report). Details + open questions:
+   `docs/MOONS.md`. REMAINING: `DESTROY_MOON` wiring (≥10,000 km immunity), `httpbot` jump command
+   (model done), moon build/overview API + `resolveAttack` on a MOON target.
+   **2nd moon acquired 2026-10-08**: acc1 now has `2:188:9` (diameter 8,544 km,
+   5000 recyclers/attempt). **Phalanx DONE 2026-10-08**: works same-galaxy, reach `L²−1`, reveals
+   any owner's fleet composition/ETA (`game.PhalanxInRange`, `parsePhalanx`, `httpbot phalanx`).
+   **Debris question resolved**: only the creating battle's new debris drives the
+   moon roll — a pre-existing field does NOT add to it (and diameter ignores the
+   recycler count once the 20 % cap is hit; 8,544 = x=13). Details: `docs/MOONS.md`.
+5. **TOTP 2FA** (auth 2nd factor on `internal/auth`).
+6. **Full game-loop integration test** — register→…→abandon.
+7. **Stardust rare currency (small).** Randomly/rarely found on expeditions (owner: rare currency,
+   2026-10-09). Sink = the **debris-based planet/moon diameter + fields increase** (LARGE debris
+   field + 1 Stardust), the optional grind-vs-cashshop path. Scope: `game` currency constant +
+   occasional find in `RollExpedition` + store/API sink. `EXPEDITIONS…` §11e.
+8. **Expedition calibration + positive BH** — DONE 2026-10-09 (`internal/game/expedition.go` +
+   `cmd/exposim`, tests green incl. DB). Per `docs/EXPEDITIONS_CALIBRATION_PLAN.md`:
+   (1) weights re-locked — resources .2028 / ships .2879 / combat .15 / nothing .079 / DM .1465 /
+   delay .06 / fast .04 / **blackhole-loot .017** / **fatal BH .0168 (1.68 %)**;
+   (2) NPC mix 84:16; (3) type-dependent enemy — pirate mirror 0.60–0.69 + strength
+   `0.10+1.70·U¹·⁵`, alien mirror 0.85–0.94 + strength `0.70+1.80·U²`;
+   (4) widened template bands (203 20–180, 204 5–90, 206 5–85, 207 4–90, 213 5–45 + alien-only
+   215/216); (5) **DM scales on fleet points** (`expeditionDarkMatter`, ~3.3e-9–1.5e-8/pt, floor 100);
+   (6) new `ExpeditionBlackHoleLoot` outcome (multiplied resource find, cargo-capped) rides the engine
+   `default` branch and persists as `blackhole-loot`; (7) cosmetic flavour catalogue + `Flavor` field,
+   harvested from live `sys_expe_*`.
+   REMAINING: live calibration only (real runs vs model); stardust still item 7.
+
+## Done (newest first)
+- 2026-10-11: **drain-acc1 relaunched (`bwlean-split-v7`) after the manual BW top-up.** All fleets
+  had arrived and home BW was manually restocked; `drain-acc1` was not running (a stale log ended
+  03:38Z during the previous busy period). Verified VM `azure-bot` at `2726e91`, `drain.mjs` v7
+  (`per = floor((home+inflight)·0.97 / slots)`, clamp `home/free`), config `mainOrder:["228"]`,
+  `hullSplitFrac:0.97`. `bash run-drain.sh start acc1` → tmux `drain-acc1`; startup
+  `plan=bwlean-split-v7`, then **11 fleets** `free=11/11 home=98891 inflight=0 per=8720 br=4360
+  bt=1` (11×8720 = 95,920 ≈ 97 % of BW; live slots are now **11**, config fallback 9). `bonus-acc1`
+  untouched.
+- 2026-10-11: **local dev bootstrap scripts (no `make` needed).** New `dev-up.sh` + `dev-up.ps1` at
+  the `neoxnova/` root: `docker compose up -d` → wait for Postgres `pg_isready` → apply every
+  `migrations/*.sql` except `0002_seed.sql` (Makefile order, idempotent, auto-picks new files) →
+  optional seed → `go run ./cmd/server`. Flags `--seed`/`--migrate-only`/`--seed-only`
+  (`-Seed`/`-MigrateOnly`/`-SeedOnly`); creates `.env` from `.env.example` if missing;
+  `DB_CONTAINER`/`DB_USER`/`DB_NAME` overridable. For Windows hosts where Git Bash has Go+Docker but
+  no `make`. Verified end-to-end (`--migrate-only` on both: compose stack + all 14 migrations OK).
+- 2026-10-11: **BH instrumentation + expedition-slot mechanism (no live change).** New
+  `tools/explorer/analyze-bh.mjs`: joins sent expeditions (`data/expedition-runs.json`) to
+  outcome messages and tests the black-hole roll. `cmdExpedition` now records `ok` (rejected
+  sends excluded), `points` (Metal+Crystal via new `parse.mjs fleetPoints`/`SHIP_POINTS`), and
+  the fleet's exact `arrival`/`back` timestamps (parsed from the send response via new
+  `parseFleetRows` + central `parseServerDate`); the study joins on those, falling back to a
+  calibrated constant delay for legacy rows. Tests: overall rate, resolve-hour χ², weak-seed
+  (fleets sent together), rate vs fleet points, minute clustering. First run n=1150: fatal BH
+  **1.83 %** (p=0.38), hour uniform (χ²=23.6 p=0.43), no size trend, no weak-seed excess —
+  the "BW 3.4 %" was noise; a firm verdict needs a few hundred events. **Expo slots =
+  `floor(astrophysics/2)`** (card: "every 2 levels adds 1 expedition slot"); extras buyable in
+  the premium menu (`prem_count_expiditeon`) — Computer tech is NOT the lever. Docs
+  `EXPLORER.md`. `parse.mjs`/`httpbot.mjs`/`analyze-bh.mjs` `node --check` green; drain left on
+  hold (no restart).
+- 2026-10-11: **drain per-fleet sizing fix (`bwlean-split-v7`).** Was `per = floor(home·0.97/free)`,
+  so a manual hull top-up into one free slot fired one huge fleet (e.g. +28k BW → a single ~27k fleet
+  that a BH could wipe whole). Now `per = floor((home + in-flight)·0.97 / slots)`, clamped to
+  `home/free` — each fleet takes the account's **per-slot share**, so an injection spreads across
+  successive returns instead of pooling. `inflightHull()` reconstructs each airborne expedition's
+  hull count from its live `exp-state` `number` (`number ≈ hull·(1+recyclerPerHull) + BT + smalls`);
+  `expState()` now returns the per-fleet ship counts. Drain log prints `home=/inflight=/per=`. Commit
+  `f33dc7f`, pushed + VM `reset --hard`; dry-run verified (`home=1554 inflight=17215 per=1554`), drain
+  restarted, startup line shows `plan=bwlean-split-v7`.
+- 2026-10-11: **acc1 colony metal-50 round + lean-BW round review (~11 h live).** Plan
+  `acc1-colo-grow.json` `caps.1` 47 → **50** (crystal/deut caps unchanged 45/42); commit `25c7ab6`,
+  pushed + VM `reset --hard`; relaunched the 7 daemons (`colo-1835..1841`), all actively building
+  (e.g. 1838 Metal Mine L48→49). Fresh full message scan to `data/messages-bwlean.json` (409 rows;
+  inbox only since the lean round — earliest 10 Oct 19:39 server = 16:39Z): 175 outcomes
+  **ships 28.6 / resources 19.4 / delay 16.6 / DM 15.4 / nothing 6.3 / combat 5.7 / fast 3.4 /
+  fatal BH 3.4 % (6) / stardust 1.1 % (2)**, + 3 blackhole-loot. 50 ship finds ≈ **919 B pts** free
+  hulls. 10 fights (7 pirate wins, 2 alien wins, **1 alien draw**): our losses 3.532 T M+C
+  (29,043 BW + 29,321 BR), debris recovered **5.131 T** ⇒ +1.599 T gross / **+2.06 T** after the
+  −13 % academy rebuild. **Alien draw** (`fa0e9f0b`, 01:28Z; alien W/S/A 213 vs our 169): lost
+  22,633 BW + 12,632 BR = 2.736 T, field 2.720 T (99.4 %) ⇒ a wash before discount, **+0.34 T
+  after −13 %**. Cost driver is **6 fatal BH fleet wipes** (3.4 %, ~2× the 1.68 % model; ≈0.85 T
+  each) → fleet drawdown / the owner's manual ~28k BW top-up. Drain BW-only, slots saturated.
+  Old `messages.json` untouched.
+- 2026-10-10: **lean BW health check (~3.5 h live, no code changed).** Drain `bwlean-split-v6` from
+  16:22Z: slots saturated throughout (one 9-fleet burst at 16:50, then 1–3-fleet refills per return;
+  no stalls / no "no BW home"). 59 expo outcomes since start — resources 14 / ships 16 / DM 12 /
+  delay 7 / nothing 5 / fast 2 / **combat 3 / 0 fatal BH / 0 stardust**. All 3 fights won vs **Pirates**
+  with low rolls (W/S/A 14–44 vs our 168/159/159): BW loss **58/87/106** (~1.4 %), BR loss
+  **~2050–2180 of ~3400**/fight (~62 %), the 1 Frigate lost each time. Fleet **~62 k BW stable**
+  (home 259 + 9 fleets = 93,045 ships in flight); home stockpiles M 818 B / C 343 B / D 394 B, BR
+  166,790, free finds huge (124 M LC, 108 M HF, 64 M Cr, 22 M BB, 20 k Frigate). Net: healthy, keep going.
+- 2026-10-10: **acc1 burn-down switched to Black Wanderer (BW 228), lean BR-only, live.** Follow-up to
+  the BW sweep: hull `mainOrder:["228"]`, `recyclerPerHull:0.5` (lean BR), BT flat **1/fleet**
+  (`transporterPerFleet:1` — kept for the fleet-find rolls; `share()` now returns 0 for a 0 ratio),
+  new `hullSplitFrac:0.97` (split only 97 % of the home BW, floored, ~1.9k buffer), and `SMALL` now
+  also carries **1 Frigate 227** (still no Black Moon). New `PLAN_VERSION` `bwlean-split-v6`. Commits
+  `effce46` (exposim+BW cost) + `e32eb5d` (drain/config) + `7cf8a24` (1 BT/fleet), pushed, VM
+  `git fetch/reset --hard` to `7cf8a24`. Dry-run: `per=6732 br=3366 bt=1` (0.5 BR/BW, 9×6732=60,588 of
+  62,466 BW, 1,878 held). `bash run-drain.sh start acc1` → tmux `drain-acc1`, 9 fleets fired then
+  `9/9 busy`. `bonus-acc1` untouched. `node --check`, JSON, `go test ./internal/game` green. BACKLOG
+  edit left uncommitted (tree had prior uncommitted edits).
+- 2026-10-10: **BW 228 exposim sweep → BW-vs-fodder question settled.** Captured BW live cost (80M/40M/7M
+  base; 120M pts = 3.0 pts/crystal), wired it into `catalog.go` + `cmd/exposim` (rate 76/s, cargo 2M,
+  full attacker stack: academy atk 26/shield 16/hull 14/RF-red 16 + arsenal 1.5/3/5.25/2.25/0.8/0.4,
+  200–500 seeds, per-fleet budget 8.07e11 ≈ 6722 BW). Results: **all BW comps win 100 % of pirate and
+  alien-med (2.2×) fights**; alien-med loss ~27–41 % (BR 1.0/BW 26.8 lowest, BT 1/BW 41.1 an outlier,
+  solo 30.0, whale 8BT+0.5BR 29.9). **Wipe tail (3.0×): every comp 100 % loss / 0 % win — fodder saves
+  nothing and solo is not worse.** So at BW scale fodder is survival-**neutral**; the BR/BT mix is a
+  cargo decision, not a survival one. `go test ./internal/game` green. See session calc.
+- 2026-10-10: **acc1 colony builder metal mine cap 47 (all 7).** State check (not old caps): all 7
+  already at M46/C45/D42, st 13/12/11, cv 7/6/5. Bumped `plans/acc1-colo-grow.json` `caps.1` 46 → **47**
+  (crystal/deut caps unchanged); commit `020a6ca`, pushed + VM reset; relaunched the 7 daemons.
+  Confirmed live (Metal Mine 46→47; verify NOT MET cap1 46/47).
+- 2026-10-10: **acc1 colony builder mines +1 (caps 46/45/42).** Follow-up: the 7 daemons finished the
+  storages/conveyors mission and self-stopped (mines already at the old caps 45/44/41). Bumped
+  `plans/acc1-colo-grow.json` `caps` metal/crystal/deut 45/44/41 → **46/45/42**; commit `81fc4bc`,
+  pushed + VM reset. **Relaunched** the 7 daemons (they'd stopped on verify MET). Confirmed live
+  (Crystal Mine 44→45, Deut Refinery 41→42; verify NOT MET cap2/cap3). Daemons re-read the plan each
+  pass, but a `verify MET` run **ends the daemon** — bump + relaunch is required.
+- 2026-10-10: **acc1 colony builder new mission (storages 13/12/11, conveyors 7/6/5).** Updated
+  `plans/acc1-colo-grow.json` `buildings` targets (metal/crystal/deut storage 22/23/24 = 13/12/11,
+  light/average/heavy conveyor 71/72/73 = 7/6/5) + `order`. Commit `41cc07a`, pushed + VM
+  `git fetch/reset --hard` to `41cc07a`. Relaunched the 7 acc1 colony daemons (`run-one-colony.sh <cp>
+  plans/acc1-colo-grow.json`, tmux `colo-1835..1841` = `3:127:9/10`, `3:128:10`, `3:129:9/10`,
+  `3:130:9`, `3:131:9`); `bonus-acc1` untouched. Confirmed live (Metal Storage L10→L13 building).
+- 2026-10-10: **acc1 moonshot round 3 (from MAIN cp 1593) — discovered a per-planet attack cap.**
+  Targets = the 4 still-moonless Account2 planets (`2:178:20 2:186:20 2:189:9 2:193:20`), 3× 2500 BR
+  each. Fresh targets accepted all 3 (`2:189:9` 3/3, `2:193:20` 3/3); `2:178:20`/`2:186:20` — each
+  already hit 5× in r1–r2 — accepted only **1 more each**, then step3 returned the fleetTable (rejected).
+  Not resources (main had 858 B deuterium) or slots (free) → a **per-planet attack cap** (~6 per planet;
+  the 6th accepted, the 7th+ rejected). `sent=8/12`; rejected attempts cost nothing. Log
+  `data/moonshot-acc1-r3.log`. Retry `2:178:20`/`2:186:20` after the cap window resets.
+- 2026-10-10: **acc1 moonshot round 2 — 27 attacks to the 9 still-moonless Account2 planets.** Galaxy
+  view confirmed 6 moons from round 1 (182/185/187/191/196/198); the remaining 9
+  (`2:178:20 2:184:20 2:186:20 2:189:20 2:192:19 2:193:1 2:195:20 2:197:20 2:199:20`) each got **3× 2500
+  Battle Recyclers** (Attack, from **cp 1648**); `2:193:20` kept excluded (galaxy view shows no moon
+  there either). `run-moonshot.sh` gained `MM_TARGETS`/`MM_PER_PLANET` env overrides and now forwards
+  resolved params into the tmux loop (tmux `new-session` does not inherit custom vars). This run
+  `sent=27/27`; log `data/moonshot-acc1-r2.log`. Drain still stopped.
+- 2026-10-10: **acc1 moonshot op → Account2 (30 attacks sent).** New `tools/explorer/run-moonshot.sh`
+  (tmux `moonshot-acc1`): waits for the BRs to land, then fires **Attack** (mission 1) fleets of **2500
+  Battle Recyclers (`219`) twice per planet**, slot-aware (`Fleet X / 30`, max 30 → queues when full).
+  Source = **planet cp 1648 `2:188:9`** (not the moon), speed 10. 15 galaxy-2 targets
+  (`2:178:20 … 2:199:20`); **`2:193:20` skipped** (already has a moon). All 30 sent OK, no rejection;
+  BR at cp1648 **112,500 → 37,500** (= exactly 30×2500). Log `data/moonshot-acc1.log`. (That run's
+  `sent=0/30` summary is a pre-fix marker bug in the loaded copy; fixed in the script — sends verified
+  via the BR delta + 30 `OK sent` lines.) Drain still stopped.
+- 2026-10-10: **acc1 colony goal MET — all 7 newest colonies finished.** `colo-1835..1841` each hit
+  `verify MET` ~11:14–11:15 and self-stopped; no colo tmux sessions remain (only `bonus-acc1` left).
+  Caps reached: metal 45 / crystal 44 / deut 41, Shipyard 18, Research Lab 20, Robot 21 / Nanite 10.
+- 2026-10-10: **Frigate 227 vs Black Wanderer 228 — full player bonus stack vs a base+research-only
+  enemy (decision: STAY ON FRIGATE).** Extended `game.Combatant` with academy layers the engine
+  lacked (`AcademyShieldPct`, `AcademyHullPct`, `AcademyRFReductionPct`; zero-default,
+  backward-compatible; `go test/vet ./internal/game` green) so the sim can include: Arsenal
+  (laser 1.5 / ion 3 / plasma 5.25 / grav 2.25 / heavy armor 0.8 / heavy shield 0.4 %), academy flat
+  atk +26 % (Weaponry19+ClassA16+Empire1−DefClassA10), shield +16 %, hull +14 %, Heavy Armour 1308
+  −16 % enemy RF, plus 1103/1109 procs. Enemy = base + ONE rolled general W/S/A (the existing
+  `FlatBonusPct` mirror; no specific/Arsenal/academy). Results: **normal fights (pirate/alien-med)
+  both hulls win at <2 % loss (BW marginally lower, 0.0–0.5 % vs 0.7–1.7 %); at the alien tail
+  Frigate is clearly more resilient — 2.2×: 5.3 % vs 7.0 %, 2.5×: 8.8 % vs 19.2 %, 3.0×: 80 % vs
+  99.5 %.** BW still wins an equal-point head-to-head 0/60 for Frigate and shreds a 227/BR/BT plan
+  (Frigate has no RF vs BR 219; BW RF 10). Crystal economy decides it: Frigate 4.0 fleet-pts/crystal
+  vs BW 3.0 (+33 %). Live battle-sim cross-check: per-unit stats match the engine exactly; the
+  simulator is one random sample per call and bimodal at the tail, and it does NOT expose the flat
+  academy skills (1101/1102/1211/1301/1302), so it understates the player. Caveats: flat-atk stacking
+  (additive vs multiplicative) unverified; 1108/1110/1111/1303/1311 still unmodelled. See session.
+- 2026-10-10: **acc1 colony goal raised again (7 colonies).** `plans/acc1-colo-grow.json`: Research Lab
+  `31` 18→20 and `caps` mines metal 43→45 / crystal 41→44 / deut 38→41 (mines 1/2/3 are in `gradual`,
+  +1 per cycle). Running `colo-1835..1841` daemons re-read the plan each resolve pass.
+- 2026-10-10: **drain BT set to a flat 1 per fleet ("at least 1 each").** The acc1 BT stock is far
+  below the 8-per-Frigate ratio, so some expo fleets flew with 0 Battle Transporters (`share()` clamps
+  to `floor(home/nFleets)`). `plans/farm-sites.json > acc1.drain` now uses `transporterPerFleet: 1`
+  instead of `transporterPerHull: 8`; `drain.mjs` honours it (one BT per fleet while the stock lasts)
+  so every expedition carries a BT for the fleet-find rolls. Running `drain-acc1` needs a restart to
+  pick it up (config read at startup). PLAN_VERSION unchanged (`frig-split-v5`).
+- 2026-10-10: **acc1 colony "done" state raised (7 colonies).** `plans/acc1-colo-grow.json` caps
+  bumped one level each — metal 42→43 / crystal 40→41 / deut 37→38 — and shipyard `21` 16→18, so the
+  7 newest colonies (tmux `colo-1835..1841`) keep growing one more mine level and unlock the yard.
+  No Go changed; running daemons re-read the plan each resolve pass.
+- 2026-10-10: **acc1 drain comp aligned to TheBob's expo ratio (configured, not yet relaunched).**
+  Two live Hall-of-Fame reports (Aliens + Pirates) show one fixed attacking template — **50,000 Frigates
+  `227` + 400,000 Battle Transporters `217` + 28,000 Battle Recyclers `219`**, i.e. **8 BT + 0.56 BR per
+  Frigate** (BT:BR:Frig = 100:7:12.5). `drain.mjs` now takes the ratio directly as *units per hull*
+  (`recyclerPerHull`=0.56, `transporterPerHull`=8 in `plans/farm-sites.json > acc1.drain`), keeping the
+  legacy one-per-N `recyclerPer`/`transporterPer` as fallback; `share()` is `round(hull×perHull)`, min 1
+  (so one BR still triggers debris collection) and clamped to the even home share. Running `drain-acc1`
+  keeps the old ratio until restarted (expos deliberately **not** relaunched). BT 400M / BR 200M cargo.
+- 2026-10-10: **acc1 7 newest colonies put on the colony builder (live).** Launched one detached
+  `run-one-colony.sh <cp> plans/acc1-colo-grow.json` daemon per new colony on the VM (`azure-bot`,
+  tmux `colo-1835..1841` = KB `3:127:9/10`, `3:128:10`, `3:129:9/10`, `3:130:9`, `3:131:9`). Rewrote
+  `plans/acc1-colo-grow.json` to the "usual" progression: bootstrap Robot 11 / Nanite 1, storages
+  22/23/24 to 10/9/8, mines 1/2/3 to 24/22/19, shipyard 21→16, Research Lab 31→18 last; then
+  `gradual` runs mines + Robot(14)/Nanite(15), one level per cycle, up to caps **metal 42 / crystal 40
+  / deut 37, Robot 21, Nanite 10** (Nanite trails at Robot−11, floor 1 via `bumpBuilders`). Energy stays on Solar Satellite
+  top-ups (`ships 212:200` + `EXPLORER_ENERGY_SATS`); `bumpBuilders` raises Robot/Nanite when the next
+  mine build would exceed `EXPLORER_BUILDER_BUMP_SEC` (360 s). `verify` stops each daemon at the caps.
+  Drain is main-only, so colony sats are untouched. No Go changed.
+- 2026-10-10: **web end-to-end test + two build-store bug fixes.** New
+  `internal/web/e2e_integration_test.go` drives the server-rendered UI end to end through the real
+  HTML forms (`httptest` + cookie jar) against a new **fast sandbox universe**
+  (`migrations/0016_test_universe.sql`: `universe_test`, 50000× rates, two seeded neighbours
+  `webtest_a`/`webtest_b`, password `commander-dev-pass`, wired into `make migrate`). The in-process
+  durable scheduler resolves builds, shipyard, research, espionage, transport+recall, attack and
+  colonize; the test asserts overview/buildings/shipyard/research/fleet/galaxy/reports and resets the
+  sandbox first, so it is repeatable. Skipped unless `DATABASE_URL` is set and 0016 is applied.
+  The loop uncovered and fixed two latent `internal/store/build_store.go` bugs: (a) `RecomputeCelestial`
+  used `SELECT COALESCE(quantity,0) … WHERE …`, which returns **no rows** when a planet never built a
+  solar satellite → every build failed to recompute (sub-select fix); (b) `EnqueueStructure`/
+  `EnqueueShipyard` checked prerequisites against **structure levels only**, so any tech-gated ship or
+  defense (e.g. Light Fighter → `combustion_drive`) always returned "prerequisites not met" (new
+  `combinedLevels` merges the owner's research). Shell polish: active-nav highlight, nicer
+  status/alert boxes, subtle depth gradient. `go test ./...` green hermetic and with `DATABASE_URL`.
+- 2026-10-10: **acc1 full expo review + dashboard (no Go changed).** Fresh VM harvest
+  (`expeditions.json` n=873 / 198 reports / 1458 runs, 06–09 Oct) → self-contained
+  `docs/expedition-dashboard-2026-10-10.html`; details `docs/EXPEDITIONS…` **§12**.
+  Mix stable (ships 29.6 / res 19.8 / DM 14.5 / combat 9.3 / fatal BH **1.7 %**). Combat
+  split by NPC: pirates 83 fights 86.7 % win (mirror 0.64, enemy roll med 64 %, loss med
+  17.8 %), aliens 26 fights **46.2 %** (mirror 0.91, roll med 111 %, loss med 51.5 %);
+  **loss tracks the enemy W/S/A roll, not the mirror**; **84,640 Frigates lost** in-window.
+  **Ship finds are a firehose** — 258 events ≈ **921 B pts** of free hulls (58.8 M LC,
+  36.2 M LF, 15.7 M HF, 6.9 M Cr, 1.6 M BB) while the Frigate line 63.5 k → 984. Loot
+  M 2.25 T / C 0.88 T / D 51.6 B / DM 512 k. **Recommendation (§12d):** **do NOT switch
+  hulls — stay on Frigate 227** (best throughput 8.8e8 pts/s @22/s, lowest crystal 0.25/pt,
+  AND uniquely resilient to the hard-alien tail: 8 % loss / 100 % win vs 55–100 % loss / 0 %
+  win for every other hull — real-engine hull sweep). Real bottleneck is crystal: scrap the
+  dead free stockpile (88 M LF/58 M LC/53 M HF) for Frigates; keep 109/110/111 at floor.
+- 2026-10-09: **Arsenal conveyor upgrades activated + magnitude measured (acc1).** Owned one of each
+  (expedition finds). `httpbot arsenal` verified `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`;
+  activated all three → bonus `0.6/0.5/0.4` (100% at level 0). Before/after shipyard + defense
+  "Building: N per second" on main `1593`: effective increase is only ~**half** the advertised %
+  (light def 401 5880→5898, avg def 404 3744→3753, heavy def 418 624→625). Class map confirmed
+  (incl. 502/503 in average). Pre-existing ~+100% conveyor-bonus pool suspected; uncertain. Docs
+  `ARSENAL_UPGRADES_IMPLEMENTATION.md` §2 (greid) / §7 (measurement).
+- 2026-10-09: **playable web UI + account onboarding (big).** Core+ PvP/expo scope; moons deferred.
+  - **Onboarding:** registration now creates a homeworld **atomically** (`AuthStore.CreateUser` returns
+    `(userID, planetID)`): random galaxy `1..max_galaxies`, system `1..499`, position band `6..16`,
+    free-slot retry vs `celestial_objects`/`coordinate_locks`; `fields_max = base_fields_max = 700`;
+    starting resources **M100k / C50k / D20k**, cap 100M, 0 structures. `Register` returns `planet_id`.
+    Migration **`0015_universes_two_galaxies.sql`** sets `max_galaxies = 2`; seed updated to match.
+  - **Base production freebie:** `game.RecomputeProduction(..., baseOn bool)` adds a flat, energy-free
+    baseline `game.Base{Metal,Crystal,Deut}PerHour` × `resource_speed` (niburu: **30M/20M/10M per hour**);
+    applied to PLANETs only (`RecomputeCelestial` now reads `object_type`). Survives recompute; not
+    scaled by energy deficit; Arsenal production bonus applies on top. Tests updated + base-toggle test.
+  - **New API:** `GET /api/v1/planets` (owned celestials + `is_home`), `GET /api/v1/galaxy/{g}/{s}`
+    (system scan: occupants/owner/own/moon/debris/locked), `/auth/me` now returns `planet_id`.
+    Store: `PlanetStore.ListOwnedCelestials`/`HomeworldID`/`GalaxyScan`/`PlanetShips`,
+    `BuildStore.GetResearch`. DB integration test asserts the homeworld loadout.
+  - **Front-end (`internal/web`, Templ + htmx + Tailwind):** auth (login/register/logout), overview
+    (htmx 2 s resource poll, queues, active + incoming fleets), buildings, shipyard (ships + defenses),
+    research, fleet (dispatch/recall + incoming), galaxy scan (attack/colonize/recycle deep links),
+    reports (combat/espionage/expedition). Server-rendered forms → store methods; mutations nudge the
+    scheduler (`handlers.NotifyScheduler`). Page CSP in `web.Handler`; API keeps strict CSP.
+    Toolchain: `templ` v0.3.943 + Tailwind v3 CLI; `make web` regenerates `*_templ.go`/`app.css`
+    (both committed). **Known follow-ups:** moon build/overview + `DESTROY_MOON` (deferred); galaxy
+    scan currently returns whole slots (fine at 20); no CSRF token needed (SameSite=Strict).
+    `go build`/`vet`/`test ./...` green; DB integration green with `DATABASE_URL`.
+- 2026-10-09: **research speed modelled — local lab + University + IRN-connected colony labs.**
+  `game.TechDuration` now uses `researchSpeed = 1 + 0.10·lab + 0.16·university` (both local to the
+  research-starting planet); new pure `game.EffectiveResearchLabLevel(local, irn, colonyLabs)` sums
+  the local lab + the `IRN` highest colony labs (level-0 colonies contribute nothing).
+  `store.EnqueueResearch` now queries `researchLabLevels` (all owner celestials except the origin) and
+  passes university + effective lab. Fitted `researchTimeCalibration` 0.0156 → **0.003617** against
+  the captured tech page (Lab 24 / Uni 6 / 4000x): every tech fits `time ≈ cost·7.466e-7` within 0.1 %
+  (`TestTechDurationMatchesCapture`, `TestEffectiveResearchLabLevel`). Docs updated
+  (`BALANCE_DATA_NEEDED`, `AUTO_BUILD_DESIGN`, `MOONS`, `EXPLORER`, `httpbot.mjs`). `go build`,
+  `go vet`, `go test ./internal/game/... ./internal/blueprint/...` green. Bonus rule **additive**
+  confirmed by owner. Absolute constant **locked by owner decision** (capture's IRN colony labs /
+  officers / premium unknown → no lab-0 reference without a fresh account); provisional, revisit only
+  once the full game is live — not an open task.
+- 2026-10-09: **expedition calibration + positive BH implemented (backlog item 8).** `expedition.go`
+  reworked: outcome weights (fatal BH **1.68 %**, new positive **blackhole-loot 1.7 %**, live
+  ships/resources/DM ratios), NPC mix **84:16**, type-dependent enemy (pirate mirror 0.60–0.69 +
+  `0.10+1.70·U¹·⁵` strength; alien mirror 0.85–0.94 + `0.70+1.80·U²`), widened template bands +
+  alien-only 215/216, **DM scaled on `FleetPoints`** (was flat 100–5000), and a cosmetic flavour
+  catalogue (`Flavor` field + `ExpeditionMessage`). `ExpeditionBlackHoleLoot` hits the engine's
+  `default` path (cargo credited, fleet not wiped) and persists `blackhole-loot`. `cmd/exposim`
+  retuned to the new pirate/alien parameters. Tests: distribution/percentile/NPC-share/DM-scale/
+  BH-loot + a DB subtest; `go test ./...` green with `DATABASE_URL`. `docs/EXPEDITIONS_CALIBRATION_PLAN.md`.
+- 2026-10-09: **fresh acc1 harvest + findings (no Go changed).** `msg-scan`/`exp-log`/`exp-report`
+  after ~2 days running: 1524 expedition msgs / 772 outcomes, 172 combat reports / 36 expo fights.
+  Findings in `docs/EXPEDITIONS_LIVE_2026-10-06.md` **§11**: (a) **enemy mirror is type-dependent** —
+  pirates 0.60–0.69 (med 0.64), aliens 0.88–0.94 (med ~0.90), vs the single 0.6–0.9 Go roll (aliens
+  under-mirrored); (b) defender W/S/A stays one rolled value (26/26), pirates 12–148 % (med 64),
+  aliens 90–202 %; loss tracks the roll, not the mirror (pirate med loss 23.9 %); (c) outcome mix
+  n=772 (ships 29.1 / resources 20.5 / DM 14.8 / delay 11.1 / combat 8.9 / nothing 7.9 / fast 5.1);
+  (d) **fatal BH measured 13/772 = 1.68 %** (vs owner-locked 0.5 %; 15 non-fatal blackhole-loot) —
+  owner re-locked to **1.68 %** 2026-10-09; (e) new `unknown` flavours: **Stardust** (rare currency) and
+  "heavy fights with unidentified pirate ships" (owner: roleplay flavour of a pirate encounter).
+- 2026-10-09: **drain plan = Frigates-only even split (`frig-even-split-v3`).** `drain.mjs` now
+  picks a single configured hull (`mainOrder: ["227"]`, no Battleship fallback) and divides the
+  home Frigate stock **evenly over the free slots** (`per = floor(have/free)`, one fleet per open
+  slot) so slots always refill with roughly equal fleets and never a mega-fleet. Dropped the
+  `minFleetPoints` floor; when frigs < free slots it waits for returns (plan/config updated by
+  hand once too small). Startup log now prints `plan=frig-even-split-v3` so a stale process is
+  obvious. Config: `drain.mainOrder` -> `["227"]`. The earlier `207` duplicate-key clobber is
+  fixed. `node --check` + JSON parse green. Only one VM sender verified (pid, tmux `drain-acc1`);
+  no local processes.
+- 2026-10-09: **drain malformed expo fleets fixed.** `drain.mjs` built the expo set as
+  `207:<per>` then appended `...207:1...` (the sub-ship list includes Battleship 207), and
+  `httpbot.mjs cmdExpedition` keyed the form by code so the later `207:1` **clobbered** the
+  hull count. Whenever the drain fell back to Battleship, fleets flew as `1 BB + N recyclers`
+  (*battlerecs-only*) or `1 BB + 9 smalls` (*1-each-only*) — live fleets `127354`=146.544,
+  `127358`=10, `127365`=19 decode exactly. Fixed: `plan()` excludes the hull/recycler from the
+  smalls, and `cmdExpedition` sums repeated codes instead of overwriting (also protects the
+  parked `run-farm-send.sh`). `node --check` green. **Pending deploy + drain restart.**
+- 2026-10-08: **acc1 migrated to the VM; acc2 retired.** acc2 TheBob's VM tmux sessions
+  (`bonus-acc2`, any leftover `farm*/farmw*/farmsend*/expharv-acc2`) were killed and its
+  `plans/farm-sites.json` entry removed — acc2 is out of scope (manual-only fallback). acc1 now runs
+  entirely on `azure-bot` in tmux: `drain-acc1` (new `run-drain.sh`, burn-down expo sender) +
+  `bonus-acc1` (`run-bonus.sh`); local acc1 drain/bonus processes stopped. No ship rebuild anywhere.
+- 2026-10-08: **auto-builder Phase 2 (scale, backend/API)** — built-in templates
+  (`internal/blueprint/presets.go` `Presets`/`ValidateSpec`, `GET /api/v1/blueprints/templates`),
+  apply-to-all (`POST /api/v1/blueprints/apply`, `all`/`celestial_ids`, cap 100,
+  owner/admin-gated, replaces in place), per-planet status (`GET /api/v1/blueprints/status`,
+  merges account research, `next`/why-idle), and a sweep throttle (50/sweep, priority-ordered
+  `ListEnabled`); `BlueprintStore.ListOwnedPlanets`; preset/validation + store integration tests.
+  No migration (presets are code). Also closed the account-asymmetric black-hole open question
+  (owner adopted the measured **0.5 %** fatal rate; asymmetry ignored) and recorded it in
+  `docs/EXPEDITIONS_LIVE_2026-10-06.md`. `go build ./...`, `go vet ./...`,
+  `go test ./internal/blueprint/...` green.
+- 2026-10-08: **auto-builder base (item 3) + expedition outcome surfacing (item 1)** — pure
+  `internal/blueprint` planner + complete `game.TechTree` prerequisite graph (back-fills all defs),
+  `0014_blueprints.sql` + `store.BlueprintStore`, engine advance-on-completion + 5 s sweep,
+  owner/admin API. Expeditions now persist an `expedition_reports` row for **every** outcome
+  (message text via `game.ExpeditionMessage`, combat links its `combat_report_id`) + two read routes;
+  mix re-locked to **combat 15 % / BH 0.5 %**. Tests: `blueprint` table tests, `game` techtree/message,
+  engine DB integration (blueprint enqueue + expedition report per branch). `go test ./...` green.
+- 2026-10-08: **full message parse scan (`msg-scan`/`msg-stats`)** — rewrote the expedition
+  classifier against the live `sys_expe_*` lang strings + custom flavours (bacterium, virus,
+  stardust, non-fatal blackhole-loot, ancient-battlefield); fixed `nothing_8`→resources and
+  "deserted pirate base"→combat mis-buckets. `parseMessageRows` now also extracts fight-report
+  `profit`/`rubblefield`/`combatXp`, achievement name/level/reward and spy sightings. New
+  `httpbot.mjs msg-scan` walks **all 12 inbox categories** into `data/messages.json`
+  (deep-scan acc1 = 1383 rows, 1267 expedition), `msg-stats` reprints; `run-msgharvest.sh`
+  daemon for forward capture. Corrected live mix in `docs/EXPEDITIONS…` §10; `EXPLORER.md`
+  updated. Go outcome surfacing/calibration deliberately NOT changed (owner-locked mix).
+- 2026-10-08: **expedition resolver (item 1) — DONE** — pure `game/expedition.go` (`RollExpedition`,
+  `FleetPoints`, enemy mirror+template+rolled W/S/A) + `engine.resolveExpedition` at the
+  HOLDING→RETURNING transition (loot, ship finds, DM credit, delay/fast ETA, combat report, losses,
+  deep-space debris, Arsenal draw, black hole) + `rollExpedition` test seam. Wired the item 1c-a
+  Arsenal drop. Fixed two latent `chk_fleet_timeline` violations (HOLDING→RETURNING now nulls
+  `holding_end_time`) and two lib/pq param-type bugs in `store/incoming_integration_test.go`.
+  Tests: `game/expedition_test.go` (pure) + `engine/expedition_integration_test.go` (DB, forced
+  outcomes). `go test ./...` green with DATABASE_URL against compose.
+- 2026-10-08: **recycler ratio cut 2:1 → 20:1** — `plans/farm-sites.json` `recyclerPoints`
+  `80e6 → 800e6` (20 Frigates per Battle Recycler, both accounts) per owner's advisor; S resets on the
+  comp change, loops re-read the plan each cycle.
+- 2026-10-08: **Jumpgate verified working, cross-galaxy (false negative corrected)** — owner jumped
+  `2:188:9` → `3:125:12` (screenshots `docs/screenshots_jumpgate/`). The earlier "no other portal"
+  was the **current-planet race** (request ran from a gate-less planet), not a same-galaxy limit.
+  Cooldown ~30 min at L2 → `JumpgateCooldown = 1h >> (level-1)` (+test). `docs/MOONS.md` corrected.
+- 2026-10-08: **moon #2 tooling + Phalanx live; Jumpgate works** — built Phalanx L2 + Jumpgate L1/L2
+  on both acc1 moons (`cp=1772` 2:188:9, `cp=1725` 3:125:12). **Phalanx works**: `page=phalanx`
+  (from galaxy view, sensor moon as current planet), range `L²−1`, **same-galaxy only**, reveals any
+  owner's fleet composition/points/ETA. Added `game.PhalanxInRange` (+test), `parsePhalanx`,
+  `httpbot phalanx <g:s:p> [1|3] --cp`. **Jumpgate WORKS cross-galaxy** (owner-verified): jumped
+  `2:188:9` → `3:125:12`; the earlier "You dont have another portal" was the current-planet race
+  (the request ran from a planet with no gate). Cooldown observed ~30 min at L2 → `JumpgateCooldown`
+  reworked to `1h >> (level-1)`. Screenshots `docs/screenshots_jumpgate/`. Details `docs/MOONS.md`.
+- 2026-10-08: **weak-alien win analyzed** — `e219ad37` (10:48, msg 244369): same comp as the 10:05
+  wipe but enemy W/S/A **+90 %** vs +202 % (and a *larger* mirror, 12,231 vs 11,861 Frig) → **won**,
+  lost 4,963 Frig + 6,474 BR, enemy annihilated, debris M 264.2 B / C 89.8 B ⇒ ~+171 B net (1.94×).
+  Confirms the research roll, not the fleet roll, decides the fight. `docs/EXPEDITIONS…` §8.
+- 2026-10-08: **enemy W/S/A research decoded — single rolled value ~2.2× our 109 for aliens** — the
+  combat-report header (now parsed: `parseCombatReport.attackerInfo/defenderInfo` → `expedition-reports.json`)
+  shows the NPC with ONE Weapons/Shield/Armour value vs our three. Pirates ~0.1–1.5× our 109 bonus; Aliens
+  +202 %/+159 %. Both accounts lost a full Frigate fleet ~1 min apart to a ~2.2× alien. Rule recorded:
+  cap 109/110/111 at the techtree floor (227 → 16/16/17) and invest in non-mirrored bonuses. Go:
+  `game.Combatant.FlatBonusPct` + `cmd/exposim` pirate/alien scenarios; test added. §8.
+- 2026-10-08: **fresh moon #2 sampled + field model corrected** — acc1's 2nd moon is
+  **`cp=1772`** at `2:188:9` (coexists with planet Xusyty `cp=1648`; not in `httpbot
+  planets`). Snapshot (nothing built): all moon structures 0, **fields `0 used / 3 max`**,
+  diameter 8,544 km. A fresh moon has **1 base field** + the account's `+2` premium = 3
+  (so the first Moon base can be built at once); Moon base 20 = `1+60+2 = 63`. Fixed
+  `MoonFieldsMax(L) = 1 + 3L` (+test), updated `docs/MOONS.md`; captures under
+  `data/moon2-acc1-*`.
+- 2026-10-08: **upgrade-find harvest (acc1 5, acc2 4)** — find events live in the
+  expedition category (`messcat=15`), text *"…create a drawing for an upgrade NAME (2 pc)"*;
+  every find = **2 pc**. Found incl. **Hyperspace engine on both** (acc1 msg 240880,
+  acc2 msg 241669) and heavy Grav gun/Heavy armor — but from **"ancient battlefield"
+  ship finds as well as combat**. Fleet points are ambiguous: model `(M+C)/1e6` puts the
+  drops at 101k (acc1 BB) / 162k (acc2 Frigate) — **under 250k yet heavy**; the live PHP
+  formula `(M+C)*5/1000` puts them at ~500–800M (tier 3). **`ArsenalTier` 5k/50k/250k is
+  suspect** — see `docs/ARSENAL_LIVE_2026-10-06.md` for the table.
+- 2026-10-08: **one of each sub-Frigate ship per expedition (both accounts live)** — `farm-plan.mjs`
+  `small` set + `run-farm-send.sh` gate/`SET` now carry `202/204/205/206/207/211/213/215/216/225/226`
+  (1/fleet; 207/215/216/225/226 already on main, 211/213 built by the worker). In-flight ship-count
+  reconstruction now subtracts 11 smalls/fleet. Split fallback also held until the full set is on main
+  (it bypassed `afford`). Both loops restarted live (acc1 local, acc2 VM tmux); 211/213 now built and
+  the next send carries all 11.
+- 2026-10-08: **2nd/3rd Frigate pirate wins net-positive** — acc1 msgs 241795 (06:53, return 241815)
+  and 241820 (07:03, return 241833). Losses M+C 76.802 B + 6.410 B = **83.211 B** (1,820 Frigate +
+  6,507 Battle Recycler; +4.941 B Deut); debris hauled back exactly equals the reported fields:
+  **169.047 B** (M 125.567 / C 43.480). Academy Standardisation (Fleet) L13 = −13 % rebuild ⇒ 72.394 B,
+  **+96.653 B net / 2.34×** (−12 %: +95.821 B / 2.31×).
+- 2026-10-08: **recycler ratio cut + colony pooling unblocked** — `plans/farm-sites.json` gains
+  `comp.recyclerPoints=80e6` (≈1 recycler per 2 Frigates; was clamped to 1:1) and `poolMin=5000`.
+  `run-farm-build.sh` now re-reads `poolMin` each cycle; the old fixed 50 k sat ABOVE the per-site
+  build target (~3.9·S ≈ 32 k), so colonies hoarded ships forever and the main planet starved —
+  the real cause of 2 idle expo slots (`not enough ships for 1 fleet`). `run-farm-send.sh` also gained
+  a split fallback: when a full-S fleet won't fit but the main holds ≥`FARM_MIN_FLEET` (1000), it
+  divides that batch over the FREE slots and flies smaller fleets (`per`/`brf`, ratio preserved) so
+  slots stop idling while the fleet is under capacity. Note: the in-flight reconstruction assumes
+  the new ratio, so S is briefly ~1.3× high until the 1:1 fleets land.
+- 2026-10-08: **acc1 Frigate pirate fight is net-positive** — report `01a73067` (08 Oct 05:33, msg 241594):
+  Frigate+Recycler comp `227:7630 + 219:7630` won vs the mirrored enemy. Our M+C losses 53.82 B
+  (1,143 Frigate + 5,065 Battle Recycler); the 9-min-later return (msg 241609) hauled the full 50 %
+  debris field home — M 94.19 B + C 32.71 B = **126.90 B** (Deut 0). With Academy Standardisation
+  (Fleet) L13 = −13 % ship cost, rebuilding the loss is 46.83 B ⇒ **~80 B surplus / 2.71× recovery**.
+- 2026-10-08: **expedition slots no longer idle (both accounts)** — `farm-plan.mjs` reconstructed
+  in-flight ships from `expedition-runs.json`, which over-counted (attempts logged even on failure,
+  `num`/stale S), ratcheting S ~2x too high: acc1 S=12.8k vs real cap ~6.4k, acc2 S=7.4k vs ~5.5k, so
+  only ~4/9 slots flew. The send loop now reads each airborne fleet's ship count from the live
+  `exp-state` and the planner recovers the MAIN count from it, sizing `S = whole-fleet/slots` with no
+  ratchet; sends are one fleet per POST (`exp_num>1` was unreliable) and explicitly `--cp <mainCp>`
+  (the session's current planet drifts to a colony a worker touched, and the POST then silently
+  no-ops). acc1 S≈7.7k (8/9 slots), acc2 S≈4.2k. `cmd/exposim` gained the live Frigate+recycler comps
+  (1:1 = 0.0% median / 3.8% worst-case losses; recyclers are the loot cargo). No Frigate combat/
+  black-hole yet.
+- 2026-10-08: **wall-free Frigate expedition comp (live, both accounts)** — `cmd/exposim` (new) swept
+  comps on the real combat engine: the mirrored enemy makes fodder a liability (`BB+5HC` 12.9%/fight vs
+  0.0% wall-free). Added Frigate (227) cost to the catalog, made `farm-plan.mjs` composition-configurable
+  (`comp{main,wall,cargo,recycler,ramp}`, point-based ratios, S reset on comp change, auto-flip main to
+  the ramp hull), generalized the send/pool scripts, upgraded every shipyard to 18, and flipped both
+  accounts to a Frigate mono-fleet (`227:S,219:br,1×small`). BB/HC fleet now surplus.
+- 2026-10-08: **expedition enemy formula resolved (item 1b)** — overnight reports (acc1 40 fights,
+  acc2 42) show the enemy is the sent fleet mirrored × a per-fleet roll ~0.6–0.9 (median 0.66) plus
+  a small random template; verified to S=814,397 BB. Win record flipped at scale (acc1 29W/11D/0L,
+  acc2 37W/5D/0L). Black holes are account-asymmetric (acc1 2/461, acc2 19/493). Details
+  `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- 2026-10-07: **moon creation wired (item 4)** — `resolveAttack` rolls
+  `game.MoonCreation(res.MoonChance, CombatSeed^salt)` when an ATTACK lands on a player-owned
+  planet; a success inserts a `MOON` at the same coordinates (0 fields/production, inherited temp,
+  `ON CONFLICT DO NOTHING`) and stamps `CombatResult.MoonCreated/MoonDiameterKm` into the report.
+  `MoonCreation` + diameter-cap added and tested.
+- 2026-10-07: **moon capture + catalog (item 4)** — captured acc1's moon live (`cp=1725`):
+  building levels/costs, fields 62/63, and the `page=information` cards for 41/42/43.
+  `game/moon.go` gained `MoonFieldsMax` (3 fields/level, base 0), `PhalanxRange` (L²−1),
+  `JumpgateCooldown`, `MoonBaseDestructionReduction` (3%/2 levels) and the moon structure
+  catalog (41/42/43 + moon-legal planet buildings). `docs/MOONS.md` updated.
+- 2026-10-07: **moon formulas (item 4, partial)** — `internal/game/moon.go` +
+  `docs/MOONS.md`: standard creation chance (`combat.go:MoonChance`), diameter
+  `floor(√(x+3p)·1000)` (verified 8,426 km at x=11/p=20), classic fields, and
+  destruction `(100-√S)·√D` with the ≥10,000 km immunity. Captured the acc1 moon
+  (`cp=1725`, 8,426 km) and the server's field/building rules + open questions.
+- 2026-10-07: **incoming-fleet view (item 2)** — `FleetStore.IncomingFleets` (owner-checked,
+  OUTBOUND fleets targeting a celestial), `models.IncomingFleet`, `game.MissionDisplayFor`
+  (live labels + colour + hostile flag), handler + route
+  `GET /api/v1/planets/{id}/incoming-fleets`. Pure + DB-integration tests. Composition is not
+  exposed; colours are provisional.
+- 2026-10-07: **arsenal/market tooling (item 1c-e)** — `parseArsenalPage` + `parseMarketLots`
+  in `parse.mjs`; `httpbot.mjs arsenal|market|activate <greid>|sell <type> <amt> <rate>` (the
+  mutating two dry-run unless `--go`), verified offline against the live page captures.
+- 2026-10-07: **arsenal drop tiers fixed** — `arsenal.go` light/medium/heavy pools now hold the
+  owner-confirmed sets (light: 1,5,8,11,14,17,18,19; medium: 2,3,6,9,12,15; heavy: 4,7,10,13,16);
+  `DropPool` is cumulative by tier; new `RollDrop` (flat ~10% chance, pick from the tier pool).
+  Added a partition test + roll tests.
+- 2026-10-07: **combat per-weapon techs (item 1d)** — `combat.go` `DerivedAttack` sums a unit's
+  card weapon components (specific research + arsenal weapon additive per component; general
+  Weapons tech 109 compounds the sum); `CombatTechs` gains Laser/Ion/Plasma/Graviton
+  (120/121/122/199), `loadCombatTechs` + `CombatSeed` updated. New tests replay the live
+  `real-big-acc1-acc2` report firepower/shield/hull and lock the `Σ base_w` invariant.
+- 2026-10-07: **card + conveyor live findings** — `parseInfoCard` now captures every weapon
+  component + bonus tooltips; fixture/`unit_classes.go` regenerated with `Weapons []WeaponClass`
+  (HAR extractor added). Conveyor 71/72/73 throughput curve measured incl. Photon Cannon
+  (`docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` §7). Combat bonus formula re-derived from
+  `data/combat/` reports → queued as item 1d / §8.
+- 2026-10-07: **Arsenal upgrade bonuses applied** — per-unit classes extracted from the live info
+  cards (202–228/401–419) into `internal/game/unit_classes.go` (fixture + `httpbot card`/`cards`);
+  weapon/armor/shield added into the same percent sum as the tech bonus (`DerivedStatBonus`),
+  production 17–19 into `RecomputeProduction`, engines 11–13 into `FleetMaxSpeed`; resolver +
+  `RecomputeCelestial` + `Dispatch` read `account_upgrades`, activation recomputes planet production.
+- 2026-10-07: **worker plan-refresh fix** — `cmdResolve` now re-reads the goals file each pass
+  (kept old targets on a partial write) so long-lived workers follow ratio-gate flips; restarted all
+  7 acc1 workers — sites switched from stale HC to `code 207` (BB).
+- 2026-10-07: **farm ratio gate made symmetric + account-wide** (`farm-plan.mjs`): the plan now tallies
+  main+sites+in-flight (`st.active`, persisted by the send loop) and builds only the deficient type, so
+  the 5:1 HC:BB ratio converges instead of one type piling up idle; plan log shows `ratio`/`gate`.
+- 2026-10-07: **Arsenal/Market Go model** — `internal/game/arsenal.go` (19-upgrade catalog, tiers,
+  activation), migration `0011_arsenal.sql`, `store.ArsenalStore` (activate/list/buy/remove/expire),
+  `/api/v1/arsenal` + `/api/v1/market` handlers (incl. `market/mine`+`market/remove`), engine lot
+  expiry, unit + DB integration tests; catalog confirmed against `docs/screenshots_arsenal/`.
+- 2026-10-07: wrote `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md`; acc2 expanded to 6 sites; acc1 to 7.
+- 2026-10-07: S growth reworked to build-capacity-limited (whole fleet, monotonic ratchet, headroom).
+- 2026-10-07: fixed colony build deadlock; send loop follows the live slot count; deployed to VM.
+- 2026-10-07: acc1 build+send restarted after the ~2 h outage; fixed send-loop S-inflation race.
+- Parallel per-planet workers + session reuse; rate-aware unit batching; adaptive BB gating; `trade`;
+  slot auto-detect; (A)/(R) ghost-test fix — `6f24227`..`1de7ae0`. Rolling farm live — `eb79f39`.
+
+## Deep dives (read on demand)
+`docs/ROLLING_FARM.md` · `docs/EXPLORER.md` · `docs/ARSENAL_UPGRADES_IMPLEMENTATION.md` ·
+`docs/BALANCE_DATA_NEEDED.md` · `docs/COMBAT_FINDINGS.md` / `COMBAT_MODEL.md` / `COMBAT_TEST_PLAN.md` ·
+`docs/ESPIONAGE_LIVE_2026-10-06.md` · `docs/EXPEDITIONS_LIVE_2026-10-06.md` ·
+`docs/ARSENAL_LIVE_2026-10-06.md` · `docs/AUTO_BUILD_DESIGN.md` · `docs/MOONS.md`.
+
+## Open questions / blockers
+- Counter-espionage exact formula unknown (approximation + ships-only detection).
+- Expedition black-hole rate: **FINAL 2026-10-09** — fatal rate re-locked to the measured **1.68 %**
+  (13/772, `EXPEDITIONS…` §11d), replacing the earlier 0.5 % (owner: 0.5 % "not dangerous enough").
+  Implemented as part of backlog item 8 / `docs/EXPEDITIONS_CALIBRATION_PLAN.md`. Account-asymmetry
+  (acc1 4, acc2 22) still ignored by owner decision. The "Moa Tikarr demands surrender" text is just
+  the **info message for a pirate/alien expedition combat**, paired 1:1 with a combat report for the
+  same fleet/time (owner confirmed 2026-10-08), not a dropped report. See `docs/EXPEDITIONS_LIVE_2026-10-06.md` §8.
+- **Aliens are a total-loss risk** even for a winning comp: the enemy's single rolled W/S/A can reach
+  ~2.2× our 109 (observed +202 %) and wipes the fleet. The roll's exact distribution vs account research
+  is still open (only ~2 high samples); the harvest now records every header, so more data is incoming.
+- **Moon creation is modelled** (debris chance + standard diameter); open: exact moon-destruction
+  numbers (Battle Fortress count vs diameter, add vs mult Moon-base reduction), and the Jumpgate
+  cooldown curve beyond L2 (only 30 min @ L2 measured; works cross-galaxy). See `docs/MOONS.md`.
+- Crystal is the fleet bottleneck: mine imbalance (metal mine ≫ crystal); sites stay crystal-poor. Frigate
+  was chosen partly for the lowest crystal intensity (0.25/pt). The surplus BB/HC fleet is the fastest
+  crystal source — **scrap it via the black-market ship trader (50 % loss) once no longer flying.** Manual
+  mine/trader work only — automation must NOT build mines.
+
+## Next session (pick one)
+- **acc1 burn-down now BW 228 (`bwlean-split-v6`), LIVE 2026-10-10.** `drain-acc1` running in tmux;
+  `mainOrder:["228"]`, `recyclerPerHull:0.5` (lean BR-only, BT off), `hullSplitFrac:0.97`, smalls now
+  include Frigate 227 (still no Black Moon). Verify the loot economy: the sim assumes resource finds
+  are **30–100 % of fleet cargo** (cargo = loot faucet) — confirm on a live harvest; if finds are a
+  fixed range, BR could be trimmed further. **Crystal is still the bottleneck** — owner does mine +
+  ship-trader scrap manually. Keep 109/110/111 at the techtree floor. Follow-up idea: the **academy
+  middle branch** (production/energy/research) may lift crystal income (or cargo) — check
+  `httpbot academy-map`.
+- **Stardust rare currency (item 7)**: `game` currency constant + occasional find in `RollExpedition`
+  + the debris-based planet/moon diameter/fields sink (`EXPEDITIONS…` §11e).
+- **Moons item 4 continuation**: `httpbot` jump command (jump gate now proven), moon build/overview
+  API (Moon base → fields), or `DESTROY_MOON`.
+- **Auto-builder Phase 4 / auto-colonize** or Phase 3 polish (UI needs a client; energy-gate
+  decision). Phase 2 scale is DONE — see `docs/AUTO_BUILD_DESIGN.md` §12/§15.
+- **Scrap the surplus BB/HC fleet** (ship trader) for crystal to fund Frigates; watch cargo/recycler sizing
+  (`recyclerPoints` in `plans/farm-sites.json`) and tune if loot caps.
+- **Expedition live calibration** — harvest more outcomes and refine the non-locked mix weights
+  (`docs/EXPEDITIONS…` §10); surfacing is done.
