@@ -246,6 +246,112 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, a.Username, "own homeworld (owner shown)")
 		e2eWantContains(t, body, b.Username, "neighbour homeworld (owner shown)")
 	})
+
+	t.Run("arsenal activates a drawing", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/arsenal")
+		e2eWantContains(t, body, "Arsenal", "arsenal page")
+		e2eWantContains(t, body, "Laser weapons", "upgrade catalog row")
+
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO upgrade_items (account_id, upgrade_code, qty) VALUES ($1, 1, 1)
+			 ON CONFLICT (account_id, upgrade_code) DO UPDATE SET qty = 1`, a.UserID); err != nil {
+			t.Fatalf("seed drawing: %v", err)
+		}
+		body = e2ePost(t, clientA, srv.URL, "/arsenal/activate", url.Values{"code": {"1"}})
+		e2eWantContains(t, body, "activated", "activation flash")
+		if lvl := e2eScalarInt64(t, db,
+			`SELECT COALESCE(level, 0) FROM account_upgrades WHERE account_id = $1 AND upgrade_code = 1`,
+			a.UserID); lvl != 1 {
+			t.Fatalf("activation level = %d, want 1", lvl)
+		}
+		// Edge: an unknown code is rejected without touching state.
+		body = e2ePost(t, clientA, srv.URL, "/arsenal/activate", url.Values{"code": {"999"}})
+		e2eWantContains(t, body, "unknown", "unknown-code rejection")
+	})
+
+	t.Run("black market lists, buys and withdraws", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/market")
+		e2eWantContains(t, body, "Black market", "market page")
+
+		// A holds two drawings, lists one.
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO upgrade_items (account_id, upgrade_code, qty) VALUES ($1, 1, 2)
+			 ON CONFLICT (account_id, upgrade_code) DO UPDATE SET qty = 2`, a.UserID); err != nil {
+			t.Fatalf("seed drawings: %v", err)
+		}
+		body = e2ePost(t, clientA, srv.URL, "/market/list",
+			url.Values{"upgrade_code": {"1"}, "amount": {"1"}, "rate": {"50"}})
+		e2eWantContains(t, body, "Listed", "listing flash")
+		lotID := e2eScalarInt64(t, db,
+			`SELECT id FROM market_lots WHERE seller_account_id = $1 ORDER BY id DESC LIMIT 1`, a.UserID)
+		if lotID == 0 {
+			t.Fatal("market lot was not created")
+		}
+
+		// Edge: the amount cap is enforced.
+		body = e2ePost(t, clientA, srv.URL, "/market/list",
+			url.Values{"upgrade_code": {"1"}, "amount": {"30"}, "rate": {"10"}})
+		e2eWantContains(t, body, "invalid quantity", "amount cap")
+
+		// Edge: you cannot buy your own lot.
+		body = e2ePost(t, clientA, srv.URL, "/market/buy", url.Values{"lot_id": {strconv.FormatInt(lotID, 10)}})
+		e2eWantContains(t, body, "cannot buy your own market lot", "own-lot rejection")
+
+		// Edge: buyer without antimatter is rejected.
+		if _, err := db.ExecContext(ctx, `UPDATE users SET antimatter = 0 WHERE id = $1`, b.UserID); err != nil {
+			t.Fatalf("zero buyer antimatter: %v", err)
+		}
+		e2eLogin(t, clientB, srv.URL, b.Username)
+		body = e2ePost(t, clientB, srv.URL, "/market/buy", url.Values{"lot_id": {strconv.FormatInt(lotID, 10)}})
+		e2eWantContains(t, body, "insufficient antimatter", "insufficient ATM rejection")
+
+		// Fund the buyer and complete the purchase.
+		if _, err := db.ExecContext(ctx, `UPDATE users SET antimatter = 1000 WHERE id = $1`, b.UserID); err != nil {
+			t.Fatalf("fund buyer: %v", err)
+		}
+		body = e2ePost(t, clientB, srv.URL, "/market/buy", url.Values{"lot_id": {strconv.FormatInt(lotID, 10)}})
+		e2eWantContains(t, body, "Bought", "purchase flash")
+		if got := e2eScalarInt64(t, db,
+			`SELECT COALESCE(qty, 0) FROM upgrade_items WHERE account_id = $1 AND upgrade_code = 1`,
+			b.UserID); got != 1 {
+			t.Fatalf("buyer drawings = %d, want 1", got)
+		}
+
+		// A lists again and withdraws it.
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO upgrade_items (account_id, upgrade_code, qty) VALUES ($1, 1, 1)
+			 ON CONFLICT (account_id, upgrade_code) DO UPDATE SET qty = 1`, a.UserID); err != nil {
+			t.Fatalf("reseed drawing: %v", err)
+		}
+		e2ePost(t, clientA, srv.URL, "/market/list",
+			url.Values{"upgrade_code": {"1"}, "amount": {"1"}, "rate": {"10"}})
+		lot2 := e2eScalarInt64(t, db,
+			`SELECT id FROM market_lots WHERE seller_account_id = $1 ORDER BY id DESC LIMIT 1`, a.UserID)
+		body = e2ePost(t, clientA, srv.URL, "/market/remove", url.Values{"lot_id": {strconv.FormatInt(lot2, 10)}})
+		e2eWantContains(t, body, "Lot withdrawn", "withdraw flash")
+	})
+
+	t.Run("technologies renders the tech tree", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/technologies")
+		e2eWantContains(t, body, "Technologies", "tech page")
+		e2eWantContains(t, body, "Research", "research group")
+		e2eWantContains(t, body, "Light Cargo", "ship node")
+		e2eWantContains(t, body, "Requires", "prerequisite column")
+	})
+
+	t.Run("simulator resolves a battle", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/simulator")
+		e2eWantContains(t, body, "Simulator", "simulator page")
+		e2eWantContains(t, body, "Light Fighter", "unit palette")
+		body = e2ePost(t, clientA, srv.URL, "/simulator", url.Values{
+			"a_207": {"100"}, "d_204": {"10"}, "a_weapons": {"5"},
+		})
+		e2eWantContains(t, body, "Result", "result section")
+		e2eWantContains(t, body, "Winner", "winner label")
+		// Edge: empty fleets surface a form error rather than a server error.
+		body = e2ePost(t, clientA, srv.URL, "/simulator", url.Values{"a_204": {"0"}, "d_204": {"0"}})
+		e2eWantContains(t, body, "fleet is empty", "empty-fleet error")
+	})
 }
 
 // ---- helpers -------------------------------------------------------------
@@ -313,6 +419,10 @@ func e2eReset(t *testing.T, ctx context.Context, db *sql.DB, a, b e2ePlayer) {
 			DO UPDATE SET quantity = GREATEST(planet_defenses.quantity, EXCLUDED.quantity)`, []any{b.HomeID}},
 		{`UPDATE planet_structures SET level = 20 WHERE celestial_id = $1 AND structure_code = 'metal_mine'`, []any{a.HomeID}},
 		{`UPDATE user_technologies SET level = 6 WHERE user_id = $1 AND tech_code = 'espionage_tech'`, []any{a.UserID}},
+		{`DELETE FROM upgrade_items WHERE account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
+		{`DELETE FROM account_upgrades WHERE account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
+		{`DELETE FROM market_lots WHERE seller_account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
+		{`UPDATE users SET antimatter = 1000000 WHERE id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE celestial_objects SET metal = 1.0e12, crystal = 5.0e11, deuterium = 1.0e11, fields_used = 0
 		  WHERE id IN ($1, $2)`, []any{a.HomeID, b.HomeID}},
 	}

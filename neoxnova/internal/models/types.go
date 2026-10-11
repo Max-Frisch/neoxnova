@@ -309,3 +309,33 @@ type MarketListRequest struct {
 type MarketBuyRequest struct {
 	LotID int64 `json:"lot_id"`
 }
+
+// SimTechs are one side's combat technologies in a simulator request. The four
+// specific weapon researches only boost units whose Arsenal class matches (see
+// game.CombatTechs).
+type SimTechs struct {
+	Weapons  int `json:"weapons"`
+	Shield   int `json:"shield"`
+	Armour   int `json:"armour"`
+	Laser    int `json:"laser"`
+	Ion      int `json:"ion"`
+	Plasma   int `json:"plasma"`
+	Graviton int `json:"graviton"`
+}
+
+// SimSide is one fleet in a battle-simulator request: unit counts plus the
+// modifiers applied to them. Academy skills and Arsenal upgrades are optional.
+type SimSide struct {
+	Ships    map[string]int64 `json:"ships"`
+	Techs    SimTechs         `json:"techs"`
+	Academy  map[string]int   `json:"academy,omitempty"`
+	Upgrades map[int]float64  `json:"upgrades,omitempty"`
+}
+
+// SimRequest is the body of POST /api/v1/sim. Seed is optional; omit it to let
+// the server derive the deterministic seed from the two fleets (game.CombatSeed).
+type SimRequest struct {
+	Attacker SimSide `json:"attacker"`
+	Defender SimSide `json:"defender"`
+	Seed     *int64  `json:"seed,omitempty"`
+}

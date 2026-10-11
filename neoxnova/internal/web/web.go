@@ -42,6 +42,7 @@ type Handler struct {
 	espionage  *store.EspionageReportStore
 	expedition *store.ExpeditionReportStore
 	auth       *store.AuthStore
+	arsenal    *store.ArsenalStore
 	notify     func()
 }
 
@@ -58,6 +59,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		espionage:  store.NewEspionageReportStore(db),
 		expedition: store.NewExpeditionReportStore(db),
 		auth:       store.NewAuthStore(db),
+		arsenal:    store.NewArsenalStore(db),
 		notify:     notify,
 	}
 }
@@ -98,6 +100,17 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /galaxy/{galaxy}/{system}", h.page(h.requireUser(h.GalaxyPage)))
 
 	mux.HandleFunc("GET /reports/{id}", h.page(h.requireUser(h.ReportsPage)))
+
+	// Account-wide pages (no celestial in the path; anchored to the homeworld).
+	mux.HandleFunc("GET /arsenal", h.page(h.requireUser(h.ArsenalPage)))
+	mux.HandleFunc("POST /arsenal/activate", h.page(h.requireUser(h.ArsenalActivateSubmit)))
+	mux.HandleFunc("GET /market", h.page(h.requireUser(h.MarketPage)))
+	mux.HandleFunc("POST /market/list", h.page(h.requireUser(h.MarketListSubmit)))
+	mux.HandleFunc("POST /market/buy", h.page(h.requireUser(h.MarketBuySubmit)))
+	mux.HandleFunc("POST /market/remove", h.page(h.requireUser(h.MarketRemoveSubmit)))
+	mux.HandleFunc("GET /technologies", h.page(h.requireUser(h.TechnologiesPage)))
+	mux.HandleFunc("GET /simulator", h.page(h.requireUser(h.SimulatorPage)))
+	mux.HandleFunc("POST /simulator", h.page(h.requireUser(h.SimulatorSubmit)))
 }
 
 // page applies the HTML CSP to a handler.

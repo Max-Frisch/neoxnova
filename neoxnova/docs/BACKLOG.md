@@ -16,11 +16,11 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 - _(none)_
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI menu coverage** — in-game menus missing from the frontend: Premium Account,
-      Antimatter Store, Senate, Academy, Achievements, Alliance, Referals, Tournaments,
-      Promote Server (9 fully absent); present in API/data only, no page: Technologies (techtree
-      graph), Arsenal, Black market (market lots), Simulator (combat engine). Covered: Research,
-      Buildings, Hangar, Defenses (Shipyard), Fleet, Resources, Galaxy.
+- [ ] **Web UI menu coverage** — remaining in-game menus missing from the frontend: Premium
+      Account, Antimatter Store, Senate, Academy, Achievements, Alliance, Referals, Tournaments,
+      Promote Server. Now covered too: Arsenal, Black market, Technologies (tech tree),
+      Simulator (page + `POST /api/v1/sim`). Already covered: Research, Buildings, Hangar,
+      Defenses (Shipyard), Fleet, Resources, Galaxy.
 - [ ] **Expedition live calibration** — harvest outcomes, refine the non-locked mix weights
       (`docs/EXPEDITIONS_LIVE_2026-10-06.md`; resolver + BH done).
 - [ ] **Stardust rare currency** — `game` constant + occasional expo find + debris-based planet/moon
@@ -35,6 +35,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; new
+  Technologies tech-tree page and battle Simulator (page + `POST /api/v1/sim`); nav + tests.
 - 2026-10-11 — frontend balance fixes: removed the erroneous research-lab level cap (the lab only
   *unlocks* techs via their prerequisites, it does not cap level); techtree graph re-verified against
   the live server (114 items, 0 diffs); Mineral/Semi-Crystals/Fuel Research +5%/level account-wide

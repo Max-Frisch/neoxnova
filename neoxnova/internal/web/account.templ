@@ -1,0 +1,323 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/game"
+)
+
+// ---- Arsenal body --------------------------------------------------------
+
+templ ArsenalBody(sh Shell, d ArsenalData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Arsenal</h2>
+		<span class="text-sm text-slate-400">Activate expedition drawings to raise your fleet-wide bonuses.</span>
+	</div>
+	<div class="overflow-x-auto rounded-lg border border-slate-800">
+		<table class="w-full text-left text-sm">
+			<thead class="bg-slate-900/70 text-slate-400">
+				<tr>
+					<th class="px-3 py-2">Upgrade</th>
+					<th>Group</th>
+					<th>Level</th>
+					<th>Bonus</th>
+					<th>Next</th>
+					<th>Drawings</th>
+					<th class="px-3">Action</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, it := range d.Items {
+					<tr class="border-t border-slate-800">
+						<td class="px-3 py-2">{ it.Name }</td>
+						<td class="text-slate-400">{ it.Group }</td>
+						<td>{ strconv.Itoa(it.Level) }</td>
+						<td class="text-emerald-300">{ bonusStr(it.Bonus) }</td>
+						<td class="text-slate-500">{ bonusStr(it.NextBonus) }</td>
+						<td>{ strconv.Itoa(it.Available) }</td>
+						<td class="px-3 py-2">
+							if it.Available > 0 {
+								<form method="post" action="/arsenal/activate">
+									<input type="hidden" name="code" value={ strconv.Itoa(it.Code) }/>
+									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Activate</button>
+								</form>
+							} else {
+								<span class="text-xs text-slate-500">No drawings</span>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+// ---- Black market body ---------------------------------------------------
+
+templ MarketBody(sh Shell, d MarketData) {
+	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Black market</h2>
+	<div class="grid gap-6 lg:grid-cols-2">
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">List drawings</h3>
+			if len(d.Listable) == 0 {
+				<p class="text-sm text-slate-500">You hold no un-activated drawings to sell.</p>
+			} else {
+				<form method="post" action="/market/list" class="space-y-3 text-sm">
+					<label class="block text-slate-300">Upgrade
+						<select name="upgrade_code" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+							for _, it := range d.Listable {
+								<option value={ strconv.Itoa(it.Code) }>{ it.Name } ({ strconv.Itoa(it.Available) } held)</option>
+							}
+						</select>
+					</label>
+					<div class="grid grid-cols-2 gap-2">
+						<label class="block text-slate-300">Amount (1-25)
+							<input name="amount" type="number" min="1" max="25" value="1" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+						</label>
+						<label class="block text-slate-300">Price / unit (AM)
+							<input name="rate" type="number" min="1" value="100" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+						</label>
+					</div>
+					<button type="submit" class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">List on market</button>
+				</form>
+			}
+		</section>
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Your auctions</h3>
+			if len(d.Mine) == 0 {
+				<p class="text-sm text-slate-500">No active listings.</p>
+			} else {
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500"><tr><th class="py-1">Upgrade</th><th>Amount</th><th>Price</th><th>Expires</th><th></th></tr></thead>
+					<tbody>
+						for _, lot := range d.Mine {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">{ lot.Upgrade }</td>
+								<td>{ strconv.Itoa(lot.Amount) }</td>
+								<td>{ fnum(lot.TotalPriceAtm) } AM</td>
+								<td>{ dur(lotExpirySecs(lot)) }</td>
+								<td>
+									<form method="post" action="/market/remove">
+										<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
+										<button class="rounded bg-amber-700 px-2 py-0.5 text-xs hover:bg-amber-600">Withdraw</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</section>
+	</div>
+	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<h3 class="mb-2 font-semibold text-slate-200">Live offers</h3>
+		if len(d.Lots) == 0 {
+			<p class="text-sm text-slate-500">No lots on the market.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-left text-sm">
+					<thead class="text-slate-500"><tr><th class="py-1">Upgrade</th><th>Amount</th><th>Total price</th><th>Expires</th><th></th></tr></thead>
+					<tbody>
+						for _, lot := range d.Lots {
+							<tr class="border-t border-slate-800">
+								<td class="py-1">{ lot.Upgrade }</td>
+								<td>{ strconv.Itoa(lot.Amount) }</td>
+								<td class="text-emerald-300">{ fnum(lot.TotalPriceAtm) } AM</td>
+								<td>{ dur(lotExpirySecs(lot)) }</td>
+								<td>
+									<form method="post" action="/market/buy">
+										<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
+										<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Buy</button>
+									</form>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+}
+
+// ---- Technologies body ---------------------------------------------------
+
+templ TechnologiesBody(sh Shell, d TechnologiesData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Technologies</h2>
+		<span class="text-sm text-slate-400">Prerequisite tree for every building, research, ship and defense.</span>
+	</div>
+	<div class="space-y-6">
+		for _, group := range d.Groups {
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">{ group.Name }</h3>
+				<div class="overflow-x-auto">
+					<table class="w-full text-left text-sm">
+						<thead class="text-slate-500"><tr><th class="py-1">Item</th><th>Level</th><th>Requires</th></tr></thead>
+						<tbody>
+							for _, n := range group.Nodes {
+								<tr class="border-t border-slate-800">
+									<td class="py-1">
+										<span class={ techNameClass(n) }>{ n.Name }</span>
+									</td>
+									<td>
+										if n.Leveled {
+											<span>{ strconv.Itoa(n.Level) }</span>
+										} else {
+											<span class="text-slate-500">—</span>
+										}
+									</td>
+									<td class="py-1">
+										@techRequirements(n)
+									</td>
+								</tr>
+							}
+					</tbody>
+					</table>
+				</div>
+			</section>
+		}
+	</div>
+}
+
+templ techRequirements(n TechNode) {
+	if len(n.Requires) == 0 {
+		<span class="text-xs text-slate-500">None</span>
+	} else {
+		<div class="flex flex-wrap gap-1">
+			for _, r := range n.Requires {
+				<span class={ techReqClass(r) }>{ r.Name } { strconv.Itoa(r.Need) } ({ strconv.Itoa(r.Have) })</span>
+			}
+		</div>
+	}
+}
+
+// ---- Simulator body ------------------------------------------------------
+
+templ SimulatorBody(sh Shell, d SimulatorData) {
+	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Simulator</h2>
+	if d.FormErr != "" {
+		<div role="alert" class="mb-4 rounded-lg border border-rose-700/60 bg-rose-900/30 px-3 py-2 text-sm text-rose-200">{ d.FormErr }</div>
+	}
+	if d.Result != nil {
+		@simResult(sh, d.Result)
+	}
+	<form method="post" action="/simulator" class="space-y-4">
+		<div class="grid gap-6 lg:grid-cols-2">
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Attacker techs</h3>
+				@simTechInputs("a_", d.AtkTech)
+			</section>
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Defender techs</h3>
+				@simTechInputs("d_", d.DefTech)
+			</section>
+		</div>
+		<div class="overflow-x-auto rounded-lg border border-slate-800">
+			<table class="w-full text-left text-sm">
+				<thead class="bg-slate-900/70 text-slate-400">
+					<tr><th class="px-3 py-2">Unit</th><th>Attacker</th><th>Defender</th></tr>
+				</thead>
+				<tbody>
+					for _, u := range d.Units {
+						<tr class="border-t border-slate-800">
+							<td class="px-3 py-2">{ u.Name }{ defenseTag2(u) }</td>
+							<td>
+								<input name={ "a_" + u.Code } type="number" min="0" value={ countStr(d.Atk[u.Code]) } class="w-28 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right"/>
+							</td>
+							<td>
+								<input name={ "d_" + u.Code } type="number" min="0" value={ countStr(d.Def[u.Code]) } class="w-28 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-right"/>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+		<button type="submit" class="rounded bg-cyan-600 px-4 py-2 font-semibold text-white hover:bg-cyan-500">Simulate battle</button>
+	</form>
+}
+
+templ simTechInputs(prefix string, t game.CombatTechs) {
+	<div class="grid grid-cols-3 gap-2 text-sm">
+		<label class="block text-slate-300">Weapons<input name={ prefix + "weapons" } type="number" min="0" value={ strconv.Itoa(t.Weapons) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Shield<input name={ prefix + "shield" } type="number" min="0" value={ strconv.Itoa(t.Shield) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Armour<input name={ prefix + "armour" } type="number" min="0" value={ strconv.Itoa(t.Armour) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Laser<input name={ prefix + "laser" } type="number" min="0" value={ strconv.Itoa(t.Laser) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Ion<input name={ prefix + "ion" } type="number" min="0" value={ strconv.Itoa(t.Ion) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Plasma<input name={ prefix + "plasma" } type="number" min="0" value={ strconv.Itoa(t.Plasma) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+		<label class="block text-slate-300">Graviton<input name={ prefix + "graviton" } type="number" min="0" value={ strconv.Itoa(t.Graviton) } class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
+	</div>
+}
+
+templ simResult(sh Shell, r *SimBattleView) {
+	<section class="mb-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<h3 class="mb-2 font-semibold text-slate-200">Result</h3>
+		<p class="text-sm text-slate-300">
+			Winner { r.Winner } · { strconv.Itoa(r.Rounds) } rounds · seed { fnum(r.Seed) }
+		</p>
+		<p class="mt-1 text-sm text-slate-400">
+			Debris { fnum(r.DebrisMetal) } M / { fnum(r.DebrisCrystal) } C · moon chance { strconv.Itoa(r.MoonChance) }%
+		</p>
+		<div class="mt-4 grid gap-6 lg:grid-cols-2">
+			@simSideTable("Attacker", r.Attacker)
+			@simSideTable("Defender", r.Defender)
+		</div>
+	</section>
+}
+
+templ simSideTable(label string, s SimSideView) {
+	<div>
+		<h4 class="mb-1 text-sm font-semibold text-slate-200">{ label }</h4>
+		<table class="w-full text-left text-sm">
+			<thead class="text-slate-500"><tr><th class="py-1">Unit</th><th>Start</th><th>Lost</th><th>Left</th></tr></thead>
+			<tbody>
+				for _, row := range s.Initial {
+					<tr class="border-t border-slate-800">
+						<td class="py-1">{ row.Name }</td>
+						<td>{ fnum(row.Count) }</td>
+						<td class="text-rose-300">{ fnum(simByUnit(s.Lost, row.Name)) }</td>
+						<td class="text-emerald-300">{ fnum(simByUnit(s.Remaining, row.Name)) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+func techNameClass(n TechNode) string {
+	if n.Unlocked {
+		return "text-cyan-300"
+	}
+	return "text-slate-400"
+}
+
+func techReqClass(r TechRequirement) string {
+	base := "rounded px-1 text-xs "
+	if r.Met {
+		return base + "bg-emerald-900/50 text-emerald-300"
+	}
+	return base + "bg-rose-900/50 text-rose-200"
+}
+
+func defenseTag2(u SimUnit) string {
+	if u.IsDefense {
+		return " (defense)"
+	}
+	return ""
+}
+
+func countStr(n int64) string {
+	if n <= 0 {
+		return "0"
+	}
+	return strconv.FormatInt(n, 10)
+}
+
+// simByUnit finds a unit's count by display name in a per-side slice.
+func simByUnit(rows []SimUnitCount, name string) int64 {
+	for _, r := range rows {
+		if r.Name == name {
+			return r.Count
+		}
+	}
+	return 0
+}
