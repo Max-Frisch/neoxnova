@@ -30,7 +30,7 @@ if (!d.enabled) { console.error(`[drain] ${acc}: drain.enabled is not true`); pr
 // One of each "weak" su—the sub-hull ships plus a Frigate (227), excluding the
 // Black Moon (216) and the current hull/aux (filtered in plan()).
 const SMALL = ['202', '204', '205', '206', '207', '211', '213', '215', '225', '226', '227'];
-const PLAN_VERSION = 'bwlean-split-v6';
+const PLAN_VERSION = 'bwlean-split-v7';
 
 const MAIN_CP = String(d.mainCp || c.mainCp);
 const MAIN_COORDS = String(d.mainCoords || c.mainCoords);
@@ -79,7 +79,7 @@ function expState() {
   if (i < 0 || j < 0) throw new Error('exp-state returned no JSON');
   const st = JSON.parse(out.slice(i, j + 1));
   const real = (st.fleets || []).filter((f) => /Expedition/i.test(f.mission || '') && !/Hostail/i.test(f.mission || ''));
-  return { active: real.length, slots: num(st.expeditionSlots) || SLOT_FALLBACK };
+  return { active: real.length, slots: num(st.expeditionSlots) || SLOT_FALLBACK, numbers: real.map((f) => num(f.number)) };
 }
 
 function refreshMain() {
@@ -108,20 +108,38 @@ function share(hullPerFleet, perHull, home, nFleets) {
   return Math.max(0, Math.min(want, avail));
 }
 
-// Divide the home hull stock EVENLY across the free slots (one fleet per open
-// slot, `floor(have/free)` each) so slots always refill with roughly equal
-// fleets — never one mega-fleet, never a 1-ship/aux-only fleet. Any remainder
-// (< free) stays home for the next cycle. The recycler/transporter counts are
-// dynamic: scaled off the per-fleet hull count and clamped to the even share of
-// the home stock (config `recyclerPerHull`/`transporterPerHull`, or the legacy
-// one-per-N `recyclerPer`/`transporterPer`).
-function plan(ships, free) {
+// Reconstruct the sent combat-hull count of one airborne expedition fleet from
+// its live total-ship count (`exp-state` `number`). A fleet is built as
+// `hull + round(hull·RECY_PER_HULL) + transporter + smalls`, so
+//   number ≈ hull·(1 + RECY_PER_HULL) + (transporterPerFleet || 0) + SMALL.length
+// and the hull is solved back out. Used to size the NEXT fleet to the account's
+// per-slot share instead of dumping all of home into one (possibly huge) fleet.
+function inflightHull(numbers) {
+  const aux = (TRANS_PER_FLEET != null ? Math.max(0, TRANS_PER_FLEET) : 0) + SMALL.length;
+  let sum = 0;
+  for (const n of numbers) {
+    const h = (num(n) - aux) / (1 + RECY_PER_HULL);
+    if (h > 0) sum += h;
+  }
+  return sum;
+}
+
+// Size each fired fleet to the slot's share of the WHOLE fleet — `home + in-flight`
+// averaged over the account's total slots — instead of `home / free`. This keeps
+// fleets even: a manual hull top-up raises every future fleet's size gradually as
+// slots free, rather than becoming one oversized fleet that could be lost whole to
+// a black hole. The physical cap is still the home stock (can't send what isn't
+// home). Recycler/transporter counts stay a share off the per-fleet hull count.
+function plan(ships, free, slots, inflight) {
   const hull = pickHull(ships);
   if (!hull) return null;
   const have = +ships[hull] || 0;
-  // Split only SPLIT_FRAC of the home stock (default 100%), floored so no
-  // fractional ships; the remainder stays home as a buffer.
-  const per = Math.floor((have * SPLIT_FRAC) / free);
+  // Per-slot share of the whole fleet (SPLIT_FRAC leaves a small buffer home),
+  // clamped so a single firing never sends more than the home stock allows.
+  const per = Math.min(
+    Math.floor(((have + (inflight || 0)) * SPLIT_FRAC) / slots),
+    Math.floor(have / free),
+  );
   const nFleets = free;
   if (per < 1) return null; // not enough hulls home for a full share; wait
   const br = share(per, RECY_PER_HULL, ships[RECY], nFleets);
@@ -144,7 +162,7 @@ async function main() {
   log(`drain ${acc} start plan=${PLAN_VERSION} main=${MAIN_CP} ${MAIN_COORDS} order=${ORDER} recy=${RECY} ${RECY_PER_HULL}/hull trans=${TRANS} ${TRANS_PER_FLEET != null ? `${TRANS_PER_FLEET}/fleet` : `${TRANS_PER_HULL}/hull`} every=${EVERY / 1000}s${DRY ? ' [DRY]' : ''}`);
   for (;;) {
     try {
-      const { active, slots } = expState();
+      const { active, slots, numbers } = expState();
       const free = slots - active;
       if (free <= 0) {
         log(`slots ${active}/${slots} busy; wait`);
@@ -154,7 +172,8 @@ async function main() {
       }
 
       const ships = refreshMain();
-      const p = plan(ships, free);
+      const inflight = inflightHull(numbers);
+      const p = plan(ships, free, slots, inflight);
       if (!p) {
         const detail = ORDER.map((code) => `${code}=${+ships[code] || 0}`).join(' ');
         log(`no frigs home for a full share (${detail}); wait`);
@@ -163,7 +182,7 @@ async function main() {
         continue;
       }
 
-      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} per=${p.per} br=${p.br} bt=${p.bt} :: ${p.set}`);
+      log(`fire ${p.nFleets} fleet(s): free=${free}/${slots} home=${+ships[p.hull] || 0} inflight=${Math.round(inflight)} per=${p.per} br=${p.br} bt=${p.bt} :: ${p.set}`);
       if (DRY) {
         log(`dry: would POST ${p.nFleets}x "httpbot expedition ${p.set} 1 ${TIME} ${SPEED} --cp ${MAIN_CP}"`);
         return;
