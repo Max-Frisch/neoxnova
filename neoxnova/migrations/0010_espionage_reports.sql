@@ -1,7 +1,7 @@
 -- 0010_espionage_reports.sql — persisted spy reports.
 --
--- Niburu returns the FULL report regardless of espionage-tech difference (see
--- docs/ESPIONAGE_LIVE_2026-10-06.md); the tech difference only drives
+-- Alpha returns the FULL report regardless of espionage-tech difference (see
+-- the private ops repo); the tech difference only drives
 -- counter-espionage. The full intel payload is stored as JSONB so the API can
 -- serve it without a schema per section.
 CREATE TABLE IF NOT EXISTS espionage_reports (

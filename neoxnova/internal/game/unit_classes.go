@@ -1,4 +1,4 @@
-// Code generated from testdata/niburus_unit_classes.json; DO NOT EDIT.
+// Code generated from testdata/unit_classes.json; DO NOT EDIT.
 
 package game
 

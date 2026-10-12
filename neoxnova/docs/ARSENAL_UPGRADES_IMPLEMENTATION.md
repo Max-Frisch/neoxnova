@@ -2,15 +2,15 @@
 
 **Goal:** model the live **Arsenal (upgrades)** system in the Go codebase: the catalog,
 per-account owned levels, the fleet-point **tiers**, activation, and the **Market**
-(listed lots, buy, sell). This doc is the handoff; read `docs/ARSENAL_LIVE_2026-10-06.md`
-and `docs/EXPEDITIONS_LIVE_2026-10-06.md` alongside it.
+(listed lots, buy, sell). This doc is the handoff; read `the private ops repo`
+and `the private ops repo` alongside it.
 
 > **User direction (authoritative):** ignore the manual's "75 000 fleet points" gate — it
 > is **false**. Use **5 000 / 50 000 / 250 000 fleet points** as the tiers. The user's
 > memory on this matches a friend's. `fleet points = (metal+crystal)/1e6` (deuterium
 > excluded); the farm's per-fleet set is `≈ 0.1244·S` points (`S` = BB per fleet).
 
-Raw captures this brief is based on (gitignored, in `tools/explorer/data/`):
+Raw captures this brief is based on (gitignored, in `the private ops repodata/`):
 `_live_page_arsenal.html`, `_live_page_market.html`, `_sellupgrade.html`, `_base.js`,
 `arsenal-manual.txt`.
 
@@ -18,7 +18,7 @@ Raw captures this brief is based on (gitignored, in `tools/explorer/data/`):
 
 ## 1. Live web surfaces (exact routes / forms — verified 2026-10-07)
 
-All under `https://niburuspace.com/game/game.php`. Session/CP handling mirrors `httpbot.mjs`.
+All under `https://example.invalid/game/game.php`. Session/CP handling mirrors `the ops client`.
 Routes/forms verified live on **2026-10-07**.
 
 ### 1.1 Arsenal listing — `GET game.php?page=arsenal`
@@ -84,7 +84,7 @@ DM / 50 000 Antimatter**; a listed lot stays **72 h** then returns.
 | `PlanetLotRate(id)` | `game.php?page=market&group=planetlotrate&id=<id>` | 502×122 |
 
 ### 1.5 Your Auctions (own lots) — market "Your Auctions" tab
-Confirmed from `docs/screenshots_arsenal/` (2026-10-07). The market has two tabs:
+Confirmed from `the private ops repo_arsenal/` (2026-10-07). The market has two tabs:
 **Market** (all live lots) and **Your Auctions** (`Current Auctions` table:
 `ID | Upgrade | Amount | Price | Remove`). "Remove" cancels the caller's own
 listing before the 72 h expiry and returns the drawings. The catalog in §2 was
@@ -119,7 +119,7 @@ matches exactly.
 | 18 | Crystal production | production | +0.45 | ? |
 | 19 | Deuterium production | production | +0.4 | ? |
 
-> `ARSENAL_LIVE_2026-10-06.md` lists different weapon/armor percentages (e.g. weapons
+> the private ops repo lists different weapon/armor percentages (e.g. weapons
 > ~2.3–2.6 %). Those came from the Russian manual; **the live page bracket is the value to
 > use** — reconcile and correct the older doc if the model needs exact numbers.
 
@@ -185,13 +185,13 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 ---
 
 ## 4. Tooling to add (verify against live)
-- `httpbot.mjs arsenal` → parse §1.1 (name, current %, next-value bracket, available) as JSON.
-- `httpbot.mjs market` → parse the §1.2 table (id, name, amount, price) as JSON.
-- `httpbot.mjs activate <greid>` and `httpbot.mjs sell <type> <amount> <rate>` (dry + `--go`).
+- `the ops client arsenal` → parse §1.1 (name, current %, next-value bracket, available) as JSON.
+- `the ops client market` → parse the §1.2 table (id, name, amount, price) as JSON.
+- `the ops client activate <greid>` and `the ops client sell <type> <amount> <rate>` (dry + `--go`).
 - Enumerate every `greid` by owning one of each upgrade, then fill §2's `greid` column.
 
 > **DONE 2026-10-07** (first three): `parseArsenalPage`/`parseMarketLots` in `parse.mjs`,
-> `httpbot.mjs arsenal|market|activate|sell` (activate/sell dry-run unless `--go`, verified
+> `the ops client arsenal|market|activate|sell` (activate/sell dry-run unless `--go`, verified
 > against `data/_live_page_arsenal.html` / `_live_page_market.html`). **greid:** `combustion`
 > (11) + `l_conveyer`/`m_conveyer`/`h_conveyer` (14/15/16, 2026-10-09); the rest await an owned
 > drawing.
@@ -199,7 +199,7 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 ## 5. Open questions / risks
 - ~~Confirm **5k/50k/250k** semantics (type pool vs chance vs both).~~ **Resolved 2026-10-07:**
   the tier gates the type pool (light → light+medium → light+medium+heavy); the drop chance is flat.
-- Reconcile the per-level numbers with `ARSENAL_LIVE_2026-10-06.md` (manual vs live bracket).
+- Reconcile the per-level numbers with the private ops repo (manual vs live bracket).
 - `greid` keys for all 19 upgrades (only `combustion` known).
 - Failure roll result shape (does the item get consumed on failure? manual implies the value
   drops — verify whether the scroll is lost).
@@ -208,8 +208,8 @@ Follow existing conventions (`internal/models`, `internal/store`, `internal/engi
 ## 6. NEXT SESSION — apply upgrade bonuses to combat/production (owner-confirmed)
 
 > **DONE 2026-10-07.** Per-unit classes extracted from the live cards into
-> `internal/game/unit_classes.go` (fixture `testdata/niburus_unit_classes.json`,
-> captured by `httpbot.mjs cards`, folded by `tools/explorer/unit-classes-dataset.mjs`).
+> `internal/game/unit_classes.go` (fixture `testdata/unit_classes.json`,
+> captured by `the ops client cards`, folded by `the private ops repounit-classes folder`).
 > Weapon/armor/shield bonuses are folded additively into the tech bonus in
 > `combat.go` (`DerivedStatBonus`), production upgrades (17/18/19) into
 > `economy.go` (`ProductionBonus`), and engine upgrades (11/12/13) into
@@ -229,12 +229,12 @@ to the existing total: combined multiplier = `1 + (tech + academy + upgrade)/100
 (i.e. add the upgrade percent into the same sum as the tech bonus, don't compound).
 
 **Blocker / source of truth = the live unit cards.** The repo has base
-attack/shield/hull (`internal/game/unit_stats.go`, from `niburus_combat.json`) but
+attack/shield/hull (`internal/game/unit_stats.go`, from `combat.json`) but
 **no weapon/armor/shield/engine class per unit**. The card dialog is
 `game.php?page=information&id=<code>` (`Dialog.info(ID)`, see `_base.js`); the
 HARs already contain requests for ids `202..228` and `401..419` (techs 1xx too).
 Next session:
-1. Add `httpbot.mjs card <code>` (or a HAR/`page=information` parser) to fetch the
+1. Add `the ops client card <code>` (or a HAR/`page=information` parser) to fetch the
    info card for every ship (202–228) and defense (401–419) and extract the
    **weapon type / armour class / shield class / engine class** fields.
 2. Persist the mapping (new `internal/game/unit_classes.go`, mirroring
@@ -255,7 +255,7 @@ Next session:
 
 Conveyors are the "production factories" that set a planet's shipyard/defense
 throughput (the "Building: X per second" figure on the hangar/defenses pages).
-Measured with `tools/explorer/httpbot.mjs conveyor-probe <cp> <rounds> [codes]`,
+Measured with `the private ops repothe ops client conveyor-probe <cp> <rounds> [codes]`,
 which snapshots the fleet/defense pages, raises the conveyor levels, and diffs.
 
 Model (`class` = light/medium/heavy; `L` = the matching conveyor's level):
@@ -284,7 +284,7 @@ main light L15 -> 360/s, 5040/s; heavy L1 -> 2/s fleet and 20/s defense (Photon
 Cannon, owner-measured L1–4 = 20/44/66/88, matching `2L·k(L)`).
 
 **Conveyor upgrades (14/15/16) — live-verified 2026-10-09 (acc1).** acc1 owned one of each
-(`httpbot arsenal`: `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`). Activated all three
+(`ops client arsenal`: `l_conveyer`/`m_conveyer`/`h_conveyer`, `available:1`). Activated all three
 (level 0, first 10 ⇒ 100% success): bonus went `0 → 0.6 / 0.5 / 0.4`. Before/after the shipyard +
 defense "Building: N per second" on main `1593` (L71=15, L72=13, L73=12), the **effective** rate
 increase was only ~**half** the advertised percent:
@@ -376,7 +376,7 @@ Arsenal term is additive inside the component percent (owner-confirmed).
 
 ### Card tooling (already added this session)
 `parseInfoCard` now returns `weapons:[{type,attack,bonuses}]` + armor/shield/engine
-bonuses; `httpbot card|c`ards` fetch live; `card-dataset-from-har.mjs` extracts from
-a saved HAR; `unit-classes-dataset.mjs` regenerates the fixture with
+bonuses; `ops client card|c`ards` fetch live; `card-dataset-from-har.mjs` extracts from
+a saved HAR; `unit-classes folder` regenerates the fixture with
 `Weapon` (primary) + `Weapons []WeaponClass`.
 

@@ -1,6 +1,6 @@
 # Expeditions — Go calibration playbook (next session)
 
-Owner-directed port of the 2026-10-09 live findings (`EXPEDITIONS_LIVE_2026-10-06.md`
+Owner-directed port of the 2026-10-09 live findings (the private ops repo
 §11). Pure resolver lives in `internal/game/expedition.go`; persistence in
 `internal/engine/event_engine.go` (`resolveExpedition` ~898). **IMPLEMENTED
 2026-10-09** (items 1–7; item 8 stardust deferred) — kept as the calibration

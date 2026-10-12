@@ -1,6 +1,6 @@
 APP_ENV      ?= development
 HTTP_ADDR    ?= :8080
-UNIVERSE_ID  ?= universe_6_niburu
+UNIVERSE_ID  ?= universe_1_alpha
 DATABASE_URL ?= postgres://postgres:password@localhost:5432/neoxnova?sslmode=disable
 REDIS_ADDR   ?= localhost:6379
 REDIS_PASSWORD ?=

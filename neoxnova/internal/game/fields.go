@@ -4,7 +4,7 @@ import "math"
 
 // Dark-Matter field expansion — the Planetarium's "Increase the amount of
 // fields on the current planet" option (Black market -> Planetarium). Captured
-// 2026-10-06 (docs/screenshots_niburu/): the cumulative price for +1..+6 fields
+// 2026-10-06 (the private ops repo/): the cumulative price for +1..+6 fields
 // is 200 / 420 / 662 / 928 / 1221 / 1543 DM. That is geometric with ratio 1.1
 // starting from 200 DM, and (observed live) independent of the planet's base
 // field count. Each further field costs 1.1x the previous:

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// unitClassFixture mirrors testdata/niburus_unit_classes.json (the committed
+// unitClassFixture mirrors testdata/unit_classes.json (the committed
 // source of truth for unit_classes.go).
 type unitClassFixture struct {
 	Units map[string]struct {
@@ -25,7 +25,7 @@ type unitClassFixture struct {
 }
 
 func TestUnitClassesMatchFixture(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "niburus_unit_classes.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "unit_classes.json"))
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

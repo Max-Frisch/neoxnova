@@ -1,7 +1,7 @@
 # Combat Model — Scout/Test Notes for neoxnova
 
 > **2026-10-05 update (live campaign):** superseded/confirmed items live in
-> `docs/COMBAT_SESSION_2026-10-05.md` and `docs/COMBAT_FINDINGS.md`. Key
+> `the private ops repo` and `docs/COMBAT_FINDINGS.md`. Key
 > corrections: **(1)** there is **no per-shot bounce** — resolution is
 > shield-first + full regen; **(2)** defense repair is **~61 % for both normal
 > battles and total wipes** (the old "~37 % wipe" figure is dropped); **(3)** the
@@ -9,30 +9,30 @@
 > **(4)** real loot = 50 % M→C→D, confirmed, with server-scaled cargo
 > (Battle Transporter `217`=400M, Battle Recycler `219`=200M).
 
-Status: **data collection in progress**. Goal: capture enough of niburuspace.com's
-(server `universe_6_niburu`, XNova "GOW" theme) combat mechanics to design a fast,
+Status: **data collection in progress**. Goal: capture enough of reference-server's
+(server `universe_1_alpha`, OGame-family) combat mechanics to design a fast,
 correct, bug-free Go combat engine for neoxnova. neoxnova currently has **no combat
 engine** (`MissionAttack` exists in `internal/models/types.go` but
 `resolveFleetEvent` in `internal/engine/event_engine.go` has no ATTACK case).
 
 Everything here is empirical, reproduced via the in-game battle simulator and real
-attacks between **acc1 Bratwurst planet `2:188:9`** and **acc2 TheBob planet
+attacks between **acc1 planet `2:188:9`** and **acc2 planet
 `2:188:16`** (distance `1035`, same galaxy/system).
 
 ## Tooling
 
-- `tools/explorer/httpbot.mjs simsuite <scenarios.json> [--out dir]`
+- `the ops client simsuite <scenarios.json> [--out dir]`
   — runs an array of `{id, notes?, slots?, attacker:{code:count}, defender:{code:count}}`
   scenarios through `page=battleSimulator&mode=send`, fetches
   `CombatReport.php?raport=<hash>`, and writes per-scenario
   `<id>.input.json`, `<id>.report.html`, `<id>.report.json` plus an `index.json`.
-- `parseCombatReport(html)` in `tools/explorer/parse.mjs` extracts:
+- `parseCombatReport(html)` in `the ops parser` extracts:
   per-round attacker/defender unit snapshots (`count`, `lost`, derived
   `firepower`/`shield`/`armour`), per-round damage summary
   (attacker firepower, defender shield absorbed, defender firepower, attacker
   shield absorbed), final result, loss totals, debris (metal/crystal), moon chance.
-- Scenario files live in `tools/explorer/plans/combat/`.
-- Raw captures are gitignored under `tools/explorer/data/combat/`.
+- Scenario files live in `the ops repoplans/combat/`.
+- Raw captures are gitignored under `the ops repodata/combat/`.
 
 Simulator input codes: `1xx` = technologies (`109` weapons, `110` shields,
 `111` armour, `120` laser, `121` ion, `122` plasma, `199` graviton), academy
@@ -261,7 +261,7 @@ Recycling **must target the debris field (type 2)**, not the planet (type 1).
 `planet_type=2`/`type=2` in checkTarget + step2 it succeeded:
 `Mission Recycle, Distance 1.035, Fleet speed 58.445, Consumption 36`,
 Target `07:33:44`, Return `07:38:41`. Use the **Battle Recycler (219)**, not the
-small Recycler (209). (httpbot `cmdFleet` now auto-selects type 2 for mission 8.)
+small Recycler (209). (ops client `cmdFleet` now auto-selects type 2 for mission 8.)
 **Result: debris field at `2:188:16` is gone after the recycler arrived** (collected,
 recycler returning) — end-to-end debris→recycle loop confirmed.
 
@@ -274,10 +274,10 @@ alongside any flight-time calibration samples).
 ## Status snapshot
 - Batches run: `01-scaling`, `02-diag`, `03-workaround`, `04-workaround2`,
   `05-techsweep` (60), `06-basestats` (43), `07-resolution` (30), `08-acs`,
-  `09-realbattle`. Raw captures in `tools/explorer/data/combat/`.
-- Folded dataset: **`testdata/niburus_combat.json`** (183 scenarios, 41 base
+  `09-realbattle`. Raw captures in `the ops repodata/combat/`.
+- Folded dataset: **`testdata/combat.json`** (183 scenarios, 41 base
   units, 30 recorded PHP-error scenarios). Regenerate with
-  `node tools/explorer/combat-dataset.mjs`.
+  `node the ops repocombat-dataset.mjs`.
 - Validated: determinism; tech curve; base table; debris = 50% ships-only;
   bounce; rapid fire; loot = 50% capped by cargo; real battle == simulator;
   debris spawn + recycle at target; moon chance always 0.
@@ -387,7 +387,7 @@ overkill lost, bounce, probabilistic rapid fire on a seedable RNG) but with this
 server's constants — **8 rounds**, the quadratic `109/110/111` bonus, per-weapon
 damage from `120/121/122/199`, academy modifiers, 50% ships-only debris, 50%
 cargo-capped loot, no moon. All integer, all zero-guarded, plus a rapid-fire
-shot cap and round cap. Replay `testdata/niburus_combat.json` as the acceptance
+shot cap and round cap. Replay `testdata/combat.json` as the acceptance
 test (RNG-sensitive scenarios tagged so they can be compared statistically).
 
 ## Go engine design notes (older, to fold in)
@@ -398,7 +398,7 @@ test (RNG-sensitive scenarios tagged so they can be compared statistically).
   implementing the round loop; **all integer maths with explicit zero-guards**
   (never divide by cargo/shield/hull/count without a guard), a **bounded**
   rapid-fire loop, and an explicit round cap. Mirror F3/F4 rounding exactly.
-- `internal/game/combat_test.go` replays `testdata/niburus_combat.json`
+- `internal/game/combat_test.go` replays `testdata/combat.json`
   (parsed dataset, committed) — the same pattern as `catalog_test.go` locks costs.
 - Wire `MissionAttack` into `resolveFleetEvent`, plus debris-field creation,
   recycling, loot and defense repair in the relevant stores.

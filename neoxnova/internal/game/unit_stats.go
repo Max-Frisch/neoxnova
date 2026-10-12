@@ -1,4 +1,4 @@
-// Code generated from testdata/niburus_combat.json + testdata/niburus_rapidfire.json; DO NOT EDIT.
+// Code generated from testdata/combat.json + testdata/rapidfire.json; DO NOT EDIT.
 
 package game
 

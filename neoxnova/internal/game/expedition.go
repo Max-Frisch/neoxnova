@@ -11,7 +11,7 @@ import (
 // Expedition model (backlog item 1). Pure, deterministic-given-a-seed: the
 // scheduler calls RollExpedition once when a fleet finishes its deep-space hold
 // and persists whatever comes back. Live calibration: see
-// docs/EXPEDITIONS_LIVE_2026-10-06.md (§2 outcome mix, §8 enemy formula).
+// the private ops repo (§2 outcome mix, §8 enemy formula).
 //
 // Enemy (items 1b/3): the defender is the sent fleet mirrored by a single
 // per-fleet roll — pirates 0.60–0.69, aliens 0.85–0.94 — plus a small fixed
@@ -80,7 +80,7 @@ type ExpeditionResult struct {
 }
 
 // expeditionOutcomeWeights is the outcome distribution. Re-locked 2026-10-09
-// against the fresh live harvest (docs/EXPEDITIONS… §11, n=772): owner kept
+// against the fresh live harvest (the private ops repo §11, n=772): owner kept
 // combat 15 %, adopted the measured fatal black hole 1.68 % (was 0.5 %), added
 // the rare POSITIVE black-hole loot (~1.7 %) and moved the freed weight into
 // nothing/fast while preserving the live ships:resources:DM proportions
@@ -101,7 +101,7 @@ var expeditionOutcomeWeights = []struct {
 }
 
 // npcWeights: within a combat encounter, live 58 pirates : 11 aliens = 84 / 16
-// (docs/EXPEDITIONS… §11; was 70 / 30). Aliens stay much rarer.
+// (the private ops repo §11; was 70 / 30). Aliens stay much rarer.
 var npcWeights = []struct {
 	npc    NPCType
 	weight float64
@@ -349,7 +349,7 @@ func rollExpeditionDrop(fleetPoints int64, rng *rand.Rand) int {
 }
 
 // Cosmetic message variants, harvested from the live sys_expe_* lang strings
-// (docs/EXPEDITIONS… §10/§11). ExpeditionMessage picks one by res.Flavor.
+// (the private ops repo §10/§11). ExpeditionMessage picks one by res.Flavor.
 var (
 	expeditionResourceFlavors = []string{
 		"Our expedition discovered a small asteroid cluster and won some resources.",
@@ -439,7 +439,7 @@ func expeditionFlavor(list []string, idx int) string {
 }
 
 // ExpeditionMessage renders a resolved expedition as a player-facing message,
-// mirroring the live sys_expe_* taxonomy (docs/EXPEDITIONS… §10/§11). It is pure
+// mirroring the live sys_expe_* taxonomy (the private ops repo §10/§11). It is pure
 // over ExpeditionResult (the cosmetic variant is picked by res.Flavor) so the
 // engine can persist it verbatim and the API can serve it without the client
 // re-deriving the flavour text.

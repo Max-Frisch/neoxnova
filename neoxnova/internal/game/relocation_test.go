@@ -3,7 +3,7 @@ package game
 import "testing"
 
 // TestRelocationCostCaptured locks the cost curve to the Planetarium samples
-// captured on 2026-10-06 (planet 3:125:12, docs/screenshots_niburu/).
+// captured on 2026-10-06 (planet 3:125:12, the private ops repo/).
 func TestRelocationCostCaptured(t *testing.T) {
 	const fg, fs, fp = 3, 125, 12
 	cases := []struct {

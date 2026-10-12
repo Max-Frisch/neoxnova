@@ -1,11 +1,11 @@
-# Combat Findings — niburuspace.com → neoxnova
+# Combat Findings — reference-server → neoxnova
 
 **Read this first.** Sleek summary of the combat scouting. Raw evidence, every
 scenario and the step-by-step log live in `docs/COMBAT_MODEL.md`; the machine
-readable replay set is `testdata/niburus_combat.json`.
+readable replay set is `testdata/combat.json`.
 
-- Server: XNova "GOW", `universe_6_niburu`, game 4000x / resource 10000x.
-- Accounts: attacker **Bratwurst `2:188:9`**, defender **TheBob `2:188:16`**
+- Server: OGame-family, `universe_1_alpha`, game 4000x / resource 10000x.
+- Accounts: attacker **acc1 `2:188:9`**, defender **acc2 `2:188:16`**
   (distance **1035**).
 - Method: in-game battle simulator (hundreds of controlled runs, deterministic)
   plus real fleet strikes, cross-checked against each other.
@@ -171,7 +171,7 @@ Resolve(attacker, defender, techs, academy, rng) Report
 
 Guardrails: all integer maths, every division zero-guarded, bounded RF and round
 loops, deterministic seeding for replay tests.
-Acceptance test: replay `testdata/niburus_combat.json`; RNG-sensitive scenarios
+Acceptance test: replay `testdata/combat.json`; RNG-sensitive scenarios
 compared statistically.
 
 ---

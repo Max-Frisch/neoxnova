@@ -4,5 +4,5 @@
 -- run a two-galaxy test server so fresh homeworlds are spread out. Idempotent.
 UPDATE universes
 SET max_galaxies = 2
-WHERE code_name = 'universe_6_niburu'
+WHERE code_name = 'universe_1_alpha'
   AND max_galaxies < 2;

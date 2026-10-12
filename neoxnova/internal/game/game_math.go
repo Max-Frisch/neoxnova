@@ -6,7 +6,7 @@ import (
 
 // CalculateCoordinateDistance returns the fleet travel distance between two
 // coordinate vectors, in the reference server's units. Piecewise rules fitted to
-// live niburuspace.com samples (see docs/COMBAT_SESSION_2026-10-05.md §6):
+// live reference-server samples (see the private ops repo §6):
 //
 //	same system:           1000 + 5*|dp|           (2:188:9 -> 2:188:16 = 1035)
 //	same galaxy, diff sys: 2700 + 95*|ds|          (2:188:9 -> 2:186:9  = 2890)
@@ -87,7 +87,7 @@ func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int, 
 const flightTimeCoefficient = 4275.0
 
 // CalculateFlightDuration returns the one-way trip time in seconds.
-// fleetSpeed is universes.fleet_speed (15 on niburuspace with the player
+// fleetSpeed is universes.fleet_speed (15 on the reference server with the player
 // override); speedPercent is the 10..100 velocity toggle.
 func CalculateFlightDuration(distance float64, baseMaxSpeed int, speedPercent int, fleetSpeed float64) int64 {
 	if fleetSpeed <= 0 {

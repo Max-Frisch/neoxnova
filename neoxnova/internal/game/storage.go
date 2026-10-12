@@ -8,8 +8,8 @@ import "math"
 //	capacity(L) = 5000 * floor(2.5 * e^(20*L/33))
 //
 // scaled by the universe's resource production multiplier so a 10000x server
-// holds 10000x as much. The level-0 base is therefore 100,000,000 on niburu
-// (resource_speed 10000) and 10,000 on a 1x server. Level 10 on niburu holds
+// holds 10000x as much. The level-0 base is therefore 100,000,000 on the
+// reference server (resource_speed 10000) and 10,000 on a 1x server. Level 10 there holds
 // exactly 53,550,000,000, matching the captured live resources page.
 func StorageCapacity(level int, resourceSpeed float64) int64 {
 	if level < 0 {

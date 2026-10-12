@@ -8,8 +8,8 @@ const (
 )
 
 // Planet relocation ("teleport") pricing, captured verbatim from the
-// niburuspace.com Planetarium (Black market -> Planetarium) on 2026-10-06
-// (planet 3:125:12, docs/screenshots_niburu/). The fee is exactly linear and
+// reference-server Planetarium (Black market -> Planetarium) on 2026-10-06
+// (planet 3:125:12, the private ops repo/). The fee is exactly linear and
 // decomposes by coordinate axis:
 //
 //	cost = 15000*|dGalaxy| + 1000*|dSystem| + 2500*|dPosition|

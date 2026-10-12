@@ -38,7 +38,7 @@ const (
 )
 
 // CreateUser registers a user in the universe identified by its code name
-// (e.g. "universe_6_niburu"), provisions a starter homeworld, and returns the
+// (e.g. "universe_1_alpha"), provisions a starter homeworld, and returns the
 // new user id and homeworld celestial id.
 func (s *AuthStore) CreateUser(ctx context.Context, universeCode, username, email, passwordHash string) (userID, planetID int64, err error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})

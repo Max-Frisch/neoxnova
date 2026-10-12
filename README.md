@@ -20,15 +20,15 @@ This engine resolves critical flaws common in legacy PHP strategy game implement
 
 ---
 
-## Balance Data & Provenance
+## Balance Model
 
 Server-wide rates are seeded into the `universes` row and are the source of truth: `game_speed` (4000), `resource_speed` (10000), `fleet_speed` (5 advertised; 15 with the player override), `debris_rate` (0.50), `base_colonies` (5). `resource_speed` scales production, `game_speed` divides build durations, and `fleet_speed` divides flight time.
 
-Structure, technology, ship and defense **costs** are calibrated from a real niburuspace.com HAR capture (XNova "GOW" theme): the extractor `cmd/harparse` parses the capture into `testdata/niburus_catalog.json`, and `internal/game/catalog_test.go` asserts the Go catalog reproduces every captured cost. Costs follow `base * factor^(level-1)`, with server specifics encoded (e.g. Crystal Mine factor 1.5, storages base 2000) and real numeric unit codes (`207` = Battleship, `212` = Solar Satellite).
+Structure, technology, ship and defense **costs** are defined in the typed Go catalog (`internal/game`) and follow `base * factor^(level-1)`, with OGame-family factors (e.g. Crystal Mine factor 1.5, storages base 2000) and the classic numeric unit codes (`207` = Battleship, `212` = Solar Satellite). `cmd/harparse` can derive a sanitized catalog fixture from a saved capture, and `internal/game/catalog_test.go` asserts the Go catalog reproduces every entry in `testdata/catalog.json`.
 
-Durations, unit combat stats, prerequisites and the server's custom systems are still approximate or unmodelled. See [neoxnova/docs/BALANCE_DATA_NEEDED.md](neoxnova/docs/BALANCE_DATA_NEEDED.md) for exactly what data is confirmed, what is placeholder, and which captures are needed next.
+Durations, unit combat stats, prerequisites and the custom endgame systems are still approximate or in progress. See [neoxnova/docs/BALANCE_DATA_NEEDED.md](neoxnova/docs/BALANCE_DATA_NEEDED.md) for exactly what is confirmed, what is placeholder, and what work remains.
 
-> Raw HAR captures are gitignored (`*.HAR`) because they contain session cookies — never commit them. Only the sanitized `testdata/niburus_catalog.json` fixture is committed.
+> Raw network captures are gitignored (`*.har`) as they may contain session cookies — never commit them. Only the sanitized `testdata/catalog.json` fixture is committed.
 
 ---
 
@@ -102,7 +102,7 @@ make migrate
 ```
 
 ### 3. Seed Development Data
-Provision a ready-to-play test universe (`universe_6_niburu`), a `commander`, a
+Provision a ready-to-play test universe (`universe_1_alpha`), a `commander`, a
 resource-rich homeworld (`id = 1`, at `1:1:1`), a secondary colony used as a
 fleet target (`id = 2`, at `1:2:3`), hangar ships, and base structures. The seed
 is idempotent, so it is safe to re-run:

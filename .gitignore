@@ -1,38 +1,11 @@
-# 1. Ignore absolutely everything by default
+# Ignore everything by default; allow only the engine repo contents.
 *
-
-# 2. Allow the .gitignore file itself so changes are tracked
 !.gitignore
 !README.md
 !AGENTS.md
-
-# 3. Allow your specific project folders (leave the trailing slash)
 !neoxnova/
-
-# 4. IMPORTANT: If you want to allow files nested deeply inside those folders, 
-# you must ensure Git doesn't block any subdirectories inside them
 !neoxnova/**
 
-# 5. Ignore build artifacts and local environment overrides
+# Local build artifacts and environment overrides
 neoxnova/bin/
 neoxnova/.env
-
-# 6. Never commit raw network captures (HARs contain session cookies/tokens)
-*.HAR
-*.har
-
-# 7. Explorer secrets, dependencies and generated data
-neoxnova/secrets/
-neoxnova/tools/explorer/node_modules/
-neoxnova/tools/explorer/data/
-neoxnova/tools/explorer/*.state.json
-neoxnova/tools/explorer/session*.json
-neoxnova/tools/explorer/*.log
-
-# 8. Local account tracking snapshots (not source)
-neoxnova/data/
-
-# 9. Rolling-farm generated goal files (config farm-sites.json stays tracked)
-neoxnova/tools/explorer/plans/farm-*-main.json
-neoxnova/tools/explorer/plans/farm-*-site.json
-neoxnova/tools/explorer/plans/farm-*-starter.json

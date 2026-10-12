@@ -14,7 +14,7 @@ import (
 	"neoxnova/internal/auth"
 )
 
-// TestEnqueueResearchNotCappedByLab verifies the intended niburu rule: the
+// TestEnqueueResearchNotCappedByLab verifies the intended alpha rule: the
 // research lab only *unlocks* technologies (via the tech tree prerequisites),
 // it does not cap the target level. A fresh account with lab 3 and a tech at 3
 // must be able to queue level 4.

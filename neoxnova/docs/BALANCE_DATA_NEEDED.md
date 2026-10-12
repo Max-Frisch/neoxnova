@@ -6,11 +6,11 @@ required to finish calibration.
 
 ## Source of calibrated data
 
-- Capture: `niburuspace.com_Archive [26-10-02 20-16-23].har` (local only, gitignored).
-- Server: **XNova, "GOW" theme** — `niburuspace.com`, universe `universe_6_niburu`.
+- Capture: `captures/archive-02.har` (local only, gitignored).
+- Server: **OGame-family** — `reference-server`, universe `universe_1_alpha`.
 - Account/planet captured: `BobbyVerse`, planet **Fogigy [1:45:15]**, 24,633 km, 331/706 fields.
 - Server rates: Game **4000x**, Resource **10000x**, Fleet **5x** (player override **15x**), debris **50%**, 5 free colonies, max 35.
-- Extractor: `cmd/harparse` → `testdata/niburus_catalog.json` (sanitized, no cookies).
+- Extractor: `cmd/harparse` → `testdata/catalog.json` (sanitized, no cookies).
 - Regression test: `internal/game/catalog_test.go` asserts every captured next-level
   cost and (roughly) structure durations.
 
@@ -57,7 +57,7 @@ standard factor for each item. Durations are **approximate** (see below).
    `internal/store/fleet_store.go`.
 5. **Prerequisites / requirements — CAPTURED (2026-10-08, re-verified 2026-10-11).**
    The full requirement graph is parsed read-only from `page=techtree` into
-   `tools/explorer/data/techtree-graph.json` (114 items) and ported to
+   `the ops repodata/techtree-graph.json` (114 items) and ported to
    `internal/game/techtree.go` (`TechTree`), which `init()` back-fills into every
    `Requires` map. A fresh live capture on 2026-10-11 matched the committed graph
    with **0 diffs**. Reminder: the Research Lab only *unlocks* techs (prerequisite
@@ -84,7 +84,7 @@ research-time effect is now modelled — see "Confirmed mechanics"):
 - **"Basic Production"** flat bonus (30,000,000 / 20,000,000 / 10,000,000 per hour).
 - **Energy Technology / Plasma Technology** production bonuses.
 - **Storage capacities** — modelled: `5000·floor(2.5·e^(20·level/33))·resource_speed`
-  (level 0 = 100,000,000 on niburu; level 10 = 53,550,000,000, matching the capture).
+  (level 0 = 100,000,000 on the reference server; level 10 = 53,550,000,000, matching the capture).
 - **Debris field** generation/recycling at 50%.
 
 ## Confirmed mechanics (owner-provided + captured)
@@ -126,13 +126,13 @@ research-time effect is now modelled — see "Confirmed mechanics"):
   per-planet baseline.
 - **Unit stats**: every ship/defense info page carries weapon type(s)+attack,
   structural armor, shields, engine+base speed, fuel, cargo and rapid-fire. A
-  `tools/explorer` scan captures these for all 26 ships and 21 defenses.
+  `the private ops repo` scan captures these for all 26 ships and 21 defenses.
 - **Senate**: parent page linking Officers and Governators.
   - **Officers** (page=officier), recruited with Dark Matter, empire-wide effects:
     Geologist 0/30 (production), Admiral 0/20 (combat), Engineer 0/10 (energy of
     all colonies), Technocrat 0/10 (research), Constructor 0/3 (construction
     speed), Scientologist 0/3 (tech), Minister of Defence 0/2 (defence build).
-    Tooltip descriptions captured in `testdata/niburus_senate_officers.txt`.
+    Tooltip descriptions captured in `testdata/senate_officers.txt`.
   - **Governators** (page=gubernators), cost **Dark Matter + Achievement Points**
     and a number of **days**, each level +10%: Weapons (atk+armor, 0/65, 40k DM),
     Shield (0/65, 40k), Building (-10% build time, 0/50, 7.5k), Resource (+10%
@@ -144,7 +144,7 @@ research-time effect is now modelled — see "Confirmed mechanics"):
   Combat level tracks combat XP. Achievements award Antimatter (not Dark Matter).
 - **Do not spend Dark Matter** on officers/governators or instant finishes during
   data collection; effects must be measured against the resources tab instead.
-- **Achievements** (see `testdata/niburus_achievements.json`): 47 definitions in
+- **Achievements** (see `testdata/achievements.json`): 47 definitions in
   groups General/Daily/Buildings/Research/Fleet/Defense/Misc; each grants
   **Antimatter + Achievement Points**, with an increasing "tier". Examples:
   "Metal Miner" at Metal Mine 51 → 1217 AM / 122 pts; "Geologist" needs all three
@@ -153,7 +153,7 @@ research-time effect is now modelled — see "Confirmed mechanics"):
 
 ## Duration calibration (updated)
 
-Base build-time constant fitted from the **fresh Bratwurst** account (Robotics 15,
+Base build-time constant fitted from the **fresh acc1** account (Robotics 15,
 Nanite 0) over 6 samples: `buildingTimeCalibration = 1.20` in
 `internal/game/catalog.go`. The older officer/peaceful-buffed Fogigy capture runs
 **~1.88x faster** than this base — so its durations are not directly comparable.
@@ -175,12 +175,12 @@ or durations at a known Nanite level with no officers.
 
 ## Arsenal / Academy / endgame
 
-- **Arsenal** (`page=arsenal`, raw text in `testdata/niburus_arsenal.txt`):
+- **Arsenal** (`page=arsenal`, raw text in `testdata/arsenal.txt`):
   expedition-found **upgrades** give flat bonuses per category, e.g. weapon types
   (Laser +0.75, Ion +0.75, Gravitational +0.75, Plasma +0.75), armor (Light +0.6,
   Medium +0.5, Heavy +0.4), shields (Light +0.6, ...), engines (Jet +0.6, ...).
   Upgrades become findable at specific fleet-point thresholds (~5k / 25k / 150k).
-  **Unique to niburu** — classic OGame 0.84 has no Arsenal (its CC0 source has no
+  **Unique to alpha** — classic OGame 0.84 has no Arsenal (its CC0 source has no
   such page); the modern Lifeforms system is unrelated. The related **Governators**
   page (DM + Achievement points: Weapons/Shield +10%, Building −10%, Resource
   +10% extraction, Energy +10%, Research +10% time, Fleet +10% fly time; levels up
@@ -197,7 +197,7 @@ or durations at a known Nanite level with no officers.
 
 ## Academy / Online Bonus / Officers (mapped live)
 
-Raw page text saved under `testdata/niburus_map/`.
+Raw page text saved under `testdata/map/`.
 
 - **Academy** (`page=academy`): a skill tree with per-branch tiers (I/II/III).
   Skills cost **Academy points** and are upgraded via GET
@@ -217,7 +217,7 @@ Raw page text saved under `testdata/niburus_map/`.
   Geologist + Admiral were unlocked on the test account. **Measured**: Geologist
   L1→L2 gave ~**+0.17%** to all three resource productions; Admiral L1→L2 had no
   economic effect on the resources tab (combat only). See
-  `testdata/niburus_officers_experiment.json`.
+  `testdata/officers_experiment.json`.
 - **Energy matters**: after a bad build order the planet hit a 100% energy
   deficit, which zeroes effective production (and masked the officer delta) until
   Solar Plants were raised — solar must cover energy before measuring bonuses.
@@ -228,9 +228,9 @@ Raw page text saved under `testdata/niburus_map/`.
   `internal/game/relocation.go`, migration `0008_relocation.sql`). Moves a planet
   (with its structures/ships/defenses/stored resources) to new coordinates for a
   Dark Matter fee; it does **not** lock the origin slot.
-- **Source**: the niburuspace.com **Planetarium** (Black market → "Planetarium":
+- **Source**: the reference-server **Planetarium** (Black market → "Planetarium":
   *"increase field count and teleport your planet"*), captured on 2026-10-06 into
-  `docs/screenshots_niburu/` (14 PNGs; planet `3:125:12`). The galaxy view's
+  `the private ops repo/` (14 PNGs; planet `3:125:12`). The galaxy view's
   `mode=savecord`/`delcord` are unrelated bookmarks.
 - **Price is exactly linear and per-axis** (no distance formula):
   ```
@@ -272,7 +272,7 @@ Raw page text saved under `testdata/niburus_map/`.
 
 ## Explorer tool
 
-`neoxnova/tools/explorer/` (Node + playwright-core, drives installed Edge):
+`neoxnova/the ops repo` (Node + playwright-core, drives installed Edge):
 
 ```
 node explorer.mjs scan                 # crawl all info + build pages (read-only)
@@ -299,5 +299,5 @@ Credentials live in the gitignored `neoxnova/secrets/explorer.env`.
 Re-run the extractor:
 
 ```
-go run ./cmd/harparse -in "<path>.har" -out testdata/niburus_catalog.json
+go run ./cmd/harparse -in "<path>.har" -out testdata/catalog.json
 ```

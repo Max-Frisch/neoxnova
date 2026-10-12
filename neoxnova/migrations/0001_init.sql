@@ -72,7 +72,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS universes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    code_name VARCHAR(64) UNIQUE NOT NULL,               -- e.g. 'universe_6_niburu'
+    code_name VARCHAR(64) UNIQUE NOT NULL,               -- e.g. 'universe_1_alpha'
     display_name VARCHAR(128) NOT NULL,
     game_speed NUMERIC(8,2) NOT NULL DEFAULT 1.00,        -- HAR observed: 4000.00
     resource_speed NUMERIC(8,2) NOT NULL DEFAULT 1.00,    -- HAR observed: 10000.00

@@ -1,8 +1,8 @@
 package game
 
 // TechTree is the complete prerequisite graph for buildings, technologies,
-// ships and defenses, ported from the live niburuspace.com capture
-// (tools/explorer/data/techtree-graph.json, numeric ids mapped to catalog
+// ships and defenses, ported from the live reference-server capture
+// (the ops repodata/techtree-graph.json, numeric ids mapped to catalog
 // codes). The per-definition Requires maps in catalog.go are incomplete; init()
 // fills them from this graph so the build store and the auto-build planner agree
 // on prerequisites.

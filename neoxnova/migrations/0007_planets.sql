@@ -1,6 +1,6 @@
 -- 0007_planets.sql — planet slots, field farming and occupancy locks.
 --
--- Planets per system is configurable (niburu uses 20; the slot after the last
+-- Planets per system is configurable (alpha uses 20; the slot after the last
 -- is the expedition/deep-space slot). base_fields_max remembers the colonisation
 -- roll so Terraformer bonuses can be recomputed without losing the base.
 

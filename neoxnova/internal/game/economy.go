@@ -36,7 +36,7 @@ const (
 )
 
 // Base (structure-free) production freebie, expressed per unit of the universe's
-// resource_speed so it scales with the server rate. On niburu (resource_speed
+// resource_speed so it scales with the server rate. On alpha (resource_speed
 // 10000) this is 30M metal / 20M crystal / 10M deuterium per hour. It is a flat
 // floor: it needs no energy and is not scaled by an energy deficit, so a
 // freshly-founded colony with zero structures still accrues resources.
@@ -130,7 +130,7 @@ func IsProductionResearch(code string) bool {
 
 // RecomputeProduction derives hourly production, energy draw and energy output
 // from a celestial's structure levels. resourceSpeed is the universe's resource
-// production multiplier (e.g. 10000 on niburuspace.com). bonus is the owner's
+// production multiplier (e.g. 10000 on reference-server). bonus is the owner's
 // account-wide Arsenal production bonus. When energy demand exceeds supply, all
 // mine production is scaled down proportionally. When baseOn is true a flat,
 // energy-free baseline (see Base*PerHour) is added to every resource, so a

@@ -218,7 +218,7 @@ func TestUnitStatsAttackEqualsWeaponSum(t *testing.T) {
 }
 
 // TestDerivedAttackReproducesLiveReport replays the per-unit firepower recorded
-// in tools/explorer/data/combat/real-big-acc1-acc2.report.json (round 1). The
+// in the ops repodata/combat/real-big-acc1-acc2.report.json (round 1). The
 // techs come from the sibling .input.json capture.
 func TestDerivedAttackReproducesLiveReport(t *testing.T) {
 	// Attacker: 109/110/111=15, 120=17, 121=15, 122=12.
@@ -273,7 +273,7 @@ func TestDerivedAttackMultiComponentWeapon(t *testing.T) {
 
 // TestReplayBigBattleReport, when the gitignored live capture is present, derives
 // every unit's attack/shield/hull and compares it with the server's own round-1
-// report. It skips on a clean checkout (tools/explorer/data is ignored).
+// report. It skips on a clean checkout (the ops repodata is ignored).
 func TestReplayBigBattleReport(t *testing.T) {
 	base := filepath.Join("..", "..", "tools", "explorer", "data", "combat")
 	inRaw, err := os.ReadFile(filepath.Join(base, "real-big-acc1-acc2.input.json"))
@@ -365,7 +365,7 @@ func TestCombatSeedReproducible(t *testing.T) {
 // TestRapidFireShotsPerRound locks the reference RF shot pattern: a lone
 // Battleship (RF 25 vs sats) kills ~floor(0.70*25)=17 in round 1, then exactly
 // 25 per round thereafter. Defenders are Solar Sats (attack 0, 1-shottable), so
-// kills == shots. See tools/explorer/plans/combat/rf-shots.json.
+// kills == shots. See the ops repoplans/combat/rf-shots.json.
 func TestRapidFireShotsPerRound(t *testing.T) {
 	res := Resolve(
 		Combatant{Units: map[string]int64{"207": 1}},
@@ -383,7 +383,7 @@ func TestRapidFireShotsPerRound(t *testing.T) {
 }
 
 // TestAcademyCalibrationLog prints our engine's attacker losses for the
-// scenarios swept from the reference simulator (tools/explorer/plans/combat/
+// scenarios swept from the reference simulator (the ops repoplans/combat/
 // acal-base). Reference: base 721, 1103:5 -> 509. NOTE: our absolute loss
 // counts run high here — the reference concentrates damage (sequential)
 // whereas this engine spreads it uniformly per shot; winner prediction matches
@@ -450,7 +450,7 @@ func toCombatant(m map[string]float64) Combatant {
 // rapid fire, so exact per-scenario reproduction is not expected; this is a
 // smoke test that the engine terminates and broadly tracks the reference.
 func TestReplayDataset(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "niburus_combat.json")
+	path := filepath.Join("..", "..", "testdata", "combat.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Skipf("dataset not available: %v", err)

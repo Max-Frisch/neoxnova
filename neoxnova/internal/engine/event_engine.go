@@ -1128,7 +1128,7 @@ func (e *EventEngine) applyExpeditionCombat(ctx context.Context, tx *sql.Tx, fle
 	return combatReportID, nil
 }
 
-// espionageIntel is the JSON payload stored on an espionage report. Niburu
+// espionageIntel is the JSON payload stored on an espionage report. Alpha
 // returns every section regardless of the espionage-tech difference.
 type espionageIntel struct {
 	Target     string           `json:"target"`
@@ -1147,7 +1147,7 @@ type espionageIntel struct {
 }
 
 // resolveEspionage delivers a spy report and resolves counter-espionage. Per the
-// live niburu capture (docs/ESPIONAGE_LIVE_2026-10-06.md) the report is always
+// live reference capture (the private ops repo) the report is always
 // full; the espionage-tech difference only affects whether the probes are shot
 // down (ships-only detection). Caught probes are destroyed but the report is
 // still delivered. Survivors fly home.

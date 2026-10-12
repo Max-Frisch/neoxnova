@@ -1,10 +1,10 @@
-// Command harparse extracts a sanitized game-data fixture from a niburuspace.com
+// Command harparse extracts a sanitized game-data fixture from a reference-server
 // HAR capture. It emits only names, codes, costs, durations and production
 // values — no headers, cookies or other session data.
 //
 // Usage:
 //
-//	go run ./cmd/harparse -in "<path to .har>" -out testdata/niburus_catalog.json
+//	go run ./cmd/harparse -in "<path to .har>" -out testdata/catalog.json
 package main
 
 import (
@@ -198,7 +198,7 @@ func parseFloat(s string) float64 {
 
 func main() {
 	in := flag.String("in", "", "path to the .har capture")
-	out := flag.String("out", "testdata/niburus_catalog.json", "output JSON path")
+	out := flag.String("out", "testdata/catalog.json", "output JSON path")
 	flag.Parse()
 	if *in == "" {
 		log.Fatal("missing -in <path to .har>")
@@ -214,7 +214,7 @@ func main() {
 	}
 	log.Printf("HAR entries: %d", len(h.Log.Entries))
 
-	cat := Catalog{Variant: "XNova (GOW theme) - niburuspace.com"}
+	cat := Catalog{Variant: "OGame-family - reference-server"}
 	for _, e := range h.Log.Entries {
 		if e.Response.Status != 200 {
 			continue

@@ -25,9 +25,8 @@ Goals:
 
 ## 2. Non-goals
 
-- Not a client-side bot. The Node explorer tooling under
-  `neoxnova/tools/explorer/` stays as a live-game tool; this is the real game
-  feature.
+- Not a client-side bot. The private ops repo holds the live-game client and
+  automation; this is the real game feature.
 - Not a parallel/advantage build queue. Auto-build only fills the normal,
   single active build slot. It is convenience QoL, not pay-to-win (see §10).
 - Not combat, fleet automation, market, or diplomacy.
@@ -49,7 +48,7 @@ Goals:
    it is invisible to players during development. A small paywall/perk is an
    option later, not a requirement.
 5. **Blueprint spec = proven explorer schema.** The plan JSON already validated
-   in the field (`tools/explorer/httpbot.mjs:185`, `plans/colo-grow.json`) is
+   in the field (`the ops client:185`, `plans/colo-grow.json`) is
    promoted to the canonical persisted schema.
 6. **Event-driven, not a fast polling daemon.** Advance on build completion,
    with a slow sweep for cold starts/cancels.
@@ -134,9 +133,9 @@ Responsibilities:
 
 - **Prerequisite closure.** Go's `game.Requires` (`internal/game/catalog.go:256`)
   is a flat map with no graph. Either complete the maps or port the live
-  techtree graph (`tools/explorer/parse.mjs:105`) into Go data. Expansion must
+  techtree graph (`the ops parser:105`) into Go data. Expansion must
   skip forcing prerequisites of already-satisfied goals (the bug we hit in
-  `httpbot.mjs` `visit()`).
+  `the ops client` `visit()`).
 - **Ordering.** Honor explicit `order`, then dependency order.
 - **Gradual growth.** `gradual` + `caps` + `bumpBuilders` semantics.
 - **Per-queue discipline.** At most one building / one research in flight
@@ -376,9 +375,9 @@ page needs a client that does not exist here):
 - Catalog/economy: `internal/game/catalog.go:97/120/144/174`, `:256`
   (`RequiresMet`), `internal/game/economy.go:26`.
 - API/routes: `internal/api/router.go:16-25`, `internal/api/handlers/build.go`.
-- Explorer blueprint reference implementation: `tools/explorer/httpbot.mjs:185`
-  (`cmdResolve`), `tools/explorer/parse.mjs:105` (`parseTechtreeGraph`),
-  `tools/explorer/plans/colo-grow.json`, `tools/explorer/run-colonies.sh`.
+- Explorer blueprint reference implementation: `the ops client:185`
+  (`cmdResolve`), `the ops parser:105` (`parseTechtreeGraph`),
+  `the ops plans`, `the ops runner`.
 - Design/balance context: `docs/BALANCE_DATA_NEEDED.md`, `AGENTS.md`.
 
 ## Appendix B — worked example (gradual)

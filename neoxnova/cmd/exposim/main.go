@@ -55,7 +55,7 @@ var (
 // General (109/110/111) research the NPC mirrors. The enemy's combat report
 // shows ONE rolled Weapons/Shield/Armour value on all three stats; it scales
 // with the strongest of the general techs. Observed: Pirates ~+10–139%, Aliens
-// up to +202% (the wiping fights) — see docs/EXPEDITIONS_LIVE_2026-10-06.md §8.
+// up to +202% (the wiping fights) — see the private ops repo §8.
 // Modelled as a flat bonus on the mirrored fleet with no specific weapon techs
 // (those are attacker-only).
 var genBonus = game.MirroredResearchBonus(atkTechs)

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 0016_test_universe.sql — fast, self-contained universe for the web e2e test.
 --
--- The production model universe ('universe_6_niburu') is calibrated to the live
+-- The production model universe ('universe_1_alpha') is calibrated to the live
 -- server. This migration adds a SEPARATE sandbox universe ('universe_test') with
 -- cranked rates so the browser test can play a full loop in seconds:
 --   game speed 50000x, resource 50000x, fleet speed 500000x (flights ~1s).

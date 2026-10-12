@@ -9,13 +9,13 @@ matters is tracked; only the tiny `neoxnova/secrets/` folder is carried manually
 |---|---|---|---|
 | Source, docs, plans (`git ls-files`) | — | yes | yes → `git clone` / `pull` |
 | `neoxnova/secrets/` (`explorer.env`, `ssh/` key+config) | ~6 KB | **no** | **yes** — carry encrypted |
-| `neoxnova/tools/explorer/node_modules/` | ~14 MB | no | no → `npm ci` |
-| `neoxnova/tools/explorer/data/` (captures, logs, snapshots) | ~30 MB | no | mostly no → regenerates |
+| `neoxnova/the ops reponode_modules/` | ~14 MB | no | no → `npm ci` |
+| `neoxnova/the ops repodata/` (captures, logs, snapshots) | ~30 MB | no | mostly no → regenerates |
 | `neoxnova/data/` (e.g. `account2-levels.json`) | ~8 KB | no | optional |
 | `neoxnova/bin/` (server.exe) | ~13 MB | no | no → `go build` |
 | `*.HAR` raw captures | — | no | **never** (session cookies) |
 
-Never copy `node_modules/`, `bin/` or the big `tools/explorer/data` captures
+Never copy `node_modules/`, `bin/` or the big `the ops repodata` captures
 between machines — reinstall/regenerate. The only manual transfer is the ~6 KB
 `secrets/` folder (keep it in an encrypted archive / password manager).
 
@@ -76,7 +76,7 @@ cd neoxnova\neoxnova\tools\explorer && npm ci
 
 - Go 1.24 (auto-downloaded by older toolchains) and `make` — to build/run the
   server; run Go/make from `neoxnova/`, not the repo root.
-- Node + npm — for `tools/explorer`.
+- Node + npm — for `the private ops repo`.
 - Docker Desktop — for `make up` (Postgres + Redis).
 - The Azure VM SSH key lives in `neoxnova/secrets/ssh/` (see `AGENTS.md`).
 
@@ -85,6 +85,6 @@ cd neoxnova\neoxnova\tools\explorer && npm ci
 - Push before leaving; pull before starting.
 - Carry only `secrets/` (encrypted). Never sync `node_modules`, `bin`, HARs, or
   the exploration `data/` captures.
-- `neoxnova/tools/explorer/data/techtree-graph.json` and the latest
+- `neoxnova/the ops repodata/techtree-graph.json` and the latest
   `levels*.json` are the only `data/` files worth optionally copying for
   continuity; everything else regenerates.

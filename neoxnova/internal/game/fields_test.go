@@ -3,7 +3,7 @@ package game
 import "testing"
 
 // TestFieldExpansionCostCaptured locks the price curve to the Planetarium
-// capture (docs/screenshots_niburu/): +1..+6 = 200/420/662/928/1221/1543 DM.
+// capture (the private ops repo/): +1..+6 = 200/420/662/928/1221/1543 DM.
 func TestFieldExpansionCostCaptured(t *testing.T) {
 	cases := []struct {
 		additional int

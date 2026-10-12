@@ -12,9 +12,9 @@ const MaxPlanetSlots = 20
 // slotRange is per-position min/max of a randomly rolled value.
 type slotRange struct{ min, max int }
 
-// The tables below are captured verbatim from niburuspace.com's galaxy
+// The tables below are captured verbatim from reference-server's galaxy
 // colonisation tooltips (system 2:186, 20 slots). Fields peak mid-system; the
-// outer slots are cold and near-worthless (see docs/COMBAT_SESSION_2026-10-05).
+// outer slots are cold and near-worthless (see the private ops repo).
 var (
 	slotFields = [MaxPlanetSlots]slotRange{
 		{362, 410}, {369, 417}, {373, 517}, {380, 565}, {399, 613},
@@ -75,7 +75,7 @@ func RollPlanet(seed int64, slot int) (PlanetSpec, bool) {
 	}, true
 }
 
-// SatelliteEnergy is the classic OGame solar-satellite output on niburu:
+// SatelliteEnergy is the classic OGame solar-satellite output on the reference server:
 // round((maxTemp + 160) / 6). Verified against every captured slot tooltip.
 func SatelliteEnergy(tempMax int) int {
 	v := int(math.Round(float64(tempMax+160) / 6.0))

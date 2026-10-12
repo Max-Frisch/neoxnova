@@ -50,8 +50,8 @@ func CombatSeed(attacker, defender Combatant) int64 {
 	return int64(h.Sum64())
 }
 
-// Combat engine for niburuspace.com (universe_6_niburu), reverse-engineered in
-// docs/COMBAT_FINDINGS.md + docs/COMBAT_SESSION_2026-10-05.md. It is a pure,
+// Combat engine for reference-server (universe_1_alpha), reverse-engineered in
+// docs/COMBAT_FINDINGS.md + the private ops repo. It is a pure,
 // deterministic-given-a-seed round engine:
 //   - up to MaxCombatRounds rounds (8); a "draw" is anything not decided in time
 //   - every surviving unit fires once per round at ONE random live enemy unit
@@ -132,7 +132,7 @@ type Combatant struct {
 	// hull alike. Expedition NPCs (Pirates/Aliens) mirror the player's fleet but
 	// their combat report shows ONE rolled Weapons/Shield/Armour value on all
 	// three stats (e.g. "Aliens +202%") rather than per-stat research; model that
-	// here with Techs left at zero. See docs/EXPEDITIONS_LIVE_2026-10-06.md §8.
+	// here with Techs left at zero. See the private ops repo §8.
 	FlatBonusPct float64
 }
 
@@ -239,7 +239,7 @@ func DerivedAttack(baseAttack int, classes UnitClass, c Combatant) int {
 
 // MoonChance is the classic OGame formula: min(20, (M+C)/100000) percent. The
 // reference server reports 0% and never spawned a moon, but the target game
-// adopts the standard formula (see COMBAT_SESSION_2026-10-05 §3).
+// adopts the standard formula (see the private ops repo §3).
 func MoonChance(debrisMetal, debrisCrystal int64) int {
 	total := debrisMetal + debrisCrystal
 	if total < 0 {

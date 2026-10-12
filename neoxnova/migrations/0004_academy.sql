@@ -2,7 +2,7 @@
 --
 -- The reference server's academy tree (codes 11xx attack branch, 13xx defense
 -- branch) grants combat procs that measurably affect battles (see
--- docs/COMBAT_SESSION_2026-10-05.md). Only the skill level is persisted; the
+-- the private ops repo). Only the skill level is persisted; the
 -- combat interpretation lives in internal/game/combat.go.
 CREATE TABLE IF NOT EXISTS user_academy_skills (
     user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

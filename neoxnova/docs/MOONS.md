@@ -12,10 +12,10 @@ are both confirmed working live and modelled.
 - Created by combat at a **20 %** chance (owner flew 5 attacks of **2500 Battle
   Recyclers** `219`; the moon appeared on the 3rd/4th lost fight). 2500 is not a
   threshold — the 20 % cap needs only ~2,000,000 debris (~3 Battle Recyclers).
-- Moon #2 `cp=1772` `2:188:9` (Xusyty), **diameter 8,544 km** (owner-observed
-  2026-10-08). It coexists with the planet `cp=1648` (also Xusyty, 2:188:9).
+- Moon #2 `cp=1772` `2:188:9` (Hub), **diameter 8,544 km** (owner-observed
+  2026-10-08). It coexists with the planet `cp=1648` (also Hub, 2:188:9).
   Created by 4 failed + 1 successful attempt, each **5000 Battle Recyclers**
-  (double #1); the moon `cp` is not listed by `httpbot planets` (planets only) —
+  (double #1); the moon `cp` is not listed by `ops client planets` (planets only) —
   grab it from the planet overview's moon link. Diameter is *not* proportional to
   the recyclers sent: chance is capped at 20 % either way, and the classic
   diameter `floor(√(x+3p)·1000)` only varies with the random `x` (10..20) →
@@ -104,7 +104,7 @@ it is actually consumed is unverified.
   the base is *"at least an hour"* reduced with level, so base (L1) = 1 h and
   each further level halves it → `JumpgateCooldown = 3600s >> (level-1)`.
   PROVISIONAL (single data point). Screenshot evidence:
-  `docs/screenshots_jumpgate/` (form with src `[2:188:9]` → dst `[3:125:12]`,
+  `the private ops repo_jumpgate/` (form with src `[2:188:9]` → dst `[3:125:12]`,
   success dialog, 30 min cooldown).
 - **Previous "blocked" result was a false negative.** `game.php?page=information&
   mode=sendFleet` answered *"You dont have another portal to make the jump!"* — but
@@ -130,7 +130,7 @@ planet!` (own target). Confirmed **same-galaxy only**: a galaxy-2 sensor reaches
 a target 3 systems away but not 4 (`L2 → 3`, systems 185..191), and any target in
 galaxy 3 is `Out of reach` regardless of distance. Modelled by
 `game.PhalanxInRange`; parsed by `parse.mjs:parsePhalanx` and
-`httpbot.mjs phalanx <g:s:p> [1|3] --cp <moonCp>`.
+`the ops client phalanx <g:s:p> [1|3] --cp <moonCp>`.
 
 ## Destruction (PROVISIONAL)
 
@@ -160,7 +160,7 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
    (and diameter ignores recycler count once the 20 % cap is reached).
 4. Phalanx deuterium cost per scan and the post-teleport offline window.
    Phalanx reach/parse **RESOLVED 2026-10-08** (same-galaxy, `level^2-1`, full
-   composition revealed, `game.PhalanxInRange` + `httpbot phalanx`).
+   composition revealed, `game.PhalanxInRange` + `ops client phalanx`).
 5. Engine: resolve `ATTACK` on a `MOON` target, moon production safety, overview/
    galaxy/dashboard, and the fleet wizard's moon targeting.
 
@@ -171,8 +171,8 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
   `MoonDestruction`,
   `MoonBaseDestructionReduction`, `MoonStructure`/`MoonOnlyStructureByID`.
   Creation chance is `combat.go:MoonChance`. All tested.
-- **Tooling**: `parse.mjs:parsePhalanx` + `httpbot.mjs phalanx <g:s:p> [1|3]
-  [--cp <moonCp>]` perform a live scan (composition/ETA). No `httpbot` jump
+- **Tooling**: `parse.mjs:parsePhalanx` + `the ops client phalanx <g:s:p> [1|3]
+  [--cp <moonCp>]` perform a live scan (composition/ETA). No `ops client` jump
   command yet; a live jump must set the gate moon as the current planet and act in
   one process to dodge the worker race (see above).
 - **Creation wired** (`engine/event_engine.go:resolveAttack`): an ATTACK on a
@@ -181,6 +181,6 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
   production, cold/inherited temp) with `ON CONFLICT DO NOTHING` (one moon per
   planet). The result is recorded on `CombatResult.MoonCreated`/`MoonDiameterKm`
   (in the report JSON).
-- Remaining: `DESTROY_MOON` mission, `httpbot` jump command (model
+- Remaining: `DESTROY_MOON` mission, `ops client` jump command (model
   `JumpgateCooldown` exists and is measured at L2), moon build/overview API, and
   `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.

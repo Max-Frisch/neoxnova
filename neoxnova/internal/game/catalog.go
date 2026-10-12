@@ -56,10 +56,10 @@ type UnitDef struct {
 	Requires    map[string]int
 }
 
-// time-calibration constants fitted from the niburuspace.com HAR capture.
+// time-calibration constants fitted from the reference-server HAR capture.
 // See docs/BALANCE_DATA_NEEDED.md — these are empirical and should be refined
 // with captures at varying Robotics/Nanite/University levels.
-// buildingTimeCalibration fitted from the fresh Bratwurst account (Robotics 15,
+// buildingTimeCalibration fitted from the fresh acc1 account (Robotics 15,
 // Nanite 0) across 6 samples: T = (M+C)/(2500*(1+robotics)) * 0.5^nanite
 // * 3600/game_speed * calibration. The buffed Fogigy capture runs ~1.88x faster
 // (officer / peaceful-level bonuses), which is not modelled here.
@@ -106,7 +106,7 @@ func buildUnits(defs []UnitDef) map[string]UnitDef {
 }
 
 // Structures is the static catalog of planet buildings, calibrated from the
-// niburuspace.com capture (base cost = observed cost / factor^level).
+// reference-server capture (base cost = observed cost / factor^level).
 var Structures = buildStructures([]StructureDef{
 	{Code: "metal_mine", ID: 1, Name: "Metal Mine", BaseCost: Cost{Metal: 60, Crystal: 15}, CostFactor: 1.5},
 	{Code: "crystal_mine", ID: 2, Name: "Crystal Mine", BaseCost: Cost{Metal: 48, Crystal: 24}, CostFactor: 1.5},

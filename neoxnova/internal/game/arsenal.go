@@ -3,7 +3,7 @@ package game
 // Arsenal (upgrades) — pure catalog and rules.
 //
 // Source of truth: docs/ARSENAL_UPGRADES_IMPLEMENTATION.md and the live capture
-// docs/ARSENAL_LIVE_2026-10-06.md. The per-activation values below are the live
+// the private ops repo. The per-activation values below are the live
 // `page=arsenal` `(+Y)` brackets; they supersede the older Russian-manual
 // percentages. Anything still marked provisional is called out in comments.
 //

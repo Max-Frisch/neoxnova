@@ -20,7 +20,7 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
 ## Environment & testing
 
 - `DATABASE_URL` is the only required variable (see `.env.example`); `.env` auto-loads, absence is fine.
-  `UNIVERSE_ID` (default `universe_6_niburu`) must match `universes.code_name`.
+  `UNIVERSE_ID` (default `universe_1_alpha`) must match `universes.code_name`.
 - Unit tests are pure (`internal/game`). DB integration tests skip unless `DATABASE_URL` is set; with
   it, `go test ./...` runs them against the compose stack.
 - Seed: homeworld id 1 `1:1:1`, outpost id 2 `1:2:3`, commander user; idempotent (does not reset levels).
@@ -54,9 +54,9 @@ Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not
 ## Game data & live tooling
 
 - Balance is approximate/calibrated — read `neoxnova/docs/BALANCE_DATA_NEEDED.md` before "fixing" it;
-  costs are locked to `testdata/niburus_catalog.json`.
-- Raw `*.HAR` captures are gitignored (may hold session cookies) — never commit.
-- Live-game automation + the fleet/combat wizard: read `neoxnova/docs/EXPLORER.md`.
+  costs are locked to `testdata/catalog.json`.
+- Live-game client/automation, raw balance captures, runbooks and ops data live in a **separate,
+  private ops repo** (checked out as a sibling of this one) — never commit them here.
 
 ## Working style & Token Constraints
 

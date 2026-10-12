@@ -3,7 +3,7 @@ package game
 // Mission display for incoming fleets. A defender sees every fleet inbound to a
 // planet as a human-readable label plus a colour hint, mirroring the live
 // overview "Fleet" event log. The labels match the server's type_mission_*
-// strings (tools/explorer/data/_lang_FLEETphp).
+// strings (the ops repodata/_lang_FLEETphp).
 //
 // Hostility is about OWNERSHIP, not the mission: the live log marks every fleet
 // that is not the viewer's own as a threat ("A hostile Fleets ... Mission: ..."),

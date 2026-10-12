@@ -12,7 +12,7 @@ func TestCoordinateDistanceSamples(t *testing.T) {
 	}{
 		{1, 1, 1, 1, 1, 3, 1010},      // same system
 		{1, 1, 1, 1, 2, 1, 2795},      // cross-system, same position
-		{2, 188, 9, 2, 188, 16, 1035}, // live: Xusyty -> Japoqu
+		{2, 188, 9, 2, 188, 16, 1035}, // live: Hub -> Japoqu
 		{2, 188, 9, 2, 186, 9, 2890},  // live
 		{2, 188, 9, 2, 186, 11, 3900}, // live
 		{2, 188, 9, 2, 191, 10, 3990}, // live
@@ -27,7 +27,7 @@ func TestCoordinateDistanceSamples(t *testing.T) {
 }
 
 // TestFuelMatchesLiveSamples checks the fuel model against the eight samples
-// captured from niburuspace.com (distances/speeds in the session doc). The fit
+// captured from reference-server (distances/speeds in the session doc). The fit
 // is within ~10%; the alternative reference formula was ~3x off.
 func TestFuelMatchesLiveSamples(t *testing.T) {
 	cases := []struct {

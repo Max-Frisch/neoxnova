@@ -4,16 +4,21 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 `docs/BACKLOG_ARCHIVE.md`. Deeper context in the per-topic docs (see "Deep dives" below).
 
 ## Live state (operational cheat-sheet)
-- acc1 **Bratwurst** `3:125:12` runs entirely on VM `azure-bot` (tmux `drain-acc1` + `bonus-acc1`),
-  no local processes. acc2 TheBob retired (manual-only fallback).
+- acc1 `3:125:12` runs entirely on VM `azure-bot` (tmux `drain-acc1` + `bonus-acc1`),
+  no local processes. acc2 retired (manual-only fallback).
 - Burn-down = lean **BW 228** (`drain.mjs` v7 `bwlean-split-v7`, config `plans/farm-sites.json >
   acc1.drain`), 11 live slots, `per = floor((home+inflight)·0.97/slots)`.
 - Rules: keep 109/110/111 at the techtree floor; resources are never cron-updated; live automation
   builds **ships only** (mines + ship-trader scrap are manual).
-- Deploy = local commit → push → VM `git -C ~/neoxnova reset --hard origin/main`.
+- Engine deploy = local commit → push → VM `git -C ~/neoxnova reset --hard origin/main`.
+- Live tooling/runbooks/secrets now live in a **separate private sibling ops repo** (not tracked
+  here); ops deploy is `git -C ~/neoxnova-ops pull`. No client/automation code in this repo.
 
 ## In progress
-- _(none)_
+- [ ] **Ops split follow-ups** — engine de-branded + live-ops extracted to the private sibling
+      repo. Remaining: commit+push engine; migrate the acc1 VM to the ops checkout (rename
+      `secrets/explorer.env` keys `NIBURU_*`→`EXPLORER_*`, restart tmux daemons); optional
+      `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
 - [ ] **Web UI menu coverage** — remaining in-game menus missing from the frontend: Premium
@@ -22,10 +27,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       Simulator (page + `POST /api/v1/sim`). Already covered: Research, Buildings, Hangar,
       Defenses (Shipyard), Fleet, Resources, Galaxy.
 - [ ] **Expedition live calibration** — harvest outcomes, refine the non-locked mix weights
-      (`docs/EXPEDITIONS_LIVE_2026-10-06.md`; resolver + BH done).
+      (`the private ops repo`; resolver + BH done).
 - [ ] **Stardust rare currency** — `game` constant + occasional expo find + debris-based planet/moon
-      diameter/fields sink (`docs/EXPEDITIONS…` §11e).
-- [ ] **Moons (item 4)** — `httpbot` jump command, moon build/overview API, `DESTROY_MOON`
+      diameter/fields sink (`the private ops repo` §11e).
+- [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
       (`docs/AUTO_BUILD_DESIGN.md` §12/§15).
@@ -35,16 +40,21 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-12 — 2 more acc1 colonies on the builder: cp1917 `3:137:9`, cp1918 `3:139:9`
+  (VM tmux `colo-1917`/`colo-1918`, plan `plans/acc1-colo-1917-1918.json`). Bootstrap
+  Robot 11 / Nanite 1 / storages 9/8/7 / shipyard 12 / lab 12 / mines 26/24/21 / solar 21
+  (then sats); `gradual` to caps, bumped same day to mines 48/47/44, Robot 22 / Nanite 11,
+  shipyard 18, lab 23, storages 10/9/8, conveyors 9/8/7 (run-one-colony.sh, per-colony loop).
 - 2026-10-12 — expedicion full deep-scan analysis (BW night): outcome mix n=652, loot, 53
   fights (24/24 overnight wins), fatal-BH 2.30 % window / 1.95 % since relaunch
-  (`docs/EXPEDITIONS_LIVE_2026-10-06.md` §14; no code changed).
+  (`the private ops repo` §14; no code changed).
 - 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; new
   Technologies tech-tree page and battle Simulator (page + `POST /api/v1/sim`); nav + tests.
 - 2026-10-11 — frontend balance fixes: removed the erroneous research-lab level cap (the lab only
   *unlocks* techs via their prerequisites, it does not cap level); techtree graph re-verified against
   the live server (114 items, 0 diffs); Mineral/Semi-Crystals/Fuel Research +5%/level account-wide
   production; storage levels drive capacity
-  (`5000·floor(2.5·e^(20L/33))·resource_speed`, matches niburu's 53.55B @ L10).
+  (`5000·floor(2.5·e^(20L/33))·resource_speed`, matches the reference server's 53.55B @ L10).
 - 2026-10-11 — drain per-fleet sizing fix (`bwlean-split-v7`) + BH instrumentation; local dev
   bootstrap scripts (`dev-up.sh`/`.ps1`); acc1 colony metal-50 round.
 - 2026-10-10 — lean BW switch (BW 228); moonshot rounds 1–3; 7 colonies done; expo dashboard.
@@ -55,6 +65,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 - 2026-10-07 and earlier — see `docs/BACKLOG_ARCHIVE.md`.
 
 ## Deep dives (read on demand)
-`ROLLING_FARM.md` · `EXPLORER.md` · `ARSENAL_UPGRADES_IMPLEMENTATION.md` · `BALANCE_DATA_NEEDED.md` ·
-`COMBAT_FINDINGS.md` / `COMBAT_MODEL.md` / `COMBAT_TEST_PLAN.md` · `ESPIONAGE_LIVE_2026-10-06.md` ·
-`EXPEDITIONS_LIVE_2026-10-06.md` · `ARSENAL_LIVE_2026-10-06.md` · `AUTO_BUILD_DESIGN.md` · `MOONS.md`.
+`ARSENAL_UPGRADES_IMPLEMENTATION.md` · `BALANCE_DATA_NEEDED.md` · `COMBAT_FINDINGS.md` /
+`COMBAT_MODEL.md` · `EXPEDITIONS_CALIBRATION_PLAN.md` · `AUTO_BUILD_DESIGN.md` · `MOONS.md`.
+Live-capture runbooks, the explorer client and raw balance data live in the private ops repo.
