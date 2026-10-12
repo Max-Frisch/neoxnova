@@ -16,9 +16,9 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## In progress
 - [ ] **Ops split follow-ups** — engine de-branded + live-ops extracted to the private sibling
-      repo. Remaining: commit+push engine; migrate the acc1 VM to the ops checkout (rename
-      `secrets/explorer.env` keys `NIBURU_*`→`EXPLORER_*`, restart tmux daemons); optional
-      `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
+      repo; engine changes committed+pushed (`fc08b83`). Remaining: migrate the acc1 VM to the ops
+      checkout (rename `secrets/explorer.env` keys `NIBURU_*`→`EXPLORER_*`, restart tmux
+      daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
 - [ ] **Web UI menu coverage** — remaining in-game menus missing from the frontend: Premium
