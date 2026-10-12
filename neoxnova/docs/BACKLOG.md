@@ -35,6 +35,9 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-12 — expedicion full deep-scan analysis (BW night): outcome mix n=652, loot, 53
+  fights (24/24 overnight wins), fatal-BH 2.30 % window / 1.95 % since relaunch
+  (`docs/EXPEDITIONS_LIVE_2026-10-06.md` §14; no code changed).
 - 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; new
   Technologies tech-tree page and battle Simulator (page + `POST /api/v1/sim`); nav + tests.
 - 2026-10-11 — frontend balance fixes: removed the erroneous research-lab level cap (the lab only

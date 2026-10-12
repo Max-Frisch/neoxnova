@@ -633,3 +633,56 @@ fatal BH in-window, so the drawdown is combat attrition (debris converts to reso
 hulls) plus reconstruction noise. Manageable, but keep an eye on it / top up if it keeps
 sliding. General research 109/110/111 is **18/18/18** (1–2 above the Frigate floor 16/16/17)
 — the §12d rule (hold at floor, invest in attacker-only techs) still applies.
+
+## 14. Full deep scan after the first BW night (2026-10-12, acc1)
+Deep backfill (`msg-scan` uncapped → **1442 msgs / 652 expedition outcomes**, plus
+`exp-report` → 251 reports) over **10 Oct 19:39 → 12 Oct 04:40 server (UTC+3)**.
+Server times below (subtract 3 h for the Z-times used in §13). No code changed.
+
+### 14a. Outcome mix (n = 652) — stable, combat soft
+| outcome | n | share | vs §13a (n=206) |
+|---|---:|---:|---|
+| ships | 204 | **31.3 %** | ↑ 27.7 |
+| resources | 108 | 16.6 % | ↓ 20.9 |
+| darkmatter | 97 | 14.9 % | ↓ 16.0 |
+| delay | 85 | 13.0 % | ↓ 16.0 |
+| combat | 51 | 7.8 % | ↑ 6.3 |
+| fast | 26 | 4.0 % | ↑ 2.9 |
+| nothing | 44 | 6.7 % | ≈ 5.8 |
+| **blackhole (fatal)** | **15** | **2.30 %** | ↓ 2.9 |
+| stardust | 5 | 0.8 % | — |
+| unknown | 17 | 2.6 % | roleplay / missed-target |
+
+Since relaunch (11 Oct ~07:00 SRV, n = 461): ships 32.1 %, res 15.8 %, DM 14.3 %,
+delay 11.5 %, combat 8.7 %, fast 4.1 %, nothing 7.2 %, BH 2.0 %, stardust 1.1 %.
+Overnight (11 Oct 20:00 → 12 Oct 04:40, n = 212): ships 33.0 %, res 13.7 %, DM 11.8 %,
+delay 11.8 %, combat 9.4 %, nothing 7.5 %, BH 2.4 %, fast 4.7 %, stardust 1.4 %.
+
+### 14b. Loot (631 return acks, 232 carrying loot)
+**M 15.54 T · C 7.64 T · D 21.8 B · DM 411,994.**
+
+### 14c. Combat — the BW night won every fight
+53 expedition fights (Pirates/Aliens only): **Pirates 37 W / 0 D / 0 L** (median loss
+8 %, roll med 73); **Aliens 15 W / 1 D / 0 L** (median loss 28 %, roll med 131).
+Attacker lost **10.56 T / 52.18 T sent = 20.2 %**; defender lost 38.66 T. The single
+draw is an alien roll 213 (11 Oct 01:28 SRV). Overnight (11 Oct 20:00 → 12 Oct 04:40)
+the drain went **24 / 24 attacker wins, 0 defender, 0 draws** despite alien rolls up to
+217 (one 83 %-loss hull grinder) — BW 228 wins on the research roll and just bleeds
+hulls, same conclusion as §12d/§13c.
+
+### 14d. Fatal BH 2.30 % in-window — the shallow 8-site scan under-counted
+The uncapped scan surfaced **15 fatal BHs**, not the 7 an 8-site pass sees. By
+timestamp: 11 Oct 00:17/01:49/02:29/03:52/04:34/05:50 (the pre-relaunch cluster, §13a)
+then 08:53/10:35/17:38/19:00/23:29, 12 Oct 00:16/01:58/**04:04/04:34**.
+- pre-relaunch: **6 / 191 = 3.14 %**
+- since relaunch: **9 / 461 = 1.95 %** (P(X≥9 | 1.68 %) = 0.37 → consistent)
+- whole window: **15 / 652 = 2.30 %** (P = 0.14 → not a real deviation)
+
+So the overnight did carry **5 fatal BHs** (not 1 as a shallow scan suggests); the
+elevated in-window rate is the pre-relaunch cluster plus ordinary noise, and the
+since-relaunch rate sits on the locked 1.68 % model. The overnight fleet drawdown is
+still dominated by combat attrition (~20 % of sent points), BHs a smaller slice.
+
+**Tooling note:** the forward `run-msgharvest.sh` (`--max-sites 6`) can halve the
+observed fatal-BH count on a burst-heavy night — run an uncapped `msg-scan` before
+reading any BH rate off a single scan.
