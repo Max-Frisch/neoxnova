@@ -279,6 +279,7 @@ var cargoCapacity = map[string]int64{
 	"209": 20000,
 	"217": 400000000,
 	"219": 200000000,
+	"222": 5000000, // Flying Death (live info card, 2026-10-12)
 }
 
 // CargoCapacity returns the cargo hold of a unit (0 if unknown).

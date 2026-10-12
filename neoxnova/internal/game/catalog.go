@@ -175,7 +175,7 @@ var Ships = buildUnits([]UnitDef{
 	{Code: "219", Name: "Battle Recycler", BaseCost: Cost{Metal: 1000000, Crystal: 600000, Deuterium: 200000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "220", Name: "Dark Matter Collector", BaseCost: Cost{Metal: 60000000, Crystal: 70000000, Deuterium: 30000000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "221", Name: "Battleship class ONill", BaseCost: Cost{}, Requires: map[string]int{"shipyard": 1}},
-	{Code: "222", Name: "Flying Death", BaseCost: Cost{}, Requires: map[string]int{"shipyard": 1}},
+	{Code: "222", Name: "Flying Death", BaseCost: Cost{Metal: 184800000, Crystal: 92400000, Deuterium: 25200000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "223", Name: "Scrappy", BaseCost: Cost{Metal: 50000, Crystal: 2500000, Deuterium: 10000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "225", Name: "Galleon", BaseCost: Cost{Metal: 900000, Crystal: 700000, Deuterium: 200000}, Requires: map[string]int{"shipyard": 1}},
 	{Code: "226", Name: "Destroyer", BaseCost: Cost{Metal: 3000000, Crystal: 2000000, Deuterium: 200000}, Requires: map[string]int{"shipyard": 1}},

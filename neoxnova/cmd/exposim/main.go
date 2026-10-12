@@ -24,6 +24,7 @@ var buildRatePerSec = map[string]float64{
 	"206": 132, "207": 132, "215": 132, "217": 132, "219": 132,
 	"214": 20, "216": 20, "225": 20, "226": 20, "227": 20,
 	"228": 76, // Black Wanderer (data/_sy_live.html, 2026-10-10)
+	"222": 48, // Flying Death (live info card, 2026-10-12)
 }
 
 // Server-scaled cargo holds (data/unit-info.json + combat.cargoCapacity).
@@ -32,6 +33,7 @@ var cargoHold = map[string]float64{
 	"217": 400000000, "219": 200000000,
 	"216": 15000000, "225": 500000, "226": 1000000,
 	"228": 2000000, // Black Wanderer (data/unit-info.json)
+	"222": 5000000, // Flying Death (live info card, 2026-10-12)
 }
 
 // Real acc1 combat techs. Only the general Weapons/Shield/Armour research
@@ -201,6 +203,10 @@ func main() {
 		{"BW + BT 8/BW (whale)", map[string]float64{"228": 1, "217": 8.0}, bwBudget},
 		{"BW + BR0.5 + BT1", map[string]float64{"228": 1, "219": 0.5, "217": 1.0}, bwBudget},
 		{"BW whale 8BT+0.5BR", map[string]float64{"228": 1, "217": 8.0, "219": 0.5}, bwBudget},
+		// Flying Death (222) comps at the same per-fleet points as the BW sweep.
+		{"FlyingDeath only", map[string]float64{"222": 1}, bwBudget},
+		{"FD + BR 0.5/FD", map[string]float64{"222": 1, "219": 0.5}, bwBudget},
+		{"FD + BT 1/FD", map[string]float64{"222": 1, "217": 1.0}, bwBudget},
 	}
 
 	var rows []row

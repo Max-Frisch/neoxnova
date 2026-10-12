@@ -658,9 +658,9 @@
       "code": 222,
       "name": "Flying death",
       "next_cost": {
-        "metal": 0,
-        "crystal": 0,
-        "deuterium": 0
+        "metal": 184800000,
+        "crystal": 92400000,
+        "deuterium": 25200000
       },
       "kind": "ship"
     },

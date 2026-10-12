@@ -136,6 +136,12 @@
       "shield": 50000,
       "hull": 13000000
     },
+    "222": {
+      "name": "Flying death",
+      "attack": 4000000,
+      "shield": 1500000,
+      "hull": 33000000
+    },
     "225": {
       "name": "Galleon",
       "attack": 20000,

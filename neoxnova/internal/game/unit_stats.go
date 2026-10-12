@@ -29,6 +29,7 @@ var unitStats = map[string]UnitStats{
 	"217": {Name: "Battle Transporter", Attack: 40, Shield: 120, Hull: 5500},
 	"219": {Name: "Battle Recycler", Attack: 0, Shield: 1000, Hull: 160000},
 	"220": {Name: "Dark Matter Collector", Attack: 0, Shield: 50000, Hull: 13000000},
+	"222": {Name: "Flying Death", Attack: 4000000, Shield: 1500000, Hull: 33000000},
 	"225": {Name: "Galleon", Attack: 20000, Shield: 8000, Hull: 160000},
 	"226": {Name: "Destroyer", Attack: 65000, Shield: 23000, Hull: 500000},
 	"227": {Name: "Frigate", Attack: 470000, Shield: 190000, Hull: 4000000},

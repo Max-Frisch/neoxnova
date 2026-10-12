@@ -63,8 +63,11 @@ standard factor for each item. Durations are **approximate** (see below).
    with **0 diffs**. Reminder: the Research Lab only *unlocks* techs (prerequisite
    levels); it does **not** cap the research level.
 6. **Shipyard/tech code coverage.** Custom units with zero cost in the capture
-   (`218` Avatar, `221`, `222`, `227`, `228`, several defenses) may require
+   (`218` Avatar, `221`, `227`, `228`, several defenses) may require
    special resources/events. Needed: a capture when they are buildable.
+   `222` Flying Death was later read off its live information card (2026-10-12:
+   cost 184.8M/92.4M/25.2M, hull 33M, shield 1.5M, speed 1000, fuel 950,
+   cargo 5M) and is fully modelled.
 
 ## Server-custom systems that affect base systems (not yet modelled)
 
