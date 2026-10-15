@@ -21,9 +21,9 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI reskin (I1–I5)** — I0 artwork capture done (below). Mirror the live Niburuspace
-      OGame-Redesign UI; plan + phases in `docs/WEB_UI_RESKIN_PLAN.md` (I1 shell/skin →
-      I2 build/research/cancel → I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/messages).
+- [ ] **Web UI reskin (I2–I5)** — I0 artwork + I1 shell/skin done (below). Mirror the live
+      Niburuspace OGame-Redesign UI; plan + phases in `docs/WEB_UI_RESKIN_PLAN.md` (I2
+      build/research/cancel → I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/messages).
       Supersedes the old "Web UI menu coverage" item.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
@@ -35,6 +35,13 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Web UI reskin I1 (skin foundation + game shell)**: hand-authored `static/skin.css`
+      (starfield/topbar/panels/menu/progress/buttons) + `static/app.js` (server clock, planet-select
+      nav, CSP-safe `data-pct` bar widths); `layout.templ` rewritten to the live shell — black top
+      bar (planet switcher, messages link), htmx-polled resource bar (M/C/D capacity fills, Energy,
+      **Stardust/Dark Matter/Antimatter**), full left menu with unbacked items disabled
+      ("coming soon"); `Shell` gained `ServerTime`/`ActiveCoords`; shell-render + asset-serving
+      tests; all existing `internal/web` + e2e tests green.
 - 2026-10-15 — **Web UI reskin I0 (artwork capture)**: ops `tools/explorer/assets.mjs` captures the
       live skin read-only (acc1 session, page `<img>`/CSS `url()`) → curated `internal/web/static/
       niburu/**` (`buildings/research/ships/defenses/icons/bg` + `README.md` id→file map); `go:embed
@@ -53,24 +60,17 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
   (optional `_cap`; migration `0017`), enforced in `FleetStore.Dispatch`; expeditions pinned to
   `[g:s:21]`; pure + store integration tests.
 - 2026-10-12 — 2 more acc1 colonies (cp1917 `3:137:9`, cp1918 `3:139:9`); bootstrap + `gradual`
-  bumps to mines 48/47/44, Robot 22 / Nanite 11, conveyors 9/8/7 (`run-one-colony.sh`).
-- 2026-10-12 — expedicion full deep-scan analysis (BW night): outcome mix n=652, loot, 53
-  fights (24/24 overnight wins), fatal-BH 2.30 % window / 1.95 % since relaunch
-  (`the private ops repo` §14; no code changed).
-- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; new
-  Technologies tech-tree page and battle Simulator (page + `POST /api/v1/sim`); nav + tests.
-- 2026-10-11 — frontend balance fixes: removed the erroneous research-lab level cap (the lab only
-  *unlocks* techs via their prerequisites, it does not cap level); techtree graph re-verified against
-  the live server (114 items, 0 diffs); Mineral/Semi-Crystals/Fuel Research +5%/level account-wide
-  production; storage levels drive capacity
-  (`5000·floor(2.5·e^(20L/33))·resource_speed`, matches the reference server's 53.55B @ L10).
+  bumps (mines 48/47/44, Robot 22 / Nanite 11, conveyors 9/8/7); deep-scan expedicion analysis
+  (n=652; fatal-BH 2.30 % window / 1.95 % since relaunch; no code changed).
+- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store;
+  Technologies tech-tree page + battle Simulator (page + `POST /api/v1/sim`); nav + tests.
+- 2026-10-11 — frontend balance: dropped the research-lab level cap; techtree re-verified (114 items,
+  0 diffs); Mineral/Semi-Crystals/Fuel +5 %/level; storage capacity drives limits
+  (`5000·floor(2.5·e^(20L/33))·resource_speed`).
 - 2026-10-11 — drain per-fleet sizing fix (`bwlean-split-v7`) + BH instrumentation; local dev
   bootstrap scripts (`dev-up.sh`/`.ps1`); acc1 colony metal-50 round.
-- 2026-10-10 — lean BW switch (BW 228); moonshot rounds 1–3; 7 colonies done; expo dashboard.
-- 2026-10-09 — expedition calibration + positive BH (item 8); playable web UI + onboarding;
-  research-speed model.
-- 2026-10-08 — expedition resolver (item 1); auto-builder Phase 2; outcome surfacing; moons;
-  acc1 migrated to the VM.
+- 2026-10-08/10 — lean BW 228; moonshot rounds; 7 colonies; expo dashboard + calibration + positive
+  BH; expedition resolver; auto-builder Phase 2; acc1 migrated to the VM.
 - 2026-10-07 and earlier — see `docs/BACKLOG_ARCHIVE.md`.
 
 ## Deep dives (read on demand)

@@ -58,6 +58,11 @@ id→file mapping (so templates can reference assets by catalog code).
 (skin still renders without gaps).
 
 ## I1 — Skin foundation + game shell + resource bar
+> **Status: ✅ done (2026-10-15).** `static/skin.css` + `static/app.js`; rewritten
+> `layout.templ` (top bar, level-free shell, full left menu, resource bar with
+> Stardust/DM/AM). `Shell` gained `ServerTime`/`ActiveCoords`. Resources* also renders
+> disabled until its page lands in I4 (was unstarred in the menu spec).
+
 - `static/skin.css` (starfield, panels, tables, `.card-grid`, `.res-bar`, `.progress`,
   buttons, `.disabled`) + `static/app.js` (clock, `data-*` bar widths).
 - Rewrite `layout.templ`: top bar (server clock, planet switcher, Metal/Crystal/Deut with

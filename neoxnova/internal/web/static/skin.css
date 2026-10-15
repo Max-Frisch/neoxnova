@@ -1,0 +1,487 @@
+/*
+ * skin.css — hand-authored OGame "Redesign" skin for the Neo-XNova shell.
+ *
+ * Loaded after the compiled Tailwind app.css so it can override the base layer.
+ * Kept in plain CSS (not Tailwind utilities) so `make web-css` is rarely needed.
+ * Dynamic bar widths are applied by app.js via element.style (CSP-safe).
+ */
+
+:root {
+  --bg: #05080f;
+  --panel: #0a1424;
+  --panel-2: #0d1a2d;
+  --line: #223a5c;
+  --line-soft: #16283f;
+  --text: #c7d7ee;
+  --text-dim: #7d93b2;
+  --accent: #5fd0ff;
+  --accent-dim: #2b6c92;
+  --metal: #e0b36a;
+  --crystal: #6fc0ff;
+  --deut: #4fe0a8;
+  --energy: #f5d34a;
+  --dm: #c07bff;
+  --am: #ff5a5a;
+  --star: #ffd97a;
+  --ok: #46c97a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body.shell-body,
+body.auth-body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  font-family: Verdana, Tahoma, "DejaVu Sans", sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  background-color: var(--bg);
+  background-image: url("/static/niburu/bg/bg_a.png");
+  background-repeat: repeat;
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  border: 0;
+}
+
+/* ---- Top bar ----------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 10px;
+  background: #000;
+  border-bottom: 1px solid #1a2b45;
+}
+
+.topbar-logo {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  padding: 0 8px;
+}
+
+.topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.topbar-center .planet-name {
+  color: #eaf2ff;
+  font-weight: 700;
+}
+
+.topbar-center .planet-coords {
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+.planet-select {
+  background: #0b1626;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.topbar-icon img {
+  width: 22px;
+  height: 22px;
+  vertical-align: middle;
+  opacity: 0.85;
+}
+
+.topbar-icon:hover img {
+  opacity: 1;
+}
+
+.topbar-user {
+  color: var(--text-dim);
+}
+
+.topbar-logout {
+  background: none;
+  border: 0;
+  color: #ff8080;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.topbar-logout:hover {
+  color: #ffb0b0;
+}
+
+/* ---- Resource bar ------------------------------------------------------ */
+
+.resbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  padding: 6px 14px;
+  background: rgba(2, 6, 12, 0.72);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.res {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 210px;
+  padding: 2px 6px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.res-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  z-index: 1;
+}
+
+.res > span {
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.res-value {
+  color: #eef4ff;
+  font-weight: 700;
+}
+
+.res-cap {
+  color: var(--text-dim);
+}
+
+.res-pct {
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.res-rate {
+  color: var(--ok);
+  font-size: 11px;
+}
+
+.res.is-negative .res-rate,
+.res.is-negative .res-value {
+  color: var(--am);
+}
+
+.res-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 100%;
+  width: 0;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+.res--metal .res-fill {
+  background: linear-gradient(90deg, #4a3413, var(--metal));
+}
+
+.res--crystal .res-fill {
+  background: linear-gradient(90deg, #12324d, var(--crystal));
+}
+
+.res--deut .res-fill {
+  background: linear-gradient(90deg, #0e4032, var(--deut));
+}
+
+/* ---- Shell grid -------------------------------------------------------- */
+
+.shell {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 12px 14px 40px;
+}
+
+.shell-menu {
+  flex: 0 0 232px;
+  width: 232px;
+}
+
+.shell-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Left menu --------------------------------------------------------- */
+
+.menu-box {
+  padding: 8px;
+  background: rgba(4, 10, 20, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.5) inset;
+}
+
+.menu-clock {
+  text-align: center;
+  color: #d8e6fb;
+  font-weight: 700;
+  padding: 4px 0 10px;
+  letter-spacing: 0.4px;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.menu-pad {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.menu-item {
+  display: block;
+  padding: 6px 8px;
+  text-align: center;
+  color: #cfe0f6;
+  background: linear-gradient(#1c2f4d, #0d1a2c);
+  border: 1px solid #33506f;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.menu-item:hover {
+  background: linear-gradient(#2a4468, #16273e);
+  border-color: #4a6f97;
+  color: #eaf3ff;
+  text-decoration: none;
+}
+
+.menu-item--wide {
+  grid-column: 1 / -1;
+}
+
+.menu-item.is-active {
+  background: linear-gradient(#2f5f9d, #1b3b64);
+  border-color: #5f93c9;
+  color: #fff;
+  font-weight: 700;
+}
+
+.menu-item.is-special {
+  background: linear-gradient(#a31616, #6d0d0d);
+  border-color: #d94b4b;
+  color: #ffe9e9;
+}
+
+.menu-item.is-special.is-active {
+  background: linear-gradient(#c81e1e, #8a1010);
+}
+
+.menu-item.is-disabled {
+  color: #6b7f9b;
+  background: linear-gradient(#152335, #0b1421);
+  border-color: #263a54;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.menu-item.is-disabled:hover {
+  background: linear-gradient(#152335, #0b1421);
+  border-color: #263a54;
+  color: #6b7f9b;
+}
+
+/* ---- Content panels ---------------------------------------------------- */
+
+.panel {
+  background: rgba(6, 13, 24, 0.88);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.panel-title {
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---- Cards / tables ---------------------------------------------------- */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  background: rgba(10, 20, 34, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.game-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.game-table th,
+.game-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+}
+
+.game-table th {
+  color: var(--accent);
+}
+
+/* ---- Progress / buttons ------------------------------------------------ */
+
+.progress {
+  position: relative;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+}
+
+.btn {
+  display: inline-block;
+  padding: 5px 12px;
+  color: #eaf3ff;
+  background: linear-gradient(#22406a, #12253d);
+  border: 1px solid #3d5f88;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: linear-gradient(#2c538a, #18304d);
+  text-decoration: none;
+}
+
+.btn.is-disabled,
+.btn:disabled {
+  color: #6b7f9b;
+  background: #101c2c;
+  border-color: #263a54;
+  cursor: not-allowed;
+}
+
+/* ---- Flash / error ----------------------------------------------------- */
+
+.flash,
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.flash {
+  color: #c8f7d8;
+  background: rgba(20, 70, 45, 0.35);
+  border: 1px solid #2f7a4f;
+}
+
+.error {
+  color: #ffd0d0;
+  background: rgba(80, 20, 25, 0.35);
+  border: 1px solid #a3403f;
+}
+
+.flash .dot,
+.error .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.flash .dot {
+  background: var(--ok);
+}
+
+.error .dot {
+  background: var(--am);
+}
+
+/* ---- Responsive -------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .shell-menu {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .res {
+    min-width: 150px;
+  }
+}

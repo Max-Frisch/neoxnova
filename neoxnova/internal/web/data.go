@@ -28,6 +28,8 @@ type Shell struct {
 	Planets          []models.OwnedCelestial
 	ActivePlanetID   int64
 	ActivePlanetName string
+	ActiveCoords     string
+	ServerTime       time.Time
 	Resources        *models.RealtimeResourceState
 	Flash            string
 	Error            string
@@ -42,7 +44,7 @@ type AuthView struct {
 }
 
 func (h *Handler) shell(r *http.Request, userID, activeID int64) Shell {
-	s := Shell{ActivePlanetID: activeID}
+	s := Shell{ActivePlanetID: activeID, ServerTime: time.Now()}
 	if name, _, err := h.auth.UserByID(r.Context(), userID); err == nil {
 		s.Username = name
 	}
@@ -51,8 +53,9 @@ func (h *Handler) shell(r *http.Request, userID, activeID int64) Shell {
 	}
 	if activeID != 0 {
 		idStr := strconv.FormatInt(activeID, 10)
-		if name, _, _, _, err := h.planets.GetCoordinates(r.Context(), idStr); err == nil {
+		if name, g, sy, pos, err := h.planets.GetCoordinates(r.Context(), idStr); err == nil {
 			s.ActivePlanetName = name
+			s.ActiveCoords = coord3(g, sy, pos)
 		}
 		if res, err := h.planets.GetResourceState(r.Context(), idStr); err == nil {
 			s.Resources = &res

@@ -237,7 +237,8 @@ func TestWebEndToEnd(t *testing.T) {
 				a.UserID, colG, colS, colP) > 0
 		})
 		body = e2eGet(t, clientA, srv.URL, fmt.Sprintf("/overview/%d", a.HomeID))
-		e2eWantContains(t, body, "Planet", "planet switcher lists the new colony")
+		e2eWantContains(t, body, "planet-select", "planet switcher renders")
+		e2eWantContains(t, body, e2eCoord(colG, colS, colP), "planet switcher lists the new colony")
 	})
 
 	t.Run("galaxy scan lists both neighbours", func(t *testing.T) {
