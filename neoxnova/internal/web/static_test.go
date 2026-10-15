@@ -75,6 +75,7 @@ func TestNiburuArtworkCatalogComplete(t *testing.T) {
 		defList = append(defList, k)
 	}
 	check("building", "buildings", codeList(game.Structures))
+	check("moon building", "buildings", codeList(game.MoonOnlyStructures))
 	check("research", "research", techList)
 	check("ship", "ships", shipList)
 	check("defense", "defenses", defList)

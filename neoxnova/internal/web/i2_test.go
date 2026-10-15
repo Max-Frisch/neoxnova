@@ -87,11 +87,14 @@ func TestResearchBodyReskin(t *testing.T) {
 // subdirectory.
 func TestAssetURLGroups(t *testing.T) {
 	cases := map[string]string{
-		"metal_mine":   "/static/niburu/buildings/metal_mine.gif",
-		"energy_tech":  "/static/niburu/research/energy_tech.gif",
-		"202":          "/static/niburu/ships/202.gif",
-		"401":          "/static/niburu/defenses/401.gif",
-		"unknown_code": "",
+		"metal_mine":     "/static/niburu/buildings/metal_mine.gif",
+		"moon_base":      "/static/niburu/buildings/moon_base.gif",
+		"phalanx_sensor": "/static/niburu/buildings/phalanx_sensor.gif",
+		"jumpgate":       "/static/niburu/buildings/jumpgate.gif",
+		"energy_tech":    "/static/niburu/research/energy_tech.gif",
+		"202":            "/static/niburu/ships/202.gif",
+		"401":            "/static/niburu/defenses/401.gif",
+		"unknown_code":   "",
 	}
 	for code, want := range cases {
 		if got := assetURL(code); got != want {

@@ -1116,10 +1116,16 @@ func assetURL(code string) string {
 	}
 }
 
-func isStructure(code string) bool { _, ok := game.Structures[code]; return ok }
-func isTech(code string) bool      { _, ok := game.Techs[code]; return ok }
-func isShip(code string) bool      { _, ok := game.Ships[code]; return ok }
-func isDefense(code string) bool   { _, ok := game.Defenses[code]; return ok }
+func isStructure(code string) bool {
+	if _, ok := game.Structures[code]; ok {
+		return true
+	}
+	_, ok := game.MoonOnlyStructures[code]
+	return ok
+}
+func isTech(code string) bool    { _, ok := game.Techs[code]; return ok }
+func isShip(code string) bool    { _, ok := game.Ships[code]; return ok }
+func isDefense(code string) bool { _, ok := game.Defenses[code]; return ok }
 
 // prereqList renders the unmet requirements of a locked card, sorted by code so
 // the icons stay stable between renders.

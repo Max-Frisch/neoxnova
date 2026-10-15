@@ -26,6 +26,9 @@ not be captured (the skin still renders without gaps).
 | `buildings/research_lab.gif` | `research_lab` (31) |
 | `buildings/terraformer.gif` | `terraformer` (33) |
 | `buildings/alliance_depot.gif` | `alliance_depot` (34) |
+| `buildings/moon_base.gif` | `moon_base` (41) |
+| `buildings/phalanx_sensor.gif` | `phalanx_sensor` (42) |
+| `buildings/jumpgate.gif` | `jumpgate` (43) |
 | `buildings/missile_silo.gif` | `missile_silo` (44) |
 | `buildings/light_conveyor.gif` | `light_conveyor` (71) |
 | `buildings/average_conveyor.gif` | `average_conveyor` (72) |

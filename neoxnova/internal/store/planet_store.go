@@ -474,6 +474,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	}
 
 	var planetName string
+	var objectType models.CelestialType
 	var galaxy, system, position, diameter, fieldsUsed, fieldsMax, tempMin, tempMax int
 	var metalCap, crystalCap, deutCap int64
 	var metalRate, crystalRate, deutRate float64
@@ -481,7 +482,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	var userID int64
 	var stardust int64
 
-	query := `SELECT user_id, name, galaxy, system, position, diameter_km,
+	query := `SELECT user_id, name, object_type, galaxy, system, position, diameter_km,
 	                 fields_used, fields_max, temp_min, temp_max,
 	                 metal_capacity, crystal_capacity, deuterium_capacity,
 	                 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
@@ -489,7 +490,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	                 COALESCE((SELECT stardust FROM users WHERE users.id = celestial_objects.user_id), 0)
 	          FROM celestial_objects WHERE id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
-		&userID, &planetName, &galaxy, &system, &position, &diameter,
+		&userID, &planetName, &objectType, &galaxy, &system, &position, &diameter,
 		&fieldsUsed, &fieldsMax, &tempMin, &tempMax,
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
@@ -510,7 +511,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 			Galaxy:   galaxy,
 			System:   system,
 			Position: position,
-			Type:     models.TypePlanet,
+			Type:     objectType,
 		},
 		DiameterKm: diameter,
 		FieldsUsed: fieldsUsed,

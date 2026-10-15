@@ -118,8 +118,9 @@ and the source gate is put on `game.JumpgateCooldown(level)` (`jumpgate_next_at`
 
 ## Phalanx Sensor (`game/moon.go:PhalanxRange`) — WORKS, same-galaxy only
 
-Live info card range formula: **`level^2 - 1`** systems. Costs deuterium per scan
-(still unmodelled); does not see recalled fleets. The *phalanx offline 10 min
+Live info card range formula: **`level^2 - 1`** systems. Does not see recalled
+fleets. The live info card mentions a deuterium cost per scan, but we **ignore
+it** for now (owner 2026-10-15) — add later if it turns out to matter. The *phalanx offline 10 min
 after teleport* rule is **modelled** (`game.PhalanxOfflineAfterRelocation`,
 `celestial_objects.phalanx_offline_until`; a relocation sets it on the
 coordinates' moon) and enforced by `store.MoonStore.PhalanxScan` (also enforces
@@ -183,10 +184,10 @@ second moon). Locked by `TestAttackMoonEndToEnd`.
    drives chance + diameter.~~ **RESOLVED 2026-10-08** (moon #2): only the
    creating battle's new debris; a pre-existing field does not add to the chance
    (and diameter ignores recycler count once the 20 % cap is reached).
-4. Phalanx deuterium cost per scan (still unmodelled). Offline-after-teleport
-   **RESOLVED/implemented** (10 min); reach/parse **RESOLVED 2026-10-08**
-   (same-galaxy, `level^2-1`, full composition revealed, `game.PhalanxInRange` +
-   `ops client phalanx`).
+4. Phalanx deuterium cost per scan — **dropped** (owner 2026-10-15; add later
+   only if it proves to matter). Offline-after-teleport **RESOLVED/implemented**
+   (10 min); reach/parse **RESOLVED 2026-10-08** (same-galaxy, `level^2-1`, full
+   composition revealed, `game.PhalanxInRange` + `ops client phalanx`).
 5. ~~Engine: resolve `ATTACK` on a `MOON` target, moon production safety, moon
    build/overview.~~ **DONE**: attack-on-moon, `DESTROY_MOON`, moon buildings API
    + page, Jumpgate + Phalanx pages. Remaining: missile/Interceptor sub-system
@@ -222,5 +223,11 @@ second moon). Locked by `TestAttackMoonEndToEnd`.
 - **Jumpgate + Phalanx** (`store/moon_store.go`, `web/moon.go`, migration
   `0019_moon_ops.sql`): `jumpgate_next_at` cooldown + `phalanx_offline_until`.
   Routes `GET /jumpgate/{id}`, `POST /jumpgate/{id}/jump`, `GET /phalanx/{id}`.
-- Remaining: `ops client jump` command in the **private ops repo**; the
-  missile/Interceptor sub-system (deferred). Tracked in `docs/BACKLOG.md`.
+- **Artwork**: moon-only building sprites (`moon_base`/`phalanx_sensor`/`jumpgate`)
+  are copied from the ops capture (`captures/.../gebaeude/{41,42,43}.gif`) into
+  `static/niburu/buildings/`; `assetURL`/`isStructure` resolve `game.MoonOnlyStructures`
+  and the catalog-completeness test covers them. Dashboard shows `Moon "…"` for
+  moons (real `object_type`), and the Jumpgate/Phalanx cards carry `[Jump]`/`[Scan]`.
+- Remaining: `ops client jump` — a live-automation subcommand that would live in
+  the **private ops repo** (`neoxnova-ops/tools/explorer`), not this engine repo;
+  the missile/Interceptor sub-system (deferred). Tracked in `docs/BACKLOG.md`.

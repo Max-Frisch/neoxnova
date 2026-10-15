@@ -97,7 +97,7 @@ templ OverviewBody(sh Shell, d OverviewData) {
 				@activityRow("Hangar:", activityLabel(d.ShipQueue), "/shipyard/"+pid(sh))
 			</div>
 			<div class="overview-planet">
-				<span class="overview-planet-name">Planet "{ d.Overview.ActivePlanetName }"</span>
+				<span class="overview-planet-name">{ celestialLabel(d.Overview.Coordinates.Type) } "{ d.Overview.ActivePlanetName }"</span>
 			</div>
 		</div>
 		<div class="overview-stats">
@@ -210,6 +210,11 @@ templ buildCard(sh Shell, it BuildItem) {
 	<div class={ cardClass(it.Busy) }>
 		<div class="gcard-head">
 			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
+			if it.Code == "jumpgate" {
+				<a class="text-xs text-cyan-300 underline" href={ templ.URL("/jumpgate/" + pid(sh)) }>[Jump]</a>
+			} else if it.Code == "phalanx_sensor" {
+				<a class="text-xs text-cyan-300 underline" href={ templ.URL("/phalanx/" + pid(sh)) }>[Scan]</a>
+			}
 			<span class="help" title={ it.Name }>?</span>
 		</div>
 		<div class="gcard-body">
@@ -295,6 +300,13 @@ templ prereqBlock(label string, prereqs []Prereq) {
 			}
 		</div>
 	</div>
+}
+
+func celestialLabel(t models.CelestialType) string {
+	if t == models.TypeMoon {
+		return "Moon"
+	}
+	return "Planet"
 }
 
 func fieldsHelp(isMoon bool) string {

@@ -59,10 +59,17 @@ func TestPhalanxBodyReskin(t *testing.T) {
 	}
 }
 
-// TestBuildingsBodyMoonHelp locks the moon-specific fields helper text.
+// TestBuildingsBodyMoonHelp locks the moon-specific fields helper text and the
+// per-card [Jump]/[Scan] entry points (plus the top-of-page links).
 func TestBuildingsBodyMoonHelp(t *testing.T) {
-	html := renderComponent(t, BuildingsBody(Shell{ActivePlanetID: 7}, BuildingsData{IsMoon: true, FieldsMax: 3}))
-	if !strings.Contains(html, "structures on this moon") {
-		t.Fatal("moon buildings page must use the moon fields help text")
+	d := BuildingsData{IsMoon: true, FieldsMax: 3, Items: []BuildItem{
+		{Code: "jumpgate", Name: "Jumpgate", Level: 6, Unlocked: true},
+		{Code: "phalanx_sensor", Name: "Phalanx Sensor", Level: 0, Unlocked: true},
+	}}
+	html := renderComponent(t, BuildingsBody(Shell{ActivePlanetID: 7}, d))
+	for _, want := range []string{"structures on this moon", "/jumpgate/7", "/phalanx/7", "[Jump]", "[Scan]"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("moon buildings page missing %q", want)
+		}
 	}
 }

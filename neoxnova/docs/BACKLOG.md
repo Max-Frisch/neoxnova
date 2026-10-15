@@ -35,8 +35,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 - 2026-10-15 — **Moons (item 4)**: moon buildings buildable (`EnqueueStructure` + field cap
       `1+3·Moon base`) + page; attack-on-moon verified; `DESTROY_MOON` wired (classic curve, ≥10,000 km
       immune); Jumpgate jump API+page (ships only, no deuterium, ×3/4 cooldown, L2/L6 fit); Phalanx
-      scan API+page with 10-min post-teleport offline (migration `0019`). game+store+engine+web tests.
-      Deferred: `ops client jump` (private repo), missiles/Interceptors (`docs/MOONS.md`).
+      scan API+page with 10-min post-teleport offline (migration `0019`); moon-only sprites
+      copied in, dashboard labels `Moon "…"`. game+store+engine+web tests. Remaining: `ops client
+      jump` (a live-automation subcommand that belongs in the private `neoxnova-ops` repo, not here
+      — exact scope TBD), missiles/Interceptors (`docs/MOONS.md`).
 - 2026-10-15 — **Web UI reskin I5 (arsenal/market/simulator/messages)**: Arsenal is now tabbed
       (Arsenal / Market / Sell Upgrades) over the arsenal+market store — upgrade card boxes with
       live icons, buy/withdraw with `return`-aware redirects; Black market + Simulator restyled
