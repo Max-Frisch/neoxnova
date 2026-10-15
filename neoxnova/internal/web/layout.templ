@@ -167,7 +167,7 @@ func serverClock(t time.Time) string {
 }
 
 templ ResourceBar(s Shell) {
-	<div id="resbar" class="resbar" hx-get={ "/overview/" + pid(s) + "/resources" } hx-trigger="every 2s" hx-swap="outerHTML">
+	<div id="resbar" class="resbar" hx-get={ "/overview/" + pid(s) + "/resources" } hx-trigger="every 5s" hx-swap="outerHTML">
 		@resourceItems(s)
 	</div>
 }

@@ -45,25 +45,78 @@ type AuthView struct {
 }
 
 func (h *Handler) shell(r *http.Request, userID, activeID int64) Shell {
+	return h.shellWithResources(r, userID, activeID, nil)
+}
+
+// shellWithResources builds the page chrome. When res is non-nil it is used as
+// the active celestial's resource snapshot instead of re-accruing resources, so
+// callers that already loaded an overview avoid a second
+// update_celestial_resources call. Owned celestials are reused from the
+// request-scoped principal set by the page middleware.
+func (h *Handler) shellWithResources(r *http.Request, userID, activeID int64, res *models.RealtimeResourceState) Shell {
 	s := Shell{ActivePlanetID: activeID, ServerTime: time.Now()}
 	if name, _, err := h.auth.UserByID(r.Context(), userID); err == nil {
 		s.Username = name
 	}
-	if planets, err := h.planets.ListOwnedCelestials(r.Context(), userID); err == nil {
-		s.Planets = planets
-	}
+	s.Planets = h.ownedCelestials(r, userID)
 	if activeID != 0 {
 		idStr := strconv.FormatInt(activeID, 10)
-		if name, g, sy, pos, err := h.planets.GetCoordinates(r.Context(), idStr); err == nil {
-			s.ActivePlanetName = name
-			s.ActiveCoords = coord3(g, sy, pos)
+		for _, c := range s.Planets {
+			if c.ID == activeID {
+				s.ActivePlanetName = c.Name
+				s.ActiveCoords = coord3(c.Galaxy, c.System, c.Position)
+				break
+			}
 		}
-		if res, err := h.planets.GetResourceState(r.Context(), idStr); err == nil {
-			s.Resources = &res
+		if s.ActivePlanetName == "" {
+			if name, g, sy, pos, err := h.planets.GetCoordinates(r.Context(), idStr); err == nil {
+				s.ActivePlanetName = name
+				s.ActiveCoords = coord3(g, sy, pos)
+			}
+		}
+		if res != nil {
+			s.Resources = res
+		} else if rs, err := h.planets.GetResourceState(r.Context(), idStr); err == nil {
+			s.Resources = &rs
 		}
 	}
 	s.Flash, s.Error = flashFor(r)
 	return s
+}
+
+// ownedCelestials returns the account's planets and moons, reusing the
+// request-scoped principal when the page middleware already loaded them.
+func (h *Handler) ownedCelestials(r *http.Request, userID int64) []models.OwnedCelestial {
+	if p := principalFrom(r); p != nil && p.ownedOK {
+		return p.owned
+	}
+	planets, _ := h.planets.ListOwnedCelestials(r.Context(), userID)
+	return planets
+}
+
+// homeworldID returns the account's oldest planet id (0 when none exists),
+// served from the principal's owned list when available.
+func (h *Handler) homeworldID(r *http.Request, userID int64) int64 {
+	if p := principalFrom(r); p != nil && p.ownedOK {
+		for _, c := range p.owned {
+			if c.IsHome {
+				return c.ID
+			}
+		}
+		return 0
+	}
+	id, _ := h.planets.HomeworldID(r.Context(), userID)
+	return id
+}
+
+// findOwned looks up an owned celestial by id in the principal snapshot.
+func (h *Handler) findOwned(r *http.Request, userID, id int64) (models.OwnedCelestial, bool) {
+	for _, c := range h.ownedCelestials(r, userID) {
+		if c.ID == id {
+			return c, true
+		}
+	}
+	return models.OwnedCelestial{}, false
 }
 
 // ---- Overview ------------------------------------------------------------
@@ -87,13 +140,23 @@ func (h *Handler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	sh := h.shell(r, userID, id)
-	sh.Title = "Overview"
 	idStr := r.PathValue("id")
 
 	data := OverviewData{}
+	// GetOverview already accrues and row-locks the celestial's resources, so
+	// hand its snapshot to the shell instead of re-running
+	// update_celestial_resources a second time.
+	var snapshot *models.RealtimeResourceState
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.Overview = ov
+		res := ov.Resources
+		snapshot = &res
+	}
+	sh := h.shellWithResources(r, userID, id, snapshot)
+	sh.Title = "Overview"
+	if snapshot != nil {
+		sh.ActivePlanetName = data.Overview.ActivePlanetName
+		sh.ActiveCoords = coordStr(data.Overview.Coordinates)
 	}
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
 		data.BuildQueue = b.Queue
@@ -799,9 +862,9 @@ func (h *Handler) GalaxyRedirect(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	g, s := 1, 1
-	if homeID, err := h.planets.HomeworldID(r.Context(), userID); err == nil && homeID != 0 {
-		if _, hg, hs, _, err := h.planets.GetCoordinates(r.Context(), strconv.FormatInt(homeID, 10)); err == nil {
-			g, s = hg, hs
+	if homeID := h.homeworldID(r, userID); homeID != 0 {
+		if c, ok := h.findOwned(r, userID, homeID); ok {
+			g, s = c.Galaxy, c.System
 		}
 	}
 	http.Redirect(w, r, fmt.Sprintf("/galaxy/%d/%d", g, s), http.StatusSeeOther)
@@ -834,10 +897,7 @@ func (h *Handler) GalaxyPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Use any owned celestial to anchor the planet switcher.
-	activeID := int64(0)
-	if homeID, _ := h.planets.HomeworldID(r.Context(), userID); homeID != 0 {
-		activeID = homeID
-	}
+	activeID := h.homeworldID(r, userID)
 	sh := h.shell(r, userID, activeID)
 	sh.Title = fmt.Sprintf("Galaxy %d:%d", g, s)
 	scan, err := h.planets.GalaxyScan(r.Context(), h.universeID, g, s, userID)
@@ -983,6 +1043,14 @@ func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
 // ---- helpers -------------------------------------------------------------
 
 func (h *Handler) ownsCelestial(r *http.Request, id, userID int64) bool {
+	if p := principalFrom(r); p != nil && p.ownedOK {
+		for _, c := range p.owned {
+			if c.ID == id {
+				return true
+			}
+		}
+		return false
+	}
 	var owner int64
 	err := h.db.QueryRowContext(r.Context(), `SELECT user_id FROM celestial_objects WHERE id = $1`, id).Scan(&owner)
 	return err == nil && owner == userID

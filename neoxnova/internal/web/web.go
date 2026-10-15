@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/a-h/templ"
 
 	"neoxnova/internal/auth"
+	"neoxnova/internal/models"
 	"neoxnova/internal/store"
 )
 
@@ -131,16 +133,42 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /simulator", h.page(h.requireUser(h.SimulatorSubmit)))
 }
 
-// page applies the HTML CSP to a handler.
+// userPrincipal is the once-per-request identity snapshot resolved by the page
+// middleware: the session user and (when resolvable) the celestials it owns.
+// Caching them in the request context keeps requireUser, the handlers and
+// shell() from repeating the session/ownership queries.
+type userPrincipal struct {
+	userID  int64
+	owned   []models.OwnedCelestial
+	ownedOK bool
+}
+
+type principalKey struct{}
+
+func principalFrom(r *http.Request) *userPrincipal {
+	p, _ := r.Context().Value(principalKey{}).(*userPrincipal)
+	return p
+}
+
+// page applies the HTML CSP and resolves the session (and owned celestials)
+// exactly once per request before handing off to the handler.
 func (h *Handler) page(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", pageCSP)
-		next(w, r)
+		ctx := r.Context()
+		if id, ok := h.resolveUserID(r); ok {
+			p := &userPrincipal{userID: id}
+			if owned, err := h.planets.ListOwnedCelestials(ctx, id); err == nil {
+				p.owned, p.ownedOK = owned, true
+			}
+			ctx = context.WithValue(ctx, principalKey{}, p)
+		}
+		next(w, r.WithContext(ctx))
 	}
 }
 
-// userID resolves the session cookie to a user id.
-func (h *Handler) userID(r *http.Request) (int64, bool) {
+// resolveUserID turns the session cookie into a user id with a single query.
+func (h *Handler) resolveUserID(r *http.Request) (int64, bool) {
 	token, ok := auth.TokenFromRequest(r)
 	if !ok {
 		return 0, false
@@ -150,6 +178,14 @@ func (h *Handler) userID(r *http.Request) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// userID returns the session user resolved once by the page middleware.
+func (h *Handler) userID(r *http.Request) (int64, bool) {
+	if p := principalFrom(r); p != nil {
+		return p.userID, true
+	}
+	return 0, false
 }
 
 // requireUser redirects anonymous visitors to the login screen.
@@ -180,14 +216,16 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	homeID, err := h.planets.HomeworldID(r.Context(), userID)
-	if err != nil {
-		log.Printf("[WEB] homeworld lookup: %v", err)
-	}
-	if homeID == 0 {
-		if planets, err := h.planets.ListOwnedCelestials(r.Context(), userID); err == nil && len(planets) > 0 {
-			homeID = planets[0].ID
+	var homeID int64
+	planets := h.ownedCelestials(r, userID)
+	for _, c := range planets {
+		if c.IsHome {
+			homeID = c.ID
+			break
 		}
+	}
+	if homeID == 0 && len(planets) > 0 {
+		homeID = planets[0].ID
 	}
 	if homeID == 0 {
 		h.render(w, r, http.StatusOK, EmptyPage())

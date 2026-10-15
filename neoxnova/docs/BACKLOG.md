@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **P2** cut per-request/poll cost (single session lookup, resbar 2s→5s, trim `shell()`).
 - [ ] **Q1** queue schema: drop all 3 partial unique indexes; add build(10)/research(4) slots.
 - [ ] **C1** `config/game.json`: game/resource/fleet speed + queue limits → upsert `universes` on boot.
 - [ ] **Q2** chained multi-order enqueue (buildings/research/ships/defs) + read-model queue lists.
@@ -39,6 +38,12 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **P2 perf**: session + owned celestials resolved once per request via a
+  `page`-middleware `userPrincipal` in context (was 2–3 `SessionUser`/ownership queries per
+  request); `shell()` reuses the principal (drops `GetCoordinates`/`HomeworldID`/`ownsCelestial`
+  queries); Overview no longer double-runs `update_celestial_resources`; resbar poll 2s→5s
+  (`internal/web/web.go`, `data.go`, `layout.templ`). Tests: `TestResbarPollsEveryFiveSeconds`,
+  `TestUserIDReadsPrincipal`, `TestOwnsCelestialReadsPrincipal`.
 - 2026-10-15 — **P1 perf**: `/static/` served outside the per-IP rate limiter (was throttling
   page loads to 40 req/s → the "56k" feel) + ETag/Cache-Control/`304`/gzip (`internal/web/static.go`)
   + server Read/Write/Idle timeouts. Tests: `TestStaticAssetsCacheable`,

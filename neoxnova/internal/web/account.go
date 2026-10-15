@@ -16,11 +16,7 @@ import (
 // Simulator) to the player's homeworld so the shared chrome — nav, planet
 // switcher and resource bar — renders exactly as it does elsewhere.
 func (h *Handler) accountShell(r *http.Request, userID int64, title string) Shell {
-	var activeID int64
-	if homeID, err := h.planets.HomeworldID(r.Context(), userID); err == nil {
-		activeID = homeID
-	}
-	sh := h.shell(r, userID, activeID)
+	sh := h.shell(r, userID, h.homeworldID(r, userID))
 	sh.Title = title
 	return sh
 }
