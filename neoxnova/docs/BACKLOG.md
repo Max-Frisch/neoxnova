@@ -41,12 +41,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
-- 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` view —
-      ship picker, `exp_time` 1–10 → 0.25–2.5 h (`holding_minutes`, takes precedence over
-      `holding_hours`), `exp_speed` 1–10 → 10–100 %, "send N" (stops at the slot limit),
-      auto `[g:s:21]` target, htmx-polled slots used/total + active expeditions, recent
-      outcomes; nav link + static slider JS. Generic `/fleet` form untouched; unit + store +
-      web e2e tests.
+- 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` — ship
+      picker, `exp_time` 1–10 → 0.25–2.5 h (new `holding_minutes`, overrides `holding_hours`),
+      `exp_speed` 1–10 → 10–100 %, "send N" (stops at slot limit), auto `[g:s:21]`, htmx-polled
+      slots used/total + active expeditions + outcomes, nav link, slider JS; `/fleet` untouched.
 - 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe
   `expedition_slots_bonus` (optional `_cap`; migration `0017`), enforced in
   `FleetStore.Dispatch` (`ErrExpeditionSlotsFull`); expeditions pinned to `[g:s:21]`
