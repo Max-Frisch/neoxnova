@@ -316,9 +316,15 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, "unknown", "unknown-code rejection")
 	})
 
-	t.Run("black market lists, buys and withdraws", func(t *testing.T) {
-		body := e2eGet(t, clientA, srv.URL, "/market")
-		e2eWantContains(t, body, "Black market", "market page")
+	t.Run("arsenal market lists, buys and withdraws", func(t *testing.T) {
+		// The black market is a standalone hub and no longer lists drawings.
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket")
+		e2eWantContains(t, body, "Black market", "black market hub")
+		e2eWantContains(t, body, "Resource Trader", "hub tile")
+
+		// /market is a bookmark alias for the Arsenal Market tab.
+		body = e2eGet(t, clientA, srv.URL, "/market")
+		e2eWantContains(t, body, "Sell Upgrades", "market redirects to Arsenal")
 
 		// A holds two drawings, lists one.
 		if _, err := db.ExecContext(ctx,

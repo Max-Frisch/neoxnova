@@ -116,7 +116,7 @@ templ MainMenu(s Shell) {
 			@menuLink(s, "Arsenal", "/arsenal", false)
 			@menuDisabled("Academy", false)
 			@menuDisabled("Achievements", false)
-			@menuLink(s, "Black market", "/market", false)
+			@menuLink(s, "Black market", "/blackmarket", false)
 			@menuLink(s, "Galaxy", "/galaxy", false)
 			@menuDisabled("Alliance", false)
 			@menuLink(s, "Simulator", "/simulator", false)
@@ -151,13 +151,11 @@ func menuClass(s Shell, label string, wide bool) string {
 }
 
 // menuActive highlights the current menu entry. Page titles start with the nav
-// label, except a few aliases (Hangar under Shipyard, Black market under Market).
+// label, except a few aliases (Hangar under Shipyard).
 func menuActive(s Shell, label string) bool {
 	switch label {
 	case "Hangar":
 		return strings.HasPrefix(s.Title, "Shipyard")
-	case "Black market":
-		return strings.HasPrefix(s.Title, "Market")
 	}
 	return strings.HasPrefix(s.Title, label)
 }

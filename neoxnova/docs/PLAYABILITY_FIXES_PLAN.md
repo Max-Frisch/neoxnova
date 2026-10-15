@@ -216,6 +216,11 @@ Today `/market` wrongly shows the Arsenal drawing auctions (`account.go:132-199`
 (`niburuspace.com/game.php?page=port`); `/market` stays Arsenal-only.
 
 ## B1 — `/blackmarket` hub + separate `/market`
+> **Status: ✅ done (2026-10-15).** `GET /blackmarket` renders the six-tile hub; the two backed
+> sub-routes render `BlackMarketComingSoonBody` placeholders (B2/B3 fill them in) and the other four
+> are disabled tiles. `GET /market` 303s to `/arsenal?tab=market`; `/market/{list,buy,remove}` remain
+> (default `return` now the Arsenal market tab). Nav repointed. Tests: `TestBlackMarketHub`,
+> `TestBlackMarketTilesDecoupled`, `TestBlackMarketComingSoon`, layout + e2e. Next: B2.
 Work:
 1. New `GET /blackmarket` + `BlackMarketPage` hub with six tiles (**Resource Trader, Merchant of
    Fleets, Planetarium, Buildings Market, Technology Market, Voucher System**), each linking to its

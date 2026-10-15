@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **B1** `/blackmarket` hub (separate from Arsenal `/market`); stub unbuilt categories.
 - [ ] **B2** Resource Trader (250 DM; 4/2/1 + fees) — capture rules from ops HAR.
 - [ ] **B3** Planetarium page (fields/diameter/teleport UI over existing JSON endpoints).
 - [ ] **B4 future** Merchant of Fleets / Buildings & Technology Market / Voucher.
@@ -33,6 +32,14 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **B1 standalone `/blackmarket` hub**: `GET /blackmarket` renders the six-tile hub
+  (Resource Trader / Merchant of Fleets / Planetarium / Buildings Market / Technology Market /
+  Voucher System); the two backed sub-routes (`/blackmarket/trader`, `/blackmarket/planetarium`)
+  render coming-soon placeholders and the rest are disabled tiles. `GET /market` now 303s to
+  `/arsenal?tab=market` (Arsenal owns the drawing auctions); the `/market/{list,buy,remove}` POSTs
+  stay and default back to the Arsenal market tab. Nav "Black market" → `/blackmarket`. Tests:
+  `TestBlackMarketHub`, `TestBlackMarketTilesDecoupled`, `TestBlackMarketComingSoon`,
+  `TestShellRendersReskin`/`TestMenuActiveAliases`, e2e hub+redirect. Next: B2.
 - 2026-10-15 — **Q4 target-level UI + live cost/time + multi-row queues**: build/research cards got
   an editable named `target_level` input (default = next unqueued level) and an embedded per-level
   cost/time table (`data-cost-table`, depth 20, from `internal/game`); `static/app.js` sums it live

@@ -159,47 +159,46 @@ templ marketMineTable(mine []models.MarketLot, returnTo string) {
 	}
 }
 
-// ---- Black market body ---------------------------------------------------
+// ---- Black market hub body -----------------------------------------------
 
-templ MarketBody(sh Shell, d MarketData) {
+// BlackMarketBody renders the standalone six-tile black-market hub.
+templ BlackMarketBody(sh Shell, tiles []BlackMarketTile) {
 	<div class="panel market-panel">
 		<h2 class="panel-title">Black market</h2>
-		<p class="resource-sub">Trade un-activated upgrade drawings. Lots return to the seller after 72 hours.</p>
-		<div class="grid gap-6 lg:grid-cols-2">
-			<section>
-				<h3 class="tech-group-title">List drawings</h3>
-				if len(d.Listable) == 0 {
-					<p class="text-sm text-slate-500">You hold no un-activated drawings to sell.</p>
-				} else {
-					<form method="post" action="/market/list" class="space-y-3 text-sm">
-						<label class="block text-slate-300">Upgrade
-							<select name="upgrade_code" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
-								for _, it := range d.Listable {
-									<option value={ strconv.Itoa(it.Code) }>{ it.Name } ({ strconv.Itoa(it.Available) } held)</option>
-								}
-							</select>
-						</label>
-						<div class="grid grid-cols-2 gap-2">
-							<label class="block text-slate-300">Amount (1-25)
-								<input name="amount" type="number" min="1" max="25" value="1" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
-							</label>
-							<label class="block text-slate-300">Price / unit (AM)
-								<input name="rate" type="number" min="1" value="100" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
-							</label>
-						</div>
-						<button type="submit" class="btn">List on market</button>
-					</form>
-				}
-			</section>
-			<section>
-				<h3 class="tech-group-title">Your auctions</h3>
-				@marketMineTable(d.Mine, "/market")
-			</section>
+		<p class="resource-sub">Trade resources, ships and technology for Dark Matter and Antimatter.</p>
+		<div class="bm-grid">
+			for _, t := range tiles {
+				@blackMarketTile(t)
+			}
 		</div>
-		<section class="mt-6">
-			<h3 class="tech-group-title">Live offers</h3>
-			@marketLotsTable(d.Lots, "/market")
-		</section>
+	</div>
+}
+
+templ blackMarketTile(t BlackMarketTile) {
+	if t.Built {
+		<a class="bm-tile" href={ templ.URL(t.Href) }>
+			if t.Image != "" {
+				<img class="bm-tile-icon" src={ "/static/niburu/icons/" + t.Image } alt=""/>
+			}
+			<span class="bm-tile-name">{ t.Label }</span>
+		</a>
+	} else {
+		<span class="bm-tile is-disabled" title="Coming soon">
+			if t.Image != "" {
+				<img class="bm-tile-icon" src={ "/static/niburu/icons/" + t.Image } alt=""/>
+			}
+			<span class="bm-tile-name">{ t.Label }</span>
+		</span>
+	}
+}
+
+// BlackMarketComingSoonBody is the placeholder for a hub tile whose sub-page is
+// not implemented yet (reskin rule: never fake pages).
+templ BlackMarketComingSoonBody(sh Shell, label string) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">{ label }</h2>
+		<p class="resource-sub">This market is not available yet — coming soon.</p>
+		<a class="btn" href="/blackmarket">Back to Black market</a>
 	</div>
 }
 

@@ -1269,6 +1269,48 @@ img {
   margin-top: auto;
 }
 
+/* ---- Black market hub ------------------------------------------------- */
+
+.bm-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bm-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 10px;
+  background: rgba(10, 20, 34, 0.72);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  text-align: center;
+}
+
+a.bm-tile:hover {
+  background: rgba(36, 64, 95, 0.6);
+  text-decoration: none;
+}
+
+.bm-tile-icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.bm-tile-name {
+  color: #eaf2ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bm-tile.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ---- Messages category grid ------------------------------------------- */
 
 .msg-grid {
@@ -1350,12 +1392,17 @@ a.msg-cat:hover {
     grid-template-columns: 1fr;
   }
 
+  .bm-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .msg-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 560px) {
+  .bm-grid,
   .msg-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

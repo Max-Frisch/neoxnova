@@ -94,7 +94,7 @@ func TestShellRendersReskin(t *testing.T) {
 		"/shipyard/7",
 		"/fleet/7",
 		"/technologies",
-		"/market",
+		"/blackmarket",
 		"/galaxy",
 		"/simulator",
 		"is-disabled",
@@ -118,7 +118,7 @@ func TestMenuActiveAliases(t *testing.T) {
 	}{
 		{"Overview", "Overview", true},
 		{"Shipyard", "Hangar", true},
-		{"Market", "Black market", true},
+		{"Black market", "Black market", true},
 		{"Galaxy 3:125", "Galaxy", true},
 		{"Buildings", "Research", false},
 	}

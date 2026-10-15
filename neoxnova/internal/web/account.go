@@ -117,36 +117,57 @@ func (h *Handler) ArsenalActivateSubmit(w http.ResponseWriter, r *http.Request) 
 	h.redirect(w, r, "/arsenal", "", res.Name+" activation failed ("+pct(res.Chance)+" chance); value fell to "+bonusStr(res.Bonus))
 }
 
-// ---- Black market --------------------------------------------------------
+// ---- Black market hub ----------------------------------------------------
 
-type MarketData struct {
-	Lots     []models.MarketLot
-	Mine     []models.MarketLot
-	Listable []ArsenalItem
+// blackMarketReturn is where the black-market action handlers send players back
+// to: the redirect target of the retired standalone /market page (Arsenal's
+// Market tab owns the drawing auctions now).
+const blackMarketReturn = "/arsenal?tab=market"
+
+// BlackMarketTile is one entry of the six-tile black-market hub. Built tiles
+// link to their own sub-page; the rest render as disabled "coming soon" tiles
+// (reskin rule: never fake pages).
+type BlackMarketTile struct {
+	Key   string
+	Label string
+	Image string
+	Href  string
+	Built bool
 }
 
-func (h *Handler) MarketPage(w http.ResponseWriter, r *http.Request) {
+// blackMarketTiles is the hub captured from the live black market. Resource
+// Trader (B2) and Planetarium (B3) are the two backed sub-pages; the remaining
+// four are stubbed until designed.
+var blackMarketTiles = []BlackMarketTile{
+	{Key: "trader", Label: "Resource Trader", Image: "exchange_res.png", Href: "/blackmarket/trader", Built: true},
+	{Key: "fleets", Label: "Merchant of Fleets", Image: "fleet.png"},
+	{Key: "planetarium", Label: "Planetarium", Image: "planets.png", Href: "/blackmarket/planetarium", Built: true},
+	{Key: "buildings", Label: "Buildings Market", Image: "build.png"},
+	{Key: "technology", Label: "Technology Market", Image: "tech.png"},
+	{Key: "voucher", Label: "Voucher System", Image: "stars.png"},
+}
+
+// BlackMarketPage is the standalone hub (decoupled from the Arsenal /market).
+func (h *Handler) BlackMarketPage(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
 	sh := h.accountShell(r, userID, "Black market")
-	data := MarketData{}
-	if lots, err := h.arsenal.ListMarket(r.Context()); err == nil {
-		data.Lots = lots
-	} else {
-		sh.Error = "Could not load the market"
+	h.render(w, r, http.StatusOK, Page(sh, BlackMarketBody(sh, blackMarketTiles)))
+}
+
+// BlackMarketComingSoon renders the placeholder sub-page for a hub tile whose
+// functionality is not implemented yet.
+func (h *Handler) BlackMarketComingSoon(label string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, _ := h.userID(r)
+		sh := h.accountShell(r, userID, "Black market")
+		h.render(w, r, http.StatusOK, Page(sh, BlackMarketComingSoonBody(sh, label)))
 	}
-	if mine, err := h.arsenal.ListOwnLots(r.Context(), userID); err == nil {
-		data.Mine = mine
-	}
-	if items, err := h.arsenal.ArsenalList(r.Context(), userID); err == nil {
-		for _, it := range items {
-			if it.Available > 0 {
-				data.Listable = append(data.Listable, ArsenalItem{
-					Code: it.Code, Name: it.Name, Group: it.Group, Available: it.Available,
-				})
-			}
-		}
-	}
-	h.render(w, r, http.StatusOK, Page(sh, MarketBody(sh, data)))
+}
+
+// MarketRedirect is the bookmark-friendly alias for the Arsenal Market tab; the
+// standalone /market page no longer lists lots itself.
+func (h *Handler) MarketRedirect(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/arsenal?tab=market", http.StatusSeeOther)
 }
 
 func (h *Handler) MarketListSubmit(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +175,7 @@ func (h *Handler) MarketListSubmit(w http.ResponseWriter, r *http.Request) {
 	code, _ := strconv.Atoi(r.FormValue("upgrade_code"))
 	amount, _ := strconv.Atoi(r.FormValue("amount"))
 	rate, _ := strconv.ParseInt(r.FormValue("rate"), 10, 64)
-	base := redirectBase(r.FormValue("return"), "/market")
+	base := redirectBase(r.FormValue("return"), blackMarketReturn)
 	lot, err := h.arsenal.ListUpgrade(r.Context(), userID, code, amount, rate)
 	if err != nil {
 		h.redirect(w, r, base, "", err.Error())
@@ -165,7 +186,7 @@ func (h *Handler) MarketListSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) MarketBuySubmit(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
-	base := redirectBase(r.FormValue("return"), "/market")
+	base := redirectBase(r.FormValue("return"), blackMarketReturn)
 	lotID, err := strconv.ParseInt(r.FormValue("lot_id"), 10, 64)
 	if err != nil || lotID <= 0 {
 		h.redirect(w, r, base, "", "Invalid lot")
@@ -181,7 +202,7 @@ func (h *Handler) MarketBuySubmit(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) MarketRemoveSubmit(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
-	base := redirectBase(r.FormValue("return"), "/market")
+	base := redirectBase(r.FormValue("return"), blackMarketReturn)
 	lotID, err := strconv.ParseInt(r.FormValue("lot_id"), 10, 64)
 	if err != nil || lotID <= 0 {
 		h.redirect(w, r, base, "", "Invalid lot")

@@ -116,29 +116,75 @@ func TestArsenalMarketTab(t *testing.T) {
 	}
 }
 
-// TestMarketBodyReskin locks the restyled Black market page onto the panel and
-// game-table classes while keeping the existing routes.
-func TestMarketBodyReskin(t *testing.T) {
+// TestBlackMarketHub locks the standalone six-tile hub: every live entry
+// renders, the two backed sub-pages link to their own route and the four
+// undesigned ones are disabled "coming soon" tiles (no fake pages).
+func TestBlackMarketHub(t *testing.T) {
 	sh := Shell{ActivePlanetID: 7}
-	d := MarketData{
-		Listable: []ArsenalItem{{Code: 1, Name: "Laser weapons", Available: 1}},
-		Mine:     []models.MarketLot{{ID: 2, Upgrade: "Laser weapons", Amount: 1, TotalPriceAtm: 30, ExpiresAt: time.Now().Add(time.Hour)}},
-		Lots:     []models.MarketLot{{ID: 3, Upgrade: "Ion cannon", Amount: 2, TotalPriceAtm: 80, ExpiresAt: time.Now().Add(time.Hour)}},
-	}
-	html := renderComponent(t, MarketBody(sh, d))
+	html := renderComponent(t, BlackMarketBody(sh, blackMarketTiles))
 
 	for _, want := range []string{
 		"Black market",
 		`class="panel market-panel"`,
-		"game-table",
-		`action="/market/list"`,
-		`action="/market/buy"`,
-		`action="/market/remove"`,
-		"Ion cannon",
-		"btn-warn",
+		`class="bm-grid"`,
+		"Resource Trader",
+		"Merchant of Fleets",
+		"Planetarium",
+		"Buildings Market",
+		"Technology Market",
+		"Voucher System",
+		`href="/blackmarket/trader"`,
+		`href="/blackmarket/planetarium"`,
+		"/static/niburu/icons/exchange_res.png",
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("black market HTML missing %q", want)
+			t.Errorf("black market hub HTML missing %q", want)
+		}
+	}
+	if c := strings.Count(html, `class="bm-tile"`); c != 2 {
+		t.Errorf("linked tiles = %d, want 2", c)
+	}
+	if c := strings.Count(html, "class=\"bm-tile is-disabled\""); c != 4 {
+		t.Errorf("disabled tiles = %d, want 4", c)
+	}
+}
+
+// TestBlackMarketTilesDecoupled keeps the hub off the Arsenal /market: the two
+// built tiles point at /blackmarket sub-routes only.
+func TestBlackMarketTilesDecoupled(t *testing.T) {
+	if len(blackMarketTiles) != 6 {
+		t.Fatalf("tile count = %d, want 6", len(blackMarketTiles))
+	}
+	icons, err := fs.Sub(staticFiles, "static/niburu/icons")
+	if err != nil {
+		t.Fatalf("sub static/niburu/icons: %v", err)
+	}
+	for _, tile := range blackMarketTiles {
+		if tile.Built {
+			if !strings.HasPrefix(tile.Href, "/blackmarket/") {
+				t.Errorf("built tile %q href = %q, want /blackmarket/", tile.Key, tile.Href)
+			}
+		} else if tile.Href != "" {
+			t.Errorf("disabled tile %q has href %q, want empty", tile.Key, tile.Href)
+		}
+		if tile.Image == "" {
+			t.Errorf("tile %q has no icon", tile.Key)
+			continue
+		}
+		if _, err := fs.Stat(icons, tile.Image); err != nil {
+			t.Errorf("missing hub icon for %q: %s", tile.Key, tile.Image)
+		}
+	}
+}
+
+// TestBlackMarketComingSoon locks the placeholder sub-page: it names the feature
+// and offers a way back to the hub.
+func TestBlackMarketComingSoon(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	html := renderComponent(t, BlackMarketComingSoonBody(sh, "Resource Trader"))
+	for _, want := range []string{"Resource Trader", "coming soon", `href="/blackmarket"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("coming-soon HTML missing %q", want)
 		}
 	}
 }
