@@ -41,6 +41,22 @@ func main() {
 	}
 	defer db.Close()
 
+	// Apply the config/game.json tuning onto the universes row on every boot;
+	// the DB then stays the single runtime source for speeds and queue slots.
+	gameSettings, err := config.LoadGameSettings(cfg.GameConfigPath)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to load game config: %v", err)
+	}
+	if applied, err := store.ApplyGameSettings(ctx, db, cfg.UniverseID, gameSettings); err != nil {
+		log.Fatalf("[FATAL] Failed to apply game settings to universe %q: %v", cfg.UniverseID, err)
+	} else if applied {
+		log.Printf("[INIT] Applied game tuning: game_speed=%g resource_speed=%g fleet_speed=%g build_slots=%d research_slots=%d",
+			gameSettings.GameSpeed, gameSettings.ResourceSpeed, gameSettings.FleetSpeed,
+			gameSettings.BuildQueueSlots, gameSettings.ResearchQueueSlots)
+	} else {
+		log.Printf("[WARN] Universe %q not found; game settings not applied (run `make migrate && make seed`)", cfg.UniverseID)
+	}
+
 	// Redis is an optional wake-up accelerator; the durable scheduler polls
 	// Postgres regardless, so startup proceeds even if Redis is unavailable.
 	rdb, err := cache.NewRedis(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)

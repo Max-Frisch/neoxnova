@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **C1** `config/game.json`: game/resource/fleet speed + queue limits → upsert `universes` on boot.
 - [ ] **Q2** chained multi-order enqueue (buildings/research/ships/defs) + read-model queue lists.
 - [ ] **Q3** cancel-by-id + tail renumber/refund (all scopes).
 - [ ] **Q4** target-level input + live cost/time (embedded JSON) + multi-row queue UI.
@@ -37,6 +36,12 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **C1 game tuning config**: `config/game.json` (live-calibrated 4000/10000/15,
+  build 10 / research 4) parsed by `internal/config.LoadGameSettings` (built-in defaults when
+  absent, unknown keys rejected) and upserted onto the `universes` row for `UNIVERSE_ID` on boot
+  via `store.ApplyGameSettings` (`cmd/server/main.go`); `GAME_CONFIG_PATH` overrides the path.
+  No game-math change (`fleet_speed` already divides flight time; ships/expo round-trip scale,
+  hold is player-set). Tests: `TestLoadGameSettings*`, `TestApplyGameSettings*`. Next: Q2.
 - 2026-10-15 — **Q1 queue schema**: migration `0020_queue_slots.sql` adds
   `universes.build_queue_slots` (10)/`research_queue_slots` (4) and drops the three
   single-active partial unique indexes (`uq_active_construction/_research/_shipyard`) so all
