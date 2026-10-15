@@ -131,6 +131,14 @@ Work:
 **Exit:** editing `game.json` + restart changes speeds/slots; values visible in the `universes` row.
 
 ## Q2 — Store: chained multi-order enqueue + read-model lists
+> **Status: ✅ done (2026-10-15).** `EnqueueStructure`/`EnqueueResearch` take a `targetLevel` and
+> chain levels (`start = MAX(end_time)`) up to the slot cap or first unaffordable level (partial);
+> `EnqueueShipyard` chains per kind (ships/defenses separate, unlimited). `GetBuildings`/
+> `GetResearch`/`GetShipyardQueue` return `[]QueueEntrySummary`. `BlueprintStore.LoadState`
+> projects queued orders onto the snapshot and marks a scope busy only at its cap. Engine
+> unchanged (resolvers already run any due `IN_PROGRESS` row). Tests: `TestEnqueue*Chain`,
+> `TestEnqueueStructureSlotCap/PartialOnPoverty`, `TestEnqueueShipyardChainsByKind`,
+> `TestResolveConstructionChain`.
 Work (port `gwx` `StartBuilding`/`StartResearch`/`StartUnits` into `internal/store/build_store.go`):
 1. `EnqueueStructure(ctx, planetID, code, targetLevel int)` and
    `EnqueueResearch(ctx, planetID, code, targetLevel int)`: empty/0 ⇒ one level (`current+1`);

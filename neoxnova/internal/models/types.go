@@ -261,7 +261,7 @@ type QueueEntrySummary struct {
 type BuildingsResponse struct {
 	PlanetID  int64                    `json:"planet_id"`
 	Levels    map[string]int           `json:"levels"`
-	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
+	Queue     []QueueEntrySummary      `json:"queue,omitempty"`
 	NextCosts map[string]CargoManifest `json:"next_costs,omitempty"`
 }
 
@@ -269,8 +269,15 @@ type BuildingsResponse struct {
 type ResearchResponse struct {
 	PlanetID  int64                    `json:"planet_id"`
 	Levels    map[string]int           `json:"levels"`
-	Queue     *QueueEntrySummary       `json:"queue,omitempty"`
+	Queue     []QueueEntrySummary      `json:"queue,omitempty"`
 	NextCosts map[string]CargoManifest `json:"next_costs,omitempty"`
+}
+
+// ShipyardResponse is the read model behind the shipyard/defenses pages: the
+// chained ship or defense production queue for one celestial.
+type ShipyardResponse struct {
+	PlanetID int64               `json:"planet_id"`
+	Queue    []QueueEntrySummary `json:"queue,omitempty"`
 }
 
 // ArsenalUpgrade is one catalog upgrade enriched with the account's owned state.

@@ -302,11 +302,12 @@ func (s *BlueprintStore) LoadState(ctx context.Context, celestialID int64) (blue
 
 	var userID sql.NullInt64
 	var gameSpeed float64
+	var buildSlots, researchSlots int
 	if err := s.db.QueryRowContext(ctx, `
-		SELECT c.user_id, u.game_speed
+		SELECT c.user_id, u.game_speed, u.build_queue_slots, u.research_queue_slots
 		FROM celestial_objects c JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&userID, &gameSpeed); err != nil {
+	`, celestialID).Scan(&userID, &gameSpeed, &buildSlots, &researchSlots); err != nil {
 		if err == sql.ErrNoRows {
 			return st, ErrNotFound
 		}
@@ -341,18 +342,106 @@ func (s *BlueprintStore) LoadState(ctx context.Context, celestialID int64) (blue
 		return st, err
 	}
 
-	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM construction_queues WHERE celestial_id = $1 AND status = 'IN_PROGRESS')`, celestialID).Scan(&st.BuildBusy); err != nil {
+	// Project queued orders onto the snapshot so the planner targets the next
+	// *unqueued* level/count (multi-order chains run back-to-back). With the
+	// snapshot projected, a scope is "busy" only once its slot cap is reached;
+	// the shipyard/defense scope is unlimited and never busy.
+	buildCount, err := s.projectStructures(ctx, celestialID, st.Structures)
+	if err != nil {
 		return st, err
 	}
-	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM shipyard_queues WHERE celestial_id = $1 AND status = 'IN_PROGRESS')`, celestialID).Scan(&st.ShipBusy); err != nil {
-		return st, err
-	}
+	st.BuildBusy = buildSlots > 0 && buildCount >= buildSlots
+
+	researchCount := 0
 	if userID.Valid {
-		if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM research_queues WHERE user_id = $1 AND status = 'IN_PROGRESS')`, userID.Int64).Scan(&st.ResearchBusy); err != nil {
+		if researchCount, err = s.projectResearch(ctx, userID.Int64, st.Techs); err != nil {
 			return st, err
 		}
 	}
+	st.ResearchBusy = researchSlots > 0 && researchCount >= researchSlots
+
+	if err := s.projectUnits(ctx, celestialID, st.Ships, st.Defenses); err != nil {
+		return st, err
+	}
 	return st, nil
+}
+
+// projectStructures folds queued construction orders into a structure-level
+// snapshot and returns the total number of queued orders (the scope's occupancy).
+func (s *BlueprintStore) projectStructures(ctx context.Context, celestialID int64, out map[string]int) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT structure_code, COUNT(*) FROM construction_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+		GROUP BY structure_code
+	`, celestialID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	total := 0
+	for rows.Next() {
+		var code string
+		var n int
+		if err := rows.Scan(&code, &n); err != nil {
+			return 0, err
+		}
+		out[code] += n
+		total += n
+	}
+	return total, rows.Err()
+}
+
+// projectResearch folds queued research orders into a tech-level snapshot and
+// returns the total number of queued orders (the scope's occupancy).
+func (s *BlueprintStore) projectResearch(ctx context.Context, userID int64, out map[string]int) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT tech_code, COUNT(*) FROM research_queues
+		WHERE user_id = $1 AND status = 'IN_PROGRESS'
+		GROUP BY tech_code
+	`, userID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	total := 0
+	for rows.Next() {
+		var code string
+		var n int
+		if err := rows.Scan(&code, &n); err != nil {
+			return 0, err
+		}
+		out[code] += n
+		total += n
+	}
+	return total, rows.Err()
+}
+
+// projectUnits folds queued ship/defense batches into the ship/defense count
+// snapshots. There is no slot cap (the shipyard scope is unlimited), so no
+// occupancy is returned.
+func (s *BlueprintStore) projectUnits(ctx context.Context, celestialID int64, ships, defenses map[string]int64) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT unit_code, COALESCE(SUM(quantity_total), 0) FROM shipyard_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+		GROUP BY unit_code
+	`, celestialID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var code string
+		var qty int64
+		if err := rows.Scan(&code, &qty); err != nil {
+			return err
+		}
+		if _, isShip := game.Ships[code]; isShip {
+			ships[code] += qty
+		} else {
+			defenses[code] += qty
+		}
+	}
+	return rows.Err()
 }
 
 func loadLevels(ctx context.Context, db *sql.DB, query string, arg any, out map[string]int) error {

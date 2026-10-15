@@ -12,6 +12,7 @@ var (
 	ErrCannotRecall            = errors.New("fleet cannot be recalled")
 	ErrInsufficientResources   = errors.New("insufficient resources")
 	ErrQueueBusy               = errors.New("build queue is busy")
+	ErrQueueFull               = errors.New("build queue is full")
 	ErrPrerequisites           = errors.New("prerequisites not met")
 	ErrNoFields                = errors.New("not enough fields")
 	ErrUnknownCode             = errors.New("unknown build code")

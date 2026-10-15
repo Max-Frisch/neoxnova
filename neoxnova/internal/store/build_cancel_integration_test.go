@@ -57,7 +57,7 @@ func TestCancelQueueRefundsConstruction(t *testing.T) {
 	}
 
 	bs := NewBuildStore(db)
-	if _, err := bs.EnqueueStructure(ctx, planetID, "metal_mine"); err != nil {
+	if _, err := bs.EnqueueStructure(ctx, planetID, "metal_mine", 0); err != nil {
 		t.Fatalf("enqueue: %v", err)
 	}
 
@@ -220,7 +220,7 @@ func TestCancelQueueRefundsResearch(t *testing.T) {
 	}
 
 	bs := NewBuildStore(db)
-	if _, err := bs.EnqueueResearch(ctx, planetID, "energy_tech"); err != nil {
+	if _, err := bs.EnqueueResearch(ctx, planetID, "energy_tech", 0); err != nil {
 		t.Fatalf("enqueue research: %v", err)
 	}
 	cost, err := bs.CancelQueue(ctx, CancelResearch, userID)

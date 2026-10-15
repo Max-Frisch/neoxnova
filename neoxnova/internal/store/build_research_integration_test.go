@@ -64,7 +64,7 @@ func TestEnqueueResearchNotCappedByLab(t *testing.T) {
 	}
 
 	bs := NewBuildStore(db)
-	if _, err := bs.EnqueueResearch(ctx, planetID, "energy_tech"); err != nil {
+	if _, err := bs.EnqueueResearch(ctx, planetID, "energy_tech", 0); err != nil {
 		t.Fatalf("research above lab level should be allowed, got %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestEnqueueResearchNotCappedByLab(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `DELETE FROM research_queues WHERE user_id=$1`, userID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := bs.EnqueueResearch(ctx, planetID, "astrophysics"); !errors.Is(err, ErrPrerequisites) {
+	if _, err := bs.EnqueueResearch(ctx, planetID, "astrophysics", 0); !errors.Is(err, ErrPrerequisites) {
 		t.Fatalf("astrophysics with no lab should be ErrPrerequisites, got %v", err)
 	}
 }

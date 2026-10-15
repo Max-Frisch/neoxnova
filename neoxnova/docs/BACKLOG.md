@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **Q2** chained multi-order enqueue (buildings/research/ships/defs) + read-model queue lists.
 - [ ] **Q3** cancel-by-id + tail renumber/refund (all scopes).
 - [ ] **Q4** target-level input + live cost/time (embedded JSON) + multi-row queue UI.
 - [ ] **B1** `/blackmarket` hub (separate from Arsenal `/market`); stub unbuilt categories.
@@ -36,6 +35,14 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **Q2 chained queues**: `EnqueueStructure`/`EnqueueResearch` take a target level and
+  chain orders (`start = MAX(end_time)`, per-order target = current+queued+1) up to the scope's
+  slot cap or the first unaffordable level (partial); `EnqueueShipyard` chains per kind
+  (ships/defenses separate, unlimited). `GetBuildings`/`GetResearch`/new `GetShipyardQueue` return
+  `[]QueueEntrySummary`; web renders the head until Q4. `BlueprintStore.LoadState` projects queued
+  orders and marks a scope busy only at its cap. Engine unchanged. Tests: `TestEnqueue*Chain`,
+  `TestEnqueueStructureSlotCap/PartialOnPoverty`, `TestEnqueueShipyardChainsByKind`,
+  `TestResolveConstructionChain`. Next: Q3.
 - 2026-10-15 — **C1 game tuning config**: `config/game.json` (live-calibrated 4000/10000/15,
   build 10 / research 4) parsed by `internal/config.LoadGameSettings` (built-in defaults when
   absent, unknown keys rejected) and upserted onto the `universes` row for `UNIVERSE_ID` on boot

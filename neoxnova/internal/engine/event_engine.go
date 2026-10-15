@@ -203,7 +203,7 @@ func (e *EventEngine) AdvanceBlueprint(ctx context.Context, celestialID int64) {
 	lastErr := ""
 	for _, a := range blueprint.Advance(spec, st) {
 		if err := e.enqueueBlueprintAction(ctx, celestialID, a); err != nil {
-			if errors.Is(err, store.ErrQueueBusy) {
+			if errors.Is(err, store.ErrQueueBusy) || errors.Is(err, store.ErrQueueFull) {
 				continue
 			}
 			lastErr = err.Error()
@@ -221,10 +221,10 @@ func (e *EventEngine) AdvanceBlueprint(ctx context.Context, celestialID int64) {
 func (e *EventEngine) enqueueBlueprintAction(ctx context.Context, celestialID int64, a blueprint.Action) error {
 	switch a.Kind {
 	case blueprint.ActionStructure:
-		_, err := e.builds.EnqueueStructure(ctx, celestialID, a.Code)
+		_, err := e.builds.EnqueueStructure(ctx, celestialID, a.Code, a.TargetLevel)
 		return err
 	case blueprint.ActionResearch:
-		_, err := e.builds.EnqueueResearch(ctx, celestialID, a.Code)
+		_, err := e.builds.EnqueueResearch(ctx, celestialID, a.Code, a.TargetLevel)
 		return err
 	case blueprint.ActionShip, blueprint.ActionDefense:
 		_, err := e.builds.EnqueueShipyard(ctx, celestialID, a.Code, a.Quantity)

@@ -21,12 +21,17 @@ func NewBuildStore(db *sql.DB) *BuildStore {
 	return &BuildStore{db: db}
 }
 
-// QueueResult is returned by every successful enqueue operation.
+// QueueResult is returned by every successful enqueue operation. For chained
+// multi-order enqueues (structures/research targeting a level) it reports the
+// last order inserted plus how many levels/orders were queued and the final
+// target reached.
 type QueueResult struct {
-	QueueID  int64
-	EndTime  time.Time
-	Duration time.Duration
-	Cost     game.Cost
+	QueueID     int64
+	EndTime     time.Time
+	Duration    time.Duration
+	Cost        game.Cost
+	Queued      int
+	TargetLevel int
 }
 
 func isUniqueViolation(err error) bool {
@@ -63,6 +68,60 @@ func (s *BuildStore) planetContext(ctx context.Context, tx *sql.Tx, planetID int
 		WHERE c.id = $1
 	`, planetID).Scan(&userID, &objectType, &tempMax, &fieldsUsed, &fieldsMax, &gameSpeed)
 	return
+}
+
+func scanCounts(rows *sql.Rows) (map[string]int, error) {
+	defer rows.Close()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var code string
+		var n int64
+		if err := rows.Scan(&code, &n); err != nil {
+			return nil, err
+		}
+		counts[code] = int(n)
+	}
+	return counts, rows.Err()
+}
+
+// universeQueueSlots returns the per-scope chain-length caps for a celestial's
+// universe. A cap of 0 means "unlimited" for that scope.
+func (s *BuildStore) universeQueueSlots(ctx context.Context, tx *sql.Tx, planetID int64) (buildSlots, researchSlots int, err error) {
+	err = tx.QueryRowContext(ctx, `
+		SELECT u.build_queue_slots, u.research_queue_slots
+		FROM celestial_objects c
+		JOIN universes u ON u.id = c.universe_id
+		WHERE c.id = $1
+	`, planetID).Scan(&buildSlots, &researchSlots)
+	return
+}
+
+// queuedStructureCounts returns how many IN_PROGRESS construction orders each
+// structure code has on a celestial.
+func (s *BuildStore) queuedStructureCounts(ctx context.Context, tx *sql.Tx, planetID int64) (map[string]int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT structure_code, COUNT(*) FROM construction_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+		GROUP BY structure_code
+	`, planetID)
+	if err != nil {
+		return nil, err
+	}
+	return scanCounts(rows)
+}
+
+// queuedResearchCounts returns how many IN_PROGRESS research orders each tech
+// code has for a user.
+func (s *BuildStore) queuedResearchCounts(ctx context.Context, tx *sql.Tx, userID int64) (map[string]int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT tech_code, COUNT(*) FROM research_queues
+		WHERE user_id = $1 AND status = 'IN_PROGRESS'
+		GROUP BY tech_code
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return scanCounts(rows)
 }
 
 func (s *BuildStore) structureLevels(ctx context.Context, tx *sql.Tx, planetID int64) (map[string]int, error) {
@@ -127,8 +186,14 @@ func (s *BuildStore) researchLabLevels(ctx context.Context, tx *sql.Tx, userID, 
 	return labs, rows.Err()
 }
 
-// EnqueueStructure starts construction of the next level of a building.
-func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code string) (QueueResult, error) {
+// EnqueueStructure queues one or more levels of a building. targetLevel <= 0
+// (or below the next unqueued level) queues a single level; otherwise levels
+// are chained from the next unqueued level up to targetLevel, stopping early
+// when the scope's slot cap is reached or the next level is unaffordable — a
+// *partial* enqueue that still returns success. Each order freezes its cost
+// (deducted up front) and its end_time chains behind the previous order of the
+// scope, so the scheduler builds them back-to-back in order.
+func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code string, targetLevel int) (QueueResult, error) {
 	if _, ok := game.Structures[code]; !ok {
 		if _, moonOK := game.MoonOnlyStructures[code]; !moonOK {
 			return QueueResult{}, ErrUnknownCode
@@ -167,55 +232,132 @@ func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code 
 	if !game.RequiresMet(def.Requires, levels) {
 		return QueueResult{}, ErrPrerequisites
 	}
-	if fieldsUsed+1 > fieldsMax {
-		return QueueResult{}, ErrNoFields
-	}
 
-	var busy bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM construction_queues WHERE celestial_id = $1 AND status = 'IN_PROGRESS')`, planetID).Scan(&busy); err != nil {
+	buildSlots, _, err := s.universeQueueSlots(ctx, tx, planetID)
+	if err != nil {
 		return QueueResult{}, err
 	}
-	if busy {
-		return QueueResult{}, ErrQueueBusy
+	queued, err := s.queuedStructureCounts(ctx, tx, planetID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	queuedTotal := 0
+	for _, n := range queued {
+		queuedTotal += n
 	}
 
-	targetLevel := levels[code] + 1
-	cost, _ := game.StructureCost(code, targetLevel)
-	if metal < float64(cost.Metal) || crystal < float64(cost.Crystal) || deuterium < float64(cost.Deuterium) {
-		return QueueResult{}, ErrInsufficientResources
+	current := levels[code]
+	// The goal is an absolute level; "next level" is the level after any already
+	// queued orders of this code.
+	if next := current + queued[code] + 1; targetLevel < next {
+		targetLevel = next
 	}
 
-	duration := game.StructureDuration(code, targetLevel, levels["robotics_factory"], levels["nanite_factory"], gameSpeed)
-	start := time.Now()
-	end := start.Add(duration)
+	var lastEnd sql.NullTime
+	if err := tx.QueryRowContext(ctx, `
+		SELECT MAX(end_time) FROM construction_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+	`, planetID).Scan(&lastEnd); err != nil {
+		return QueueResult{}, err
+	}
+
+	result := QueueResult{TargetLevel: current}
+	for {
+		if buildSlots > 0 && queuedTotal >= buildSlots {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrQueueFull
+			}
+			break
+		}
+		next := current + queued[code] + 1
+		if next > targetLevel {
+			break
+		}
+		// Every level of every structure occupies a field (fields_used is the sum
+		// of all levels), so the projected use includes every queued order.
+		if fieldsUsed+queuedTotal+1 > fieldsMax {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrNoFields
+			}
+			break
+		}
+		cost, ok := game.StructureCost(code, next)
+		if !ok {
+			return QueueResult{}, ErrUnknownCode
+		}
+		total := result.Cost.Add(cost)
+		if metal < float64(total.Metal) || crystal < float64(total.Crystal) || deuterium < float64(total.Deuterium) {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrInsufficientResources
+			}
+			break
+		}
+		projRobotics := levels["robotics_factory"] + queued["robotics_factory"]
+		projNanite := levels["nanite_factory"] + queued["nanite_factory"]
+		duration := game.StructureDuration(code, next, projRobotics, projNanite, gameSpeed)
+
+		start := time.Now()
+		if lastEnd.Valid && lastEnd.Time.After(start) {
+			start = lastEnd.Time
+		}
+		end := start.Add(duration)
+
+		var queueID int64
+		if err := tx.QueryRowContext(ctx, `
+			INSERT INTO construction_queues (celestial_id, structure_code, target_level, start_time, end_time, status)
+			VALUES ($1, $2, $3, $4, $5, 'IN_PROGRESS')
+			RETURNING id
+		`, planetID, code, next, start, end).Scan(&queueID); err != nil {
+			return QueueResult{}, err
+		}
+
+		queued[code]++
+		queuedTotal++
+		result = QueueResult{
+			QueueID:     queueID,
+			EndTime:     end,
+			Duration:    duration,
+			Cost:        total,
+			Queued:      result.Queued + 1,
+			TargetLevel: next,
+		}
+		lastEnd = sql.NullTime{Time: end, Valid: true}
+	}
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE celestial_objects
 		SET metal = metal - $1, crystal = crystal - $2, deuterium = deuterium - $3
 		WHERE id = $4
-	`, cost.Metal, cost.Crystal, cost.Deuterium, planetID); err != nil {
-		return QueueResult{}, err
-	}
-
-	var queueID int64
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO construction_queues (celestial_id, structure_code, target_level, start_time, end_time, status)
-		VALUES ($1, $2, $3, $4, $5, 'IN_PROGRESS')
-		RETURNING id
-	`, planetID, code, targetLevel, start, end).Scan(&queueID)
-	if isUniqueViolation(err) {
-		return QueueResult{}, ErrQueueBusy
-	} else if err != nil {
+	`, result.Cost.Metal, result.Cost.Crystal, result.Cost.Deuterium, planetID); err != nil {
 		return QueueResult{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return QueueResult{}, err
 	}
-	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost}, nil
+	return result, nil
 }
 
-// EnqueueShipyard starts building a batch of ships.
+// shipCodes / defenseCodes are the full unit catalog split by production line.
+func shipCodes() []string {
+	out := make([]string, 0, len(game.Ships))
+	for code := range game.Ships {
+		out = append(out, code)
+	}
+	return out
+}
+
+func defenseCodes() []string {
+	out := make([]string, 0, len(game.Defenses))
+	for code := range game.Defenses {
+		out = append(out, code)
+	}
+	return out
+}
+
+// EnqueueShipyard appends a batch of ships or defenses. Ships and defenses are
+// separate production lines: the batch chains behind the last in-progress batch
+// of the *same kind* (unlimited — the shipyard scope has no slot cap).
 func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCode string, quantity int64) (QueueResult, error) {
 	unitDef, ok := game.LookupUnit(unitCode)
 	if !ok {
@@ -246,23 +388,37 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 		return QueueResult{}, ErrPrerequisites
 	}
 
-	var busy bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM shipyard_queues WHERE celestial_id = $1 AND status = 'IN_PROGRESS')`, planetID).Scan(&busy); err != nil {
-		return QueueResult{}, err
-	}
-	if busy {
-		return QueueResult{}, ErrQueueBusy
-	}
-
 	cost, _ := game.UnitCost(unitCode, quantity)
 	if metal < float64(cost.Metal) || crystal < float64(cost.Crystal) || deuterium < float64(cost.Deuterium) {
 		return QueueResult{}, ErrInsufficientResources
 	}
 
-	duration := game.UnitDuration(unitCode, quantity, levels["shipyard"], levels["nanite_factory"], gameSpeed)
-	start := time.Now()
-	end := start.Add(duration)
+	kindCodes := defenseCodes()
+	if _, isShip := game.Ships[unitCode]; isShip {
+		kindCodes = shipCodes()
+	}
+	var tail sql.NullTime
+	if err := tx.QueryRowContext(ctx, `
+		SELECT MAX(end_time) FROM shipyard_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND unit_code = ANY($2)
+	`, planetID, pq.Array(kindCodes)).Scan(&tail); err != nil {
+		return QueueResult{}, err
+	}
+
+	queued, err := s.queuedStructureCounts(ctx, tx, planetID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	projShipyard := levels["shipyard"] + queued["shipyard"]
+	projNanite := levels["nanite_factory"] + queued["nanite_factory"]
+	duration := game.UnitDuration(unitCode, quantity, projShipyard, projNanite, gameSpeed)
 	perUnit := duration.Seconds() / float64(quantity)
+
+	start := time.Now()
+	if tail.Valid && tail.Time.After(start) {
+		start = tail.Time
+	}
+	end := start.Add(duration)
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE celestial_objects
@@ -273,29 +429,30 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 	}
 
 	var queueID int64
-	err = tx.QueryRowContext(ctx, `
+	if err := tx.QueryRowContext(ctx, `
 		INSERT INTO shipyard_queues (celestial_id, unit_code, quantity_total, quantity_completed, build_time_per_unit, start_time, end_time, status)
 		VALUES ($1, $2, $3, 0, $4, $5, $6, 'IN_PROGRESS')
 		RETURNING id
-	`, planetID, unitCode, quantity, perUnit, start, end).Scan(&queueID)
-	if isUniqueViolation(err) {
-		return QueueResult{}, ErrQueueBusy
-	} else if err != nil {
+	`, planetID, unitCode, quantity, perUnit, start, end).Scan(&queueID); err != nil {
 		return QueueResult{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return QueueResult{}, err
 	}
-	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost}, nil
+	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost, Queued: 1}, nil
 }
 
-// EnqueueResearch starts an empire-wide technology. Costs are drawn from the
-// supplied planet. The research lab only *unlocks* technologies (via each tech's
-// Requires) and shortens research time; it does not cap the target level. Time
-// uses that planet's effective lab level (its own lab plus IRN-connected colony
-// labs) and its local University, which is not shared account-wide.
-func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCode string) (QueueResult, error) {
+// EnqueueResearch queues one or more levels of an empire-wide technology. Costs
+// are drawn from the supplied planet. targetLevel <= 0 (or below the next
+// unqueued level) queues a single level; otherwise levels chain up to
+// targetLevel, stopping when the account's research slot cap is reached or the
+// next level is unaffordable (a partial enqueue). The research lab only
+// *unlocks* technologies (via each tech's Requires) and shortens research time;
+// it does not cap the target level. Durations use the projected lab (the
+// planet's own lab plus IRN-connected colony labs) and its local University,
+// both advanced by any already-queued orders.
+func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCode string, targetLevel int) (QueueResult, error) {
 	if _, ok := game.Techs[techCode]; !ok {
 		return QueueResult{}, ErrUnknownCode
 	}
@@ -336,50 +493,105 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		return QueueResult{}, ErrPrerequisites
 	}
 
-	targetLevel := techs[techCode] + 1
-
-	var busy bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM research_queues WHERE user_id = $1 AND status = 'IN_PROGRESS')`, userID).Scan(&busy); err != nil {
+	_, researchSlots, err := s.universeQueueSlots(ctx, tx, planetID)
+	if err != nil {
 		return QueueResult{}, err
 	}
-	if busy {
-		return QueueResult{}, ErrQueueBusy
+	queued, err := s.queuedResearchCounts(ctx, tx, userID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	queuedTotal := 0
+	for _, n := range queued {
+		queuedTotal += n
+	}
+	queuedStructs, err := s.queuedStructureCounts(ctx, tx, planetID)
+	if err != nil {
+		return QueueResult{}, err
 	}
 
-	cost, _ := game.TechCost(techCode, targetLevel)
-	if metal < float64(cost.Metal) || crystal < float64(cost.Crystal) || deuterium < float64(cost.Deuterium) {
-		return QueueResult{}, ErrInsufficientResources
+	current := techs[techCode]
+	if next := current + queued[techCode] + 1; targetLevel < next {
+		targetLevel = next
 	}
 
-	labLevel := game.EffectiveResearchLabLevel(structLevels["research_lab"], techs["intergalactic_research_network"], colonyLabs)
-	duration := game.TechDuration(techCode, targetLevel, labLevel, structLevels["university"], gameSpeed)
-	start := time.Now()
-	end := start.Add(duration)
+	var lastEnd sql.NullTime
+	if err := tx.QueryRowContext(ctx, `
+		SELECT MAX(end_time) FROM research_queues
+		WHERE user_id = $1 AND status = 'IN_PROGRESS'
+	`, userID).Scan(&lastEnd); err != nil {
+		return QueueResult{}, err
+	}
+
+	result := QueueResult{TargetLevel: current}
+	for {
+		if researchSlots > 0 && queuedTotal >= researchSlots {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrQueueFull
+			}
+			break
+		}
+		next := current + queued[techCode] + 1
+		if next > targetLevel {
+			break
+		}
+		cost, ok := game.TechCost(techCode, next)
+		if !ok {
+			return QueueResult{}, ErrUnknownCode
+		}
+		total := result.Cost.Add(cost)
+		if metal < float64(total.Metal) || crystal < float64(total.Crystal) || deuterium < float64(total.Deuterium) {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrInsufficientResources
+			}
+			break
+		}
+		projIRN := techs["intergalactic_research_network"] + queued["intergalactic_research_network"]
+		projLab := structLevels["research_lab"] + queuedStructs["research_lab"]
+		projUni := structLevels["university"] + queuedStructs["university"]
+		labLevel := game.EffectiveResearchLabLevel(projLab, projIRN, colonyLabs)
+		duration := game.TechDuration(techCode, next, labLevel, projUni, gameSpeed)
+
+		start := time.Now()
+		if lastEnd.Valid && lastEnd.Time.After(start) {
+			start = lastEnd.Time
+		}
+		end := start.Add(duration)
+
+		var queueID int64
+		if err := tx.QueryRowContext(ctx, `
+			INSERT INTO research_queues (user_id, celestial_id, tech_code, target_level, start_time, end_time, status)
+			VALUES ($1, $2, $3, $4, $5, $6, 'IN_PROGRESS')
+			RETURNING id
+		`, userID, planetID, techCode, next, start, end).Scan(&queueID); err != nil {
+			return QueueResult{}, err
+		}
+
+		queued[techCode]++
+		queuedTotal++
+		result = QueueResult{
+			QueueID:     queueID,
+			EndTime:     end,
+			Duration:    duration,
+			Cost:        total,
+			Queued:      result.Queued + 1,
+			TargetLevel: next,
+		}
+		lastEnd = sql.NullTime{Time: end, Valid: true}
+	}
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE celestial_objects
 		SET metal = metal - $1, crystal = crystal - $2, deuterium = deuterium - $3
 		WHERE id = $4
-	`, cost.Metal, cost.Crystal, cost.Deuterium, planetID); err != nil {
-		return QueueResult{}, err
-	}
-
-	var queueID int64
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO research_queues (user_id, celestial_id, tech_code, target_level, start_time, end_time, status)
-		VALUES ($1, $2, $3, $4, $5, $6, 'IN_PROGRESS')
-		RETURNING id
-	`, userID, planetID, techCode, targetLevel, start, end).Scan(&queueID)
-	if isUniqueViolation(err) {
-		return QueueResult{}, ErrQueueBusy
-	} else if err != nil {
+	`, result.Cost.Metal, result.Cost.Crystal, result.Cost.Deuterium, planetID); err != nil {
 		return QueueResult{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return QueueResult{}, err
 	}
-	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost}, nil
+	return result, nil
 }
 
 // CancelScope selects which build queue a cancel applies to.
@@ -654,24 +866,52 @@ func (s *BuildStore) GetBuildings(ctx context.Context, planetID string) (models.
 		}
 	}
 
-	var q models.QueueEntrySummary
-	err = s.db.QueryRowContext(ctx, `
+	rows, err = s.db.QueryContext(ctx, `
 		SELECT id, structure_code, target_level, start_time, end_time
 		FROM construction_queues
 		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
-		LIMIT 1
-	`, id).Scan(&q.ID, &q.Code, &q.TargetLevel, &q.StartTime, &q.EndTime)
-	if err == nil {
-		q.RemainingSecs = int64(time.Until(q.EndTime).Seconds())
-		if q.RemainingSecs < 0 {
-			q.RemainingSecs = 0
-		}
-		resp.Queue = &q
-	} else if !errors.Is(err, sql.ErrNoRows) {
+		ORDER BY end_time, id
+	`, id)
+	if err != nil {
+		return models.BuildingsResponse{}, err
+	}
+	if resp.Queue, err = scanQueueSummaries(rows, true); err != nil {
 		return models.BuildingsResponse{}, err
 	}
 
 	return resp, nil
+}
+
+// scanQueueSummaries scans (id, code, value, start, end) rows into queue
+// summaries. hasTarget selects whether the middle column is a target level
+// (structures/research) or a quantity (units).
+func scanQueueSummaries(rows *sql.Rows, hasTarget bool) ([]models.QueueEntrySummary, error) {
+	defer rows.Close()
+	var out []models.QueueEntrySummary
+	for rows.Next() {
+		var (
+			q        models.QueueEntrySummary
+			target   int
+			quantity int64
+		)
+		var err error
+		if hasTarget {
+			err = rows.Scan(&q.ID, &q.Code, &target, &q.StartTime, &q.EndTime)
+			q.TargetLevel = target
+		} else {
+			err = rows.Scan(&q.ID, &q.Code, &quantity, &q.StartTime, &q.EndTime)
+			q.Quantity = quantity
+		}
+		if err != nil {
+			return nil, err
+		}
+		q.RemainingSecs = int64(time.Until(q.EndTime).Seconds())
+		if q.RemainingSecs < 0 {
+			q.RemainingSecs = 0
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
 }
 
 // GetResearch returns empire-wide technology levels, the active research item
@@ -709,22 +949,42 @@ func (s *BuildStore) GetResearch(ctx context.Context, planetID string) (models.R
 		}
 	}
 
-	var q models.QueueEntrySummary
-	err = s.db.QueryRowContext(ctx, `
+	rows, err = s.db.QueryContext(ctx, `
 		SELECT id, tech_code, target_level, start_time, end_time
 		FROM research_queues
 		WHERE user_id = $1 AND status = 'IN_PROGRESS'
-		LIMIT 1
-	`, userID).Scan(&q.ID, &q.Code, &q.TargetLevel, &q.StartTime, &q.EndTime)
-	if err == nil {
-		q.RemainingSecs = int64(time.Until(q.EndTime).Seconds())
-		if q.RemainingSecs < 0 {
-			q.RemainingSecs = 0
-		}
-		resp.Queue = &q
-	} else if !errors.Is(err, sql.ErrNoRows) {
+		ORDER BY end_time, id
+	`, userID)
+	if err != nil {
+		return models.ResearchResponse{}, err
+	}
+	if resp.Queue, err = scanQueueSummaries(rows, true); err != nil {
 		return models.ResearchResponse{}, err
 	}
 
 	return resp, nil
+}
+
+// GetShipyardQueue returns the chained ship/defense production queue for a
+// celestial (ships and defenses share the table; the caller separates them by
+// code). It is the read model behind the shipyard/defenses pages.
+func (s *BuildStore) GetShipyardQueue(ctx context.Context, planetID string) (models.ShipyardResponse, error) {
+	id, err := strconv.ParseInt(planetID, 10, 64)
+	if err != nil {
+		return models.ShipyardResponse{}, ErrNotFound
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, unit_code, quantity_total, start_time, end_time
+		FROM shipyard_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+		ORDER BY end_time, id
+	`, id)
+	if err != nil {
+		return models.ShipyardResponse{}, err
+	}
+	queue, err := scanQueueSummaries(rows, false)
+	if err != nil {
+		return models.ShipyardResponse{}, err
+	}
+	return models.ShipyardResponse{PlanetID: id, Queue: queue}, nil
 }

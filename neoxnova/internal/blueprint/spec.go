@@ -52,7 +52,11 @@ type State struct {
 	FieldsUsed int
 	FieldsMax  int
 
-	// QueueBusy flags: at most one item per scope may be in flight.
+	// Queue-capacity flags: a scope is busy once its queue is full (buildings /
+	// research have slot caps; the shipyard/defense scope is unlimited and never
+	// busy). Structures/Techs/Ships/Defenses above are projected: LoadState folds
+	// in-progress orders onto the actual levels/counts, so the planner targets the
+	// next unqueued level while a chain is still running.
 	BuildBusy    bool
 	ShipBusy     bool
 	ResearchBusy bool

@@ -126,14 +126,14 @@ func TestMoonOpsIntegration(t *testing.T) {
 	}
 
 	// Building legality: a moon rejects planet-only buildings.
-	if _, err := bs.EnqueueStructure(ctx, moon1, "metal_mine"); !errors.Is(err, ErrUnknownCode) {
+	if _, err := bs.EnqueueStructure(ctx, moon1, "metal_mine", 0); !errors.Is(err, ErrUnknownCode) {
 		t.Fatalf("metal_mine on moon = %v, want ErrUnknownCode", err)
 	}
 	// ... and accepts moon-only ones once funded and unlocked.
 	if _, err := db.ExecContext(ctx, `UPDATE celestial_objects SET metal=1e9, crystal=1e9, deuterium=1e9 WHERE id=$1`, moon1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := bs.EnqueueStructure(ctx, moon1, "phalanx_sensor"); err != nil {
+	if _, err := bs.EnqueueStructure(ctx, moon1, "phalanx_sensor", 0); err != nil {
 		t.Fatalf("phalanx_sensor on moon: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `DELETE FROM construction_queues WHERE celestial_id=$1`, moon1); err != nil {

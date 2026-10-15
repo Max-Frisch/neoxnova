@@ -159,10 +159,10 @@ func (h *Handler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 		sh.ActiveCoords = coordStr(data.Overview.Coordinates)
 	}
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
-		data.BuildQueue = b.Queue
+		data.BuildQueue = firstQueue(b.Queue)
 	}
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
-		data.ResQueue = rr.Queue
+		data.ResQueue = firstQueue(rr.Queue)
 	}
 	data.ShipQueue = h.shipyardQueue(r, idStr)
 	if in, err := h.fleets.IncomingFleets(r.Context(), id, userID); err == nil {
@@ -309,7 +309,7 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	levels := map[string]int{}
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
 		levels = b.Levels
-		data.Queue = b.Queue
+		data.Queue = firstQueue(b.Queue)
 	}
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.FieldsUsed, data.FieldsMax = ov.FieldsUsed, ov.FieldsMax
@@ -366,7 +366,7 @@ func (h *Handler) BuildSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.FormValue("code")
-	_, err := h.builds.EnqueueStructure(r.Context(), id, code)
+	_, err := h.builds.EnqueueStructure(r.Context(), id, code, 0)
 	if err != nil {
 		h.redirect(w, r, "/buildings/"+r.PathValue("id"), "", err.Error())
 		return
@@ -660,7 +660,7 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 	levels := map[string]int{}
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
 		levels = rr.Levels
-		data.Queue = rr.Queue
+		data.Queue = firstQueue(rr.Queue)
 	}
 	// Building levels are needed because some techs require a research lab etc.
 	structLevels := map[string]int{}
@@ -710,7 +710,7 @@ func (h *Handler) ResearchSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.FormValue("code")
-	if _, err := h.builds.EnqueueResearch(r.Context(), id, code); err != nil {
+	if _, err := h.builds.EnqueueResearch(r.Context(), id, code, 0); err != nil {
 		h.redirect(w, r, "/research/"+r.PathValue("id"), "", err.Error())
 		return
 	}
@@ -1069,22 +1069,24 @@ func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, base, ok, err
 	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 
+// shipyardQueue returns the head of a celestial's ship/defense production
+// queue, or nil when idle. The full chain is available from the build store's
+// GetShipyardQueue read model; the current page renders only the head until the
+// multi-row queue UI lands.
 func (h *Handler) shipyardQueue(r *http.Request, idStr string) *models.QueueEntrySummary {
-	var q models.QueueEntrySummary
-	err := h.db.QueryRowContext(r.Context(), `
-		SELECT id, unit_code, quantity, start_time, end_time
-		FROM shipyard_queues
-		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
-		LIMIT 1
-	`, idStr).Scan(&q.ID, &q.Code, &q.Quantity, &q.StartTime, &q.EndTime)
+	resp, err := h.builds.GetShipyardQueue(r.Context(), idStr)
 	if err != nil {
 		return nil
 	}
-	q.RemainingSecs = int64(time.Until(q.EndTime).Seconds())
-	if q.RemainingSecs < 0 {
-		q.RemainingSecs = 0
+	return firstQueue(resp.Queue)
+}
+
+// firstQueue returns the head of a queue list, or nil when empty.
+func firstQueue(q []models.QueueEntrySummary) *models.QueueEntrySummary {
+	if len(q) == 0 {
+		return nil
 	}
-	return &q
+	return &q[0]
 }
 
 func (h *Handler) allLevels(r *http.Request, idStr string, userID int64) map[string]int {

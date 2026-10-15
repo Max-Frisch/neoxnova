@@ -30,6 +30,8 @@ func writeBuildError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, "Insufficient resources")
 	case errors.Is(err, store.ErrNoFields):
 		writeError(w, http.StatusBadRequest, "Not enough fields on this planet")
+	case errors.Is(err, store.ErrQueueFull):
+		writeError(w, http.StatusConflict, "The build queue is full")
 	case errors.Is(err, store.ErrQueueBusy):
 		writeError(w, http.StatusConflict, "A build queue is already active")
 	default:
@@ -42,6 +44,8 @@ func writeQueueResult(w http.ResponseWriter, status int, kind string, result sto
 	writeJSON(w, status, map[string]any{
 		"status":           kind,
 		"queue_id":         result.QueueID,
+		"queued":           result.Queued,
+		"target_level":     result.TargetLevel,
 		"end_time":         result.EndTime.Format(time.RFC3339),
 		"duration_seconds": int64(result.Duration.Seconds()),
 		"cost": map[string]int64{
@@ -60,13 +64,14 @@ func (h *Handler) StructureBuild(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		StructureCode string `json:"structure_code"`
+		TargetLevel   int    `json:"target_level"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.StructureCode == "" {
 		writeError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	result, err := h.Builds.EnqueueStructure(r.Context(), planetID, req.StructureCode)
+	result, err := h.Builds.EnqueueStructure(r.Context(), planetID, req.StructureCode, req.TargetLevel)
 	if err != nil {
 		writeBuildError(w, err)
 		return
@@ -108,14 +113,15 @@ func (h *Handler) ResearchStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		TechCode string `json:"tech_code"`
+		TechCode    string `json:"tech_code"`
+		TargetLevel int    `json:"target_level"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TechCode == "" {
 		writeError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	result, err := h.Builds.EnqueueResearch(r.Context(), planetID, req.TechCode)
+	result, err := h.Builds.EnqueueResearch(r.Context(), planetID, req.TechCode, req.TargetLevel)
 	if err != nil {
 		writeBuildError(w, err)
 		return
