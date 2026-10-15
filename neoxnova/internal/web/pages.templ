@@ -320,42 +320,79 @@ func activityLabel(q *models.QueueEntrySummary) string {
 	return displayName(q.Code) + " " + strconv.Itoa(q.TargetLevel)
 }
 
-// ---- Shipyard body -------------------------------------------------------
+// ---- Shipyard / Defenses bodies -----------------------------------------
 
 templ ShipyardBody(sh Shell, d ShipyardData) {
-	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Shipyard</h2>
-	if d.Queue != nil {
-		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
-			Building <span class="font-semibold">{ displayName(d.Queue.Code) }</span> × { fnum(d.Queue.Quantity) } · { dur(d.Queue.RemainingSecs) }
+	@unitSections(sh, d, "/shipyard/"+pid(sh)+"/build", "/shipyard/"+pid(sh)+"/cancel")
+}
+
+templ DefensesBody(sh Shell, d ShipyardData) {
+	@unitSections(sh, d, "/defenses/"+pid(sh)+"/build", "/defenses/"+pid(sh)+"/cancel")
+}
+
+templ unitSections(sh Shell, d ShipyardData, buildPath, cancelPath string) {
+	<section class="panel">
+		<div class="fields-bar">
+			<span class="help" title="Ships and defenses built at this planet">?</span>
+			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 		</div>
-	}
-	<div class="overflow-x-auto rounded-lg border border-slate-800">
-		<table class="w-full text-left text-sm">
-			<thead class="bg-slate-900/70 text-slate-400">
-				<tr><th class="px-3 py-2">Unit</th><th>Have</th><th>Cost / unit</th><th class="px-3">Build</th></tr>
-			</thead>
-			<tbody>
-				for _, it := range d.Ships {
-					<tr class="border-t border-slate-800">
-						<td class="px-3 py-2">{ it.Name }{ defenseTag(it) }</td>
-						<td>{ fnum(it.Count) }</td>
-						<td>{ costStr(it.Cost) }</td>
-						<td class="px-3 py-2">
-							if it.Unlocked {
-								<form method="post" action={ templ.URL("/shipyard/" + pid(sh) + "/build") } class="flex gap-2">
-									<input type="hidden" name="code" value={ it.Code }/>
-									<input name="quantity" type="number" min="1" value="1" class="w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
-									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Build</button>
-								</form>
-							} else {
-								<span class="text-xs text-slate-500">{ it.Reason }</span>
-							}
-						</td>
-					</tr>
+		if d.Queue != nil {
+			@queueRow(1, displayName(d.Queue.Code)+" × "+fnum(d.Queue.Quantity), d.Queue, cancelPath)
+		}
+		for _, sec := range d.Sections {
+			<h3 class="unit-section">{ sec.Title }</h3>
+			<div class="card-grid">
+				for _, it := range sec.Items {
+					@unitCard(sh, it, buildPath)
 				}
-			</tbody>
-		</table>
+			</div>
+		}
+	</section>
+}
+
+templ unitCard(sh Shell, it UnitItem, buildPath string) {
+	<div class={ cardClass(it.Busy) }>
+		<div class="gcard-head">
+			<span class="gcard-title">{ unitTitle(it.Name, it.Count) }</span>
+			<span class="help" title={ it.Name }>?</span>
+		</div>
+		<div class="gcard-body">
+			if it.Image != "" {
+				<img class="gcard-img" src={ it.Image } alt={ it.Name }/>
+			}
+			if it.Unlocked {
+				<div class="gcard-info">
+					@costRows(it.Cost)
+					if it.DurationSecs > 0 {
+						<span class="gcard-duration">Duration: { hms(it.DurationSecs) }</span>
+					}
+				</div>
+			} else {
+				@prereqBlock("Necessary for the construction:", it.Prereqs)
+			}
+		</div>
+		<div class="gcard-foot">
+			if it.Unlocked {
+				if it.Busy {
+					<span class="gcard-busy">Busy</span>
+				} else {
+					<form method="post" action={ templ.URL(buildPath) } class="unit-form">
+						<input type="hidden" name="code" value={ it.Code }/>
+						<input id={ "q_" + it.Code } class="build-level unit-qty" name="quantity" type="text" inputmode="numeric" value="0"/>
+						<button type="button" class="unit-max" data-target={ "q_" + it.Code } data-max={ strconv.FormatInt(it.MaxQty, 10) }>Max</button>
+						<button type="submit" class="build-next">Build</button>
+					</form>
+				}
+			}
+		</div>
 	</div>
+}
+
+func unitTitle(name string, count int64) string {
+	if count > 0 {
+		return name + " (" + fnum(count) + ")"
+	}
+	return name
 }
 
 // ---- Research body -------------------------------------------------------
@@ -415,10 +452,12 @@ templ researchCard(sh Shell, it ResearchItem) {
 // ---- Fleet body ----------------------------------------------------------
 
 templ FleetBody(sh Shell, d FleetData) {
-	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Fleet command</h2>
+	<div class="overview-links">
+		<a href={ templ.URL("/expedition/" + pid(sh)) }>Expedition command</a>
+	</div>
 	<div class="grid gap-6 lg:grid-cols-2">
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">Dispatch</h3>
+		<section class="panel">
+			<h3 class="panel-title">Dispatch</h3>
 			<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/dispatch") } class="space-y-3 text-sm">
 				<div class="grid grid-cols-2 gap-2">
 					<label class="block text-slate-300">Mission
@@ -467,27 +506,27 @@ templ FleetBody(sh Shell, d FleetData) {
 						}
 					</div>
 				</div>
-				<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Dispatch fleet</button>
+				<button type="submit" class="build-next">Dispatch fleet</button>
 			</form>
 		</section>
 		<section class="space-y-6">
-			<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-				<h3 class="mb-2 font-semibold text-slate-200">Your fleets</h3>
+			<div class="panel">
+				<h3 class="panel-title">Your fleets</h3>
 				if len(d.Fleets) == 0 {
 					<p class="text-sm text-slate-500">No fleets in flight.</p>
 				} else {
-					<table class="w-full text-left text-sm">
-						<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>Phase</th><th>Arrives</th><th></th></tr></thead>
+					<table class="game-table">
+						<thead><tr><th>Mission</th><th>Phase</th><th>Arrives</th><th></th></tr></thead>
 						<tbody>
 							for _, f := range d.Fleets {
-								<tr class="border-t border-slate-800">
-									<td class="py-1">{ string(f.Mission) }</td>
+								<tr>
+									<td>{ string(f.Mission) }</td>
 									<td>{ string(f.Phase) }</td>
 									<td>{ dur(f.RemainingSecs) }</td>
 									<td>
 										<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/recall") }>
 											<input type="hidden" name="fleet_id" value={ strconv.FormatInt(f.FleetID, 10) }/>
-											<button class="rounded bg-amber-700 px-2 py-0.5 text-xs hover:bg-amber-600">Recall</button>
+											<button class="queue-cancel">Recall</button>
 										</form>
 									</td>
 								</tr>
@@ -496,17 +535,17 @@ templ FleetBody(sh Shell, d FleetData) {
 					</table>
 				}
 			</div>
-			<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-				<h3 class="mb-2 font-semibold text-slate-200">Incoming</h3>
+			<div class="panel">
+				<h3 class="panel-title">Incoming</h3>
 				if len(d.Incoming) == 0 {
 					<p class="text-sm text-slate-500">Nothing inbound.</p>
 				} else {
-					<table class="w-full text-left text-sm">
-						<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>From</th><th>Arrives</th></tr></thead>
+					<table class="game-table">
+						<thead><tr><th>Mission</th><th>From</th><th>Arrives</th></tr></thead>
 						<tbody>
 							for _, f := range d.Incoming {
-								<tr class="border-t border-slate-800">
-									<td class="py-1">{ f.MissionText }</td>
+								<tr>
+									<td>{ f.MissionText }</td>
 									<td>{ coordStr(f.Origin) }</td>
 									<td>{ dur(f.RemainingSecs) }</td>
 								</tr>
@@ -668,11 +707,4 @@ templ ReportsBody(sh Shell, d ReportsData) {
 			}
 		</section>
 	</div>
-}
-
-func defenseTag(it ShipItem) string {
-	if it.IsDefense {
-		return " (defense)"
-	}
-	return ""
 }

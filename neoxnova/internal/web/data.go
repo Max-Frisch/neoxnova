@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -228,22 +229,58 @@ func (h *Handler) BuildSubmit(w http.ResponseWriter, r *http.Request) {
 	h.redirect(w, r, "/buildings/"+r.PathValue("id"), "Queued "+code, "")
 }
 
-// ---- Shipyard ------------------------------------------------------------
+// ---- Shipyard / Defenses -------------------------------------------------
 
-type ShipItem struct {
-	Code      string
-	Name      string
-	IsDefense bool
-	Count     int64
-	Cost      models.CargoManifest
-	Unlocked  bool
-	Reason    string
+// UnitItem is one buildable ship/defense card in the hangar/defenses grids.
+type UnitItem struct {
+	Code         string
+	Name         string
+	Count        int64
+	Cost         models.CargoManifest
+	Unlocked     bool
+	Reason       string
+	Image        string
+	DurationSecs int64
+	Prereqs      []Prereq
+	Busy         bool
+	MaxQty       int64
+}
+
+// UnitSection groups cards under a live-client band (Recently built, Small
+// class, ...).
+type UnitSection struct {
+	Title string
+	Items []UnitItem
 }
 
 type ShipyardData struct {
-	Ships []ShipItem
-	Queue *models.QueueEntrySummary
+	Sections []UnitSection
+	Queue    *models.QueueEntrySummary
 }
+
+// unitClassDef is one fixed shipyard band captured from the live client.
+type unitClassDef struct {
+	Title string
+	Codes []string
+}
+
+// The bands mirror the live shipyard/defenses pages (captured 2026-10-15);
+// within a band the codes keep the reference server's display order.
+var shipClasses = []unitClassDef{
+	{"Small class", []string{"212", "202", "203", "204", "205"}},
+	{"Medium class", []string{"209", "206", "207", "217", "215", "213", "211", "219"}},
+	{"Large class", []string{"225", "226", "214", "216", "227", "228", "222", "218", "221"}},
+	{"Special", []string{"210", "208", "220", "223"}},
+}
+
+var defenseClasses = []unitClassDef{
+	{"Small class", []string{"401", "402", "403", "405", "404", "406", "416", "417", "502", "503"}},
+	{"Medium class", []string{"418", "412", "410", "413", "419", "414", "415"}},
+	{"Large class", []string{"407", "408", "409", "411"}},
+}
+
+// recentBuiltLimit matches the live client's "Recently built" band length.
+const recentBuiltLimit = 3
 
 func (h *Handler) ShipyardPage(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
@@ -254,32 +291,150 @@ func (h *Handler) ShipyardPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sh := h.shell(r, userID, id)
 	sh.Title = "Shipyard"
-	idStr := r.PathValue("id")
-
-	data := ShipyardData{}
-	levels := h.allLevels(r, idStr, userID)
-	counts, _ := h.planets.PlanetShips(r.Context(), id)
-	// Shipyard queue (shipyard_queues single active).
-	data.Queue = h.shipyardQueue(r, idStr)
-
-	for _, def := range sortedUnits(game.Ships) {
-		data.Ships = append(data.Ships, ShipItem{
-			Code: def.Code, Name: def.Name, Count: counts[def.Code],
-			Cost: unitManifest(def), Unlocked: mustReq(def.Requires, levels),
-			Reason: reasonFor(def.Requires, levels),
-		})
-	}
-	for _, def := range sortedUnits(game.Defenses) {
-		data.Ships = append(data.Ships, ShipItem{
-			Code: def.Code, Name: def.Name, IsDefense: true, Count: counts[def.Code],
-			Cost: unitManifest(def), Unlocked: mustReq(def.Requires, levels),
-			Reason: reasonFor(def.Requires, levels),
-		})
-	}
+	data := h.unitPageData(r, sh, id, r.PathValue("id"), shipClasses)
 	h.render(w, r, http.StatusOK, Page(sh, ShipyardBody(sh, data)))
 }
 
+func (h *Handler) DefensesPage(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	sh := h.shell(r, userID, id)
+	sh.Title = "Defenses"
+	data := h.unitPageData(r, sh, id, r.PathValue("id"), defenseClasses)
+	h.render(w, r, http.StatusOK, Page(sh, DefensesBody(sh, data)))
+}
+
+// unitPageData assembles the grouped ship/defense cards for a celestial. The
+// "Recently built" band is derived from the last completed shipyard queues and
+// its units are pulled out of their class band, matching the live client.
+func (h *Handler) unitPageData(r *http.Request, sh Shell, id int64, idStr string, classes []unitClassDef) ShipyardData {
+	levels := h.allLevels(r, idStr, id)
+	counts, _ := h.planets.PlanetShips(r.Context(), id)
+	queue := h.shipyardQueue(r, idStr)
+	speed := h.gameSpeed(r)
+	shipyard, nanite := levels["shipyard"], levels["nanite_factory"]
+
+	recent := h.recentlyBuiltUnits(r, id, recentBuiltLimit)
+	recentSet := make(map[string]bool, len(recent))
+	// The shipyard and defenses pages share the queue, so only keep recent
+	// codes that belong to this page's catalog.
+	allowed := make(map[string]bool)
+	for _, class := range classes {
+		for _, code := range class.Codes {
+			allowed[code] = true
+		}
+	}
+	recentCodes := make([]string, 0, len(recent))
+	for _, code := range recent {
+		if allowed[code] {
+			recentCodes = append(recentCodes, code)
+			recentSet[code] = true
+		}
+	}
+	sections := make([]UnitSection, 0, len(classes)+1)
+	addSection := func(title string, codes []string) {
+		items := make([]UnitItem, 0, len(codes))
+		for _, code := range codes {
+			def, ok := game.LookupUnit(code)
+			if !ok {
+				continue
+			}
+			items = append(items, buildUnitItem(def, counts[code], levels, sh.Resources, shipyard, nanite, speed, queue))
+		}
+		if len(items) > 0 {
+			sections = append(sections, UnitSection{Title: title, Items: items})
+		}
+	}
+	if len(recentCodes) > 0 {
+		addSection("Recently built", recentCodes)
+	}
+	for _, class := range classes {
+		codes := make([]string, 0, len(class.Codes))
+		for _, code := range class.Codes {
+			if !recentSet[code] {
+				codes = append(codes, code)
+			}
+		}
+		addSection(class.Title, codes)
+	}
+	return ShipyardData{Sections: sections, Queue: queue}
+}
+
+func buildUnitItem(def game.UnitDef, count int64, levels map[string]int, res *models.RealtimeResourceState, shipyard, nanite int, speed float64, queue *models.QueueEntrySummary) UnitItem {
+	item := UnitItem{
+		Code: def.Code, Name: def.Name, Count: count, Cost: unitManifest(def),
+		Image:   assetURL(def.Code),
+		Prereqs: prereqList(def.Requires, levels),
+	}
+	item.Unlocked, item.Reason = reqOK(def.Requires, levels)
+	item.DurationSecs = int64(game.UnitDuration(def.Code, 1, shipyard, nanite, speed).Seconds())
+	item.Busy = queue != nil && queue.Code == def.Code
+	item.MaxQty = maxAffordable(res, item.Cost)
+	return item
+}
+
+// recentlyBuiltUnits lists the distinct unit codes of the most recently
+// completed shipyard queues for a celestial, newest first.
+func (h *Handler) recentlyBuiltUnits(r *http.Request, id int64, limit int) []string {
+	rows, err := h.db.QueryContext(r.Context(), `
+		SELECT unit_code FROM (
+			SELECT DISTINCT ON (unit_code) unit_code, end_time
+			FROM shipyard_queues
+			WHERE celestial_id = $1 AND status = 'COMPLETED'
+			ORDER BY unit_code, end_time DESC
+		) t
+		ORDER BY end_time DESC
+		LIMIT $2
+	`, id, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err == nil {
+			out = append(out, code)
+		}
+	}
+	return out
+}
+
+// maxAffordable is the largest quantity of a unit the celestial can pay for at
+// once; 0 when the cost is unknown or unaffordable.
+func maxAffordable(res *models.RealtimeResourceState, cost models.CargoManifest) int64 {
+	if res == nil {
+		return 0
+	}
+	limit := int64(math.MaxInt64)
+	if cost.Metal > 0 {
+		limit = min(limit, int64(res.MetalCurrent)/cost.Metal)
+	}
+	if cost.Crystal > 0 {
+		limit = min(limit, int64(res.CrystalCurrent)/cost.Crystal)
+	}
+	if cost.Deuterium > 0 {
+		limit = min(limit, int64(res.DeutCurrent)/cost.Deuterium)
+	}
+	if limit == int64(math.MaxInt64) || limit < 0 {
+		return 0
+	}
+	return limit
+}
+
 func (h *Handler) ShipyardSubmit(w http.ResponseWriter, r *http.Request) {
+	h.unitSubmit(w, r, "/shipyard/"+r.PathValue("id"))
+}
+
+func (h *Handler) DefensesSubmit(w http.ResponseWriter, r *http.Request) {
+	h.unitSubmit(w, r, "/defenses/"+r.PathValue("id"))
+}
+
+func (h *Handler) unitSubmit(w http.ResponseWriter, r *http.Request, back string) {
 	userID, _ := h.userID(r)
 	id, ok := parseID(r)
 	if !ok || !h.ownsCelestial(r, id, userID) {
@@ -292,11 +447,36 @@ func (h *Handler) ShipyardSubmit(w http.ResponseWriter, r *http.Request) {
 		qty = 1
 	}
 	if _, err := h.builds.EnqueueShipyard(r.Context(), id, code, qty); err != nil {
-		h.redirect(w, r, "/shipyard/"+r.PathValue("id"), "", err.Error())
+		h.redirect(w, r, back, "", err.Error())
 		return
 	}
 	h.nudge()
-	h.redirect(w, r, "/shipyard/"+r.PathValue("id"), "Queued "+code, "")
+	h.redirect(w, r, back, "Queued "+code, "")
+}
+
+// ShipyardCancelSubmit cancels the active ship/defense build and refunds its
+// cost (reskin I3).
+func (h *Handler) ShipyardCancelSubmit(w http.ResponseWriter, r *http.Request) {
+	h.unitCancel(w, r, "/shipyard/"+r.PathValue("id"))
+}
+
+func (h *Handler) DefensesCancelSubmit(w http.ResponseWriter, r *http.Request) {
+	h.unitCancel(w, r, "/defenses/"+r.PathValue("id"))
+}
+
+func (h *Handler) unitCancel(w http.ResponseWriter, r *http.Request, back string) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelShipyard, id); err != nil {
+		h.redirect(w, r, back, "", err.Error())
+		return
+	}
+	h.nudge()
+	h.redirect(w, r, back, "Build cancelled, resources refunded", "")
 }
 
 // ---- Research ------------------------------------------------------------
@@ -681,10 +861,6 @@ func reqOK(requires, levels map[string]int) (bool, string) {
 		return true, ""
 	}
 	return false, reasonFor(requires, levels)
-}
-
-func mustReq(requires, levels map[string]int) bool {
-	return game.RequiresMet(requires, levels)
 }
 
 func reasonFor(requires, levels map[string]int) string {

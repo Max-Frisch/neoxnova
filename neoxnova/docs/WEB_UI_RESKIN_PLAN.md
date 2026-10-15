@@ -94,6 +94,12 @@ id→file mapping (so templates can reference assets by catalog code).
 - **Exit:** queue + cancel work from the new UI.
 
 ## I3 — Hangar (Shipyard) + Defenses + Fleet
+> **Status: ✅ done (2026-10-15).** Hangar/Defenses render grouped sprite card
+> grids (Recently built / Small / Medium / Large / Special, bands captured from
+> the live shipyard+defenses pages); new `/defenses/{id}` + build/cancel routes;
+> wired `store.CancelQueue(CancelShipyard)`; server-computed `Max` (app.js
+> delegated fill); Fleet restyled onto panels + `/expedition` link. Class tables
+> are unit-tested against the catalog for completeness.
 - Shipyard sections: Recently built / Small / Medium / Large class (+ defenses group for the
   Defenses nav) with cost, qty, **Max**, Build.
 - Restyle Fleet dispatch + fleet/incoming tables; keep `/expedition` link.

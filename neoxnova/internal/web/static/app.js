@@ -79,10 +79,31 @@
     });
   }
 
+  // wireMaxButtons fills a quantity input with the server-computed affordable
+  // maximum when a "Max" button is clicked. Uses a delegated listener so it
+  // keeps working after htmx swaps.
+  function wireMaxButtons() {
+    document.addEventListener("click", function (evt) {
+      var el = evt.target;
+      while (el && el !== document && !el.classList.contains("unit-max")) {
+        el = el.parentNode;
+      }
+      if (!el || el === document) {
+        return;
+      }
+      evt.preventDefault();
+      var input = document.getElementById(el.getAttribute("data-target"));
+      if (input) {
+        input.value = el.getAttribute("data-max");
+      }
+    });
+  }
+
   function init() {
     applyBars(document);
     startClock();
     wirePlanetSelect();
+    wireMaxButtons();
   }
 
   document.addEventListener("DOMContentLoaded", init);

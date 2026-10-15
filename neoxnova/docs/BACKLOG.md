@@ -21,10 +21,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI reskin (I3–I5)** — I0 artwork + I1 shell/skin + I2 build/research/cancel done
-      (below). Mirror the live Niburuspace OGame-Redesign UI; plan + phases in
-      `docs/WEB_UI_RESKIN_PLAN.md` (I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/
-      messages). Supersedes the old "Web UI menu coverage" item.
+- [ ] **Web UI reskin (I4–I5)** — I0 artwork + I1 shell/skin + I2 build/research/cancel + I3
+      hangar/defenses/fleet done (below). Mirror the live Niburuspace OGame-Redesign UI; plan +
+      phases in `docs/WEB_UI_RESKIN_PLAN.md` (I4 galaxy/tech/resources → I5 account/messages).
+      Supersedes the old "Web UI menu coverage" item.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -35,22 +35,17 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
-- 2026-10-15 — **Web UI reskin I2 (buildings/research card grids + queue cancel)**: `BuildingsBody`/
-      `ResearchBody` rewritten to sprite card grids (cost rows, energy note, duration, prereq
-      "Necessary for the construction", Busy, disabled "Buy with Dark matter.") + an active-queue
-      row with cancel X; `store.CancelQueue` (multi-instance safe, refunds construction/shipyard/
-      research) + `POST /buildings/{id}/cancel`, `/research/{id}/cancel`; Overview restyled; store + web + e2e tests.
-- 2026-10-15 — **Web UI reskin I1 (skin foundation + game shell)**: hand-authored `static/skin.css`
-      (starfield/topbar/panels/menu/progress/buttons) + `static/app.js` (server clock, planet-select
-      nav, CSP-safe `data-pct` bar widths); `layout.templ` rewritten to the live shell — black top
-      bar (planet switcher, messages link), htmx-polled resource bar (M/C/D capacity fills, Energy,
-      **Stardust/Dark Matter/Antimatter**), full left menu with unbacked items disabled
-      ("coming soon"); `Shell` gained `ServerTime`/`ActiveCoords`; shell-render + asset-serving
-      tests; all existing `internal/web` + e2e tests green.
-- 2026-10-15 — **Web UI reskin I0 (artwork capture)**: ops `tools/explorer/assets.mjs` captures the
-      live skin read-only (acc1 session, page `<img>`/CSS `url()`) → curated `internal/web/static/
-      niburu/**` (`buildings/research/ships/defenses/icons/bg` + `README.md` id→file map); `go:embed
-      static` + serving and catalog-completeness tests.
+- 2026-10-15 — **Web UI reskin I3 (hangar/defenses/fleet)**: `ShipyardBody`/`DefensesBody` are
+      grouped sprite card grids (Recently built / Small / Medium / Large / Special — bands captured
+      from the live pages, recent units pulled out of their class) with cost rows, duration, "Have"
+      count, "Max" (server-computed affordable qty + app.js fill), Build, Busy and a cancel X; new
+      `/defenses/{id}` page + `/defenses/{id}/build|cancel`; wired `store.CancelQueue(CancelShipyard)`;
+      Fleet restyled onto panels + `/expedition` link; web render tests (catalog-completeness) +
+      `TestCancelQueueRefundsShipyard`.
+- 2026-10-15 — **Web UI reskin I2/I1/I0**: card grids + queue cancel for buildings/research
+      (`store.CancelQueue`, `POST /buildings|/research/{id}/cancel`, Overview restyled); `skin.css`+
+      `app.js` + rewritten shell `layout.templ` (topbar, htmx resource bar with DM/AM/Stardust, full
+      menu) ; artwork captured from the live skin into `static/niburu/**` (+ `go:embed` + serving tests).
 - 2026-10-15 — **Stardust diameter sink**: Planetarium "increase in diameter" (`POST /planets/{id}/diameter`)
       spends a coords debris field (100B metal/50B crystal) + 1 Stardust → +276..414 km / +12..18 fields (planets & moons); store+API+tests.
 - 2026-10-15 — **Expedition mix recalibration (X4)**: combat 13.5 % (owner direction, vs the

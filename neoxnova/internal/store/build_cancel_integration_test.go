@@ -97,6 +97,81 @@ func TestCancelQueueRefundsConstruction(t *testing.T) {
 	}
 }
 
+// TestCancelQueueRefundsShipyard verifies the reskin-I3 ship/defense cancel: the
+// active shipyard build is marked CANCELLED and its full cost is refunded to the
+// celestial. Skips without DATABASE_URL.
+func TestCancelQueueRefundsShipyard(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set; skipping DB integration test")
+	}
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := db.PingContext(ctx); err != nil {
+		t.Skipf("db not reachable: %v", err)
+	}
+	var codeName string
+	if err := db.QueryRowContext(ctx, `SELECT code_name FROM universes LIMIT 1`).Scan(&codeName); err != nil {
+		t.Skipf("no universe seeded: %v", err)
+	}
+
+	as := NewAuthStore(db)
+	uname := fmt.Sprintf("cancelship_%d", time.Now().UnixNano())
+	hash, err := auth.HashPassword("s3cret-password!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, planetID, err := as.CreateUser(ctx, codeName, uname, uname+"@example.com", hash)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	defer db.ExecContext(ctx, `DELETE FROM shipyard_queues WHERE celestial_id = $1`, planetID)
+	defer db.ExecContext(ctx, `DELETE FROM planet_structures WHERE celestial_id = $1`, planetID)
+	defer db.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id = $1`, planetID)
+	defer db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO planet_structures (celestial_id, structure_code, level) VALUES ($1,'shipyard',1)
+		ON CONFLICT (celestial_id, structure_code) DO UPDATE SET level = EXCLUDED.level
+	`, planetID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE celestial_objects SET metal=1e9, crystal=1e9, deuterium=1e9 WHERE id=$1`, planetID); err != nil {
+		t.Fatal(err)
+	}
+
+	bs := NewBuildStore(db)
+	// Missile Launcher (401) only needs a shipyard, keeping the fixture small.
+	if _, err := bs.EnqueueShipyard(ctx, planetID, "401", 3); err != nil {
+		t.Fatalf("enqueue shipyard: %v", err)
+	}
+	cost, err := bs.CancelQueue(ctx, CancelShipyard, planetID)
+	if err != nil {
+		t.Fatalf("cancel shipyard: %v", err)
+	}
+	if cost.Metal <= 0 {
+		t.Fatalf("refund metal = %d, want > 0", cost.Metal)
+	}
+
+	var status string
+	if err := db.QueryRowContext(ctx, `
+		SELECT status FROM shipyard_queues WHERE celestial_id=$1 ORDER BY id DESC LIMIT 1
+	`, planetID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "CANCELLED" {
+		t.Fatalf("shipyard status = %q, want CANCELLED", status)
+	}
+
+	if _, err := bs.CancelQueue(ctx, CancelShipyard, planetID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second cancel = %v, want ErrNotFound", err)
+	}
+}
+
 // TestCancelQueueRefundsResearch covers the empire-wide research scope: the
 // refund lands on the celestial the research was started from and the entry is
 // marked CANCELLED.
