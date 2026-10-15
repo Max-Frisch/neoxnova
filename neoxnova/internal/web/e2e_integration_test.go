@@ -352,6 +352,40 @@ func TestWebEndToEnd(t *testing.T) {
 		body = e2ePost(t, clientA, srv.URL, "/simulator", url.Values{"a_204": {"0"}, "d_204": {"0"}})
 		e2eWantContains(t, body, "fleet is empty", "empty-fleet error")
 	})
+
+	t.Run("expedition panel sends to deep space", func(t *testing.T) {
+		panel := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/expedition/%d", a.HomeID))
+		e2eWantContains(t, panel, "Expedition command", "expedition panel")
+		e2eWantContains(t, panel, "Active expeditions", "live slots panel")
+		e2eWantContains(t, panel, "exp_time", "hold-time slider")
+		e2eWantContains(t, panel, "exp_speed", "speed slider")
+		e2eWantContains(t, panel, e2eCoord(a.G, a.S, 21), "auto deep-space target")
+
+		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/expedition/%d/send", a.HomeID), url.Values{
+			"ship_204": {"1"}, "exp_time": {"4"}, "exp_speed": {"10"}, "count": {"1"},
+		})
+		e2eWantContains(t, body, "Sent 1 expedition", "expedition dispatch flash")
+		e2eWantContains(t, body, "Slots", "slot counter after send")
+
+		// exp_time 4 -> 60 min hold; the fleet targets [g:s:21].
+		var holdMin float64
+		var targetPos int
+		err := db.QueryRowContext(ctx, `
+			SELECT EXTRACT(EPOCH FROM (holding_end_time - arrival_time)) / 60, target_position
+			FROM fleets
+			WHERE user_id = $1 AND mission = 'EXPEDITION'
+			ORDER BY id DESC LIMIT 1
+		`, a.UserID).Scan(&holdMin, &targetPos)
+		if err != nil {
+			t.Fatalf("load dispatched expedition: %v", err)
+		}
+		if holdMin < 59 || holdMin > 61 {
+			t.Fatalf("expedition hold = %.1f min, want 60", holdMin)
+		}
+		if targetPos != 21 {
+			t.Fatalf("expedition target position = %d, want 21", targetPos)
+		}
+	})
 }
 
 // ---- helpers -------------------------------------------------------------

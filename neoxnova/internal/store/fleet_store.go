@@ -80,9 +80,16 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 			return DispatchResult{}, ErrNoTarget
 		}
 	}
+	// The hold window is either whole hours (generic form) or, when present,
+	// fractional minutes (the expedition panel). Minutes win so a slider can
+	// express 0.25 h (15 min).
+	hold := time.Duration(req.HoldingHours) * time.Hour
+	if req.HoldingMinutes > 0 {
+		hold = time.Duration(req.HoldingMinutes) * time.Minute
+	}
 	// An expedition resolves its outcome at the end of a hold window; without one
 	// the fleet would sit in deep space forever.
-	if req.Mission == models.MissionExpedition && req.HoldingHours <= 0 {
+	if req.Mission == models.MissionExpedition && hold <= 0 {
 		return DispatchResult{}, ErrExpeditionHoldRequired
 	}
 	// Expeditions always run in the deep-space slot (one past the last planet
@@ -198,8 +205,8 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	now := time.Now()
 	arrivalTime := now.Add(time.Duration(durationSecs) * time.Second)
 	var holdingEnd sql.NullTime
-	if (req.Mission == models.MissionExpedition || req.Mission == models.MissionHold) && req.HoldingHours > 0 {
-		holdingEnd = sql.NullTime{Time: arrivalTime.Add(time.Duration(req.HoldingHours) * time.Hour), Valid: true}
+	if (req.Mission == models.MissionExpedition || req.Mission == models.MissionHold) && hold > 0 {
+		holdingEnd = sql.NullTime{Time: arrivalTime.Add(hold), Valid: true}
 	}
 	returnTime := arrivalTime.Add(time.Duration(durationSecs) * time.Second)
 	if holdingEnd.Valid {

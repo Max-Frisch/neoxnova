@@ -1,0 +1,131 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/store"
+)
+
+// ---- Expedition command panel -------------------------------------------
+
+templ ExpeditionBody(sh Shell, d ExpeditionData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Expedition command</h2>
+		<span class="text-sm text-slate-400">
+			Target <span class="text-slate-200">{ coord3(d.OriginG, d.OriginS, d.DeepSpace) }</span> (deep space)
+		</span>
+	</div>
+	<div class="grid gap-6 lg:grid-cols-2">
+		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+			<h3 class="mb-2 font-semibold text-slate-200">Send expedition</h3>
+			if d.SlotsTotal <= 0 {
+				<div class="rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
+					No expedition slots yet — every 2 Astrophysics levels unlock 1 slot.
+				</div>
+			} else {
+				<form method="post" action={ templ.URL("/expedition/" + pid(sh) + "/send") } class="space-y-3 text-sm">
+					<div>
+						<p class="mb-1 text-slate-400">Fleet</p>
+						<div class="grid grid-cols-2 gap-1">
+							for _, s := range d.Ships {
+								<label class="flex items-center justify-between gap-2 rounded bg-slate-950/60 px-2 py-1">
+									<span class="truncate text-xs text-slate-300">{ s.Name } ({ fnum(s.Count) })</span>
+									<input name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" class="w-20 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right"/>
+								</label>
+							}
+						</div>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<label class="block text-slate-300">exp_time
+							<input id="exp_time" name="exp_time" type="range" min="1" max="10" value="4" class="mt-2 w-full"/>
+							<span id="exp_time_out" class="text-xs text-cyan-300">1.00 h</span>
+						</label>
+						<label class="block text-slate-300">exp_speed
+							<input id="exp_speed" name="exp_speed" type="range" min="1" max="10" value="10" class="mt-2 w-full"/>
+							<span id="exp_speed_out" class="text-xs text-cyan-300">100%</span>
+						</label>
+					</div>
+					<label class="block text-slate-300">Send N expeditions
+						<input name="count" type="number" min="1" max={ strconv.Itoa(freeSlots(d)) } value="1" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+					</label>
+					<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Send</button>
+				</form>
+			}
+		</section>
+		<section class="space-y-6">
+			@ExpeditionStatusPanel(sh, d)
+			<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Recent outcomes</h3>
+				@ExpeditionReports(d.Reports)
+			</div>
+		</section>
+	</div>
+	<script src="/static/expedition.js" defer></script>
+}
+
+// ExpeditionStatusPanel is the htmx-polled slots + active expeditions fragment.
+templ ExpeditionStatusPanel(sh Shell, d ExpeditionData) {
+	<div id="expostatus" hx-get={ "/expedition/" + pid(sh) + "/status" } hx-trigger="every 5s" hx-swap="outerHTML" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<div class="mb-2 flex items-center justify-between">
+			<h3 class="font-semibold text-slate-200">Active expeditions</h3>
+			<span class="text-sm text-slate-400">Slots <span class="font-semibold text-cyan-300">{ strconv.Itoa(d.SlotsUsed) }</span> / { strconv.Itoa(d.SlotsTotal) }</span>
+		</div>
+		if len(d.Active) == 0 {
+			<p class="text-sm text-slate-500">No expeditions airborne.</p>
+		} else {
+			<table class="w-full text-left text-sm">
+				<thead class="text-slate-500"><tr><th class="py-1">Phase</th><th>Target</th><th>Arrives</th><th></th></tr></thead>
+				<tbody>
+					for _, f := range d.Active {
+						<tr class="border-t border-slate-800">
+							<td class="py-1">{ string(f.Phase) }</td>
+							<td>{ coordStr(f.Destination) }</td>
+							<td>{ dur(f.RemainingSecs) }</td>
+							<td>
+								<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/recall") }>
+									<input type="hidden" name="fleet_id" value={ strconv.FormatInt(f.FleetID, 10) }/>
+									<button class="rounded bg-amber-700 px-2 py-0.5 text-xs hover:bg-amber-600">Recall</button>
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+}
+
+templ ExpeditionReports(reports []store.ExpeditionReport) {
+	if len(reports) == 0 {
+		<p class="text-sm text-slate-500">No outcomes yet.</p>
+	} else {
+		<table class="w-full text-left text-sm">
+			<thead class="text-slate-500"><tr><th class="py-1">Outcome</th><th>Cargo</th><th>Title</th><th>When</th></tr></thead>
+			<tbody>
+				for _, rep := range reports {
+					<tr class="border-t border-slate-800">
+						<td class="py-1">{ rep.Outcome }</td>
+						<td>{ expeditionCargo(rep) }</td>
+						<td class="max-w-md">{ rep.Title }</td>
+						<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+func freeSlots(d ExpeditionData) int {
+	if d.SlotsTotal-d.SlotsUsed > 0 {
+		return d.SlotsTotal - d.SlotsUsed
+	}
+	return 1
+}
+
+func expeditionCargo(rep store.ExpeditionReport) string {
+	c := costStr(cargoFromReport(rep))
+	if rep.DarkMatter > 0 {
+		return c + " · " + fnum(rep.DarkMatter) + " DM"
+	}
+	return c
+}

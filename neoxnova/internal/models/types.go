@@ -184,6 +184,10 @@ type FleetDispatchRequest struct {
 	SpeedPercent   int              `json:"speed_percent" validate:"required,min=10,max=100"`
 	Cargo          CargoManifest    `json:"cargo"`
 	HoldingHours   int              `json:"holding_hours,omitempty" validate:"min=0,max=24"`
+	// HoldingMinutes carries a sub-hour hold (e.g. the expedition panel's
+	// exp_time slider, 0.25-2.5 h). When > 0 it takes precedence over
+	// HoldingHours, which the generic fleet form still uses.
+	HoldingMinutes int `json:"holding_minutes,omitempty" validate:"min=0,max=1440"`
 }
 
 type FleetRecallRequest struct {

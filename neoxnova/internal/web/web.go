@@ -96,6 +96,10 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /fleet/{id}/dispatch", h.page(h.requireUser(h.FleetDispatchSubmit)))
 	mux.HandleFunc("POST /fleet/{id}/recall", h.page(h.requireUser(h.FleetRecallSubmit)))
 
+	mux.HandleFunc("GET /expedition/{id}", h.page(h.requireUser(h.ExpeditionPage)))
+	mux.HandleFunc("GET /expedition/{id}/status", h.page(h.requireUser(h.ExpeditionStatus)))
+	mux.HandleFunc("POST /expedition/{id}/send", h.page(h.requireUser(h.ExpeditionSubmit)))
+
 	mux.HandleFunc("GET /galaxy", h.page(h.requireUser(h.GalaxyRedirect)))
 	mux.HandleFunc("GET /galaxy/{galaxy}/{system}", h.page(h.requireUser(h.GalaxyPage)))
 
