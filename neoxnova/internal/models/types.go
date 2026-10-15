@@ -235,6 +235,19 @@ type PlanetExpandFieldsResponse struct {
 	FieldsBought int64  `json:"fields_bought"`
 }
 
+// PlanetExpandDiameterResponse reports a successful Stardust diameter expansion
+// (Planetarium "The increase in diameter") and the resulting celestial totals.
+type PlanetExpandDiameterResponse struct {
+	Status        string `json:"status"`
+	DiameterGain  int    `json:"diameter_gain"`
+	FieldsGain    int    `json:"fields_gain"`
+	DiameterKm    int    `json:"diameter_km"`
+	FieldsMax     int64  `json:"fields_max"`
+	StardustSpent int64  `json:"stardust_spent"`
+	MetalDebris   int64  `json:"metal_debris"`
+	CrystalDebris int64  `json:"crystal_debris"`
+}
+
 type QueueEntrySummary struct {
 	ID            int64     `json:"id"`
 	Code          string    `json:"code"`

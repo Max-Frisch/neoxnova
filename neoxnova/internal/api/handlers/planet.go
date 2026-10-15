@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 
 	"neoxnova/internal/auth"
+	"neoxnova/internal/game"
 	"neoxnova/internal/models"
 	"neoxnova/internal/store"
 )
@@ -111,6 +113,46 @@ func (h *Handler) PlanetExpandFields(w http.ResponseWriter, r *http.Request) {
 	default:
 		log.Printf("[ERROR] Failed to expand fields for planet #%d: %v", id, err)
 		writeError(w, http.StatusInternalServerError, "Failed to expand fields")
+	}
+}
+
+// PlanetExpandDiameter spends one Stardust plus the debris field at the
+// celestial's coordinates to increase a planet's (or moon's) diameter and field
+// count (Planetarium "The increase in diameter").
+func (h *Handler) PlanetExpandDiameter(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid planet ID format")
+		return
+	}
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	diameterGain, fieldsGain := game.DiameterExpansionGains(rand.Float64(), rand.Float64())
+	res, err := h.Planets.ExpandDiameter(r.Context(), id, userID, diameterGain, fieldsGain)
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusOK, models.PlanetExpandDiameterResponse{
+			Status:        "expanded",
+			DiameterGain:  res.DiameterGain,
+			FieldsGain:    res.FieldsGain,
+			DiameterKm:    res.DiameterKm,
+			FieldsMax:     res.FieldsMax,
+			StardustSpent: res.StardustSpent,
+			MetalDebris:   res.MetalDebris,
+			CrystalDebris: res.CrystalDebris,
+		})
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "Planet not found")
+	case errors.Is(err, store.ErrInsufficientStardust):
+		writeError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, store.ErrInsufficientDebris):
+		writeError(w, http.StatusConflict, err.Error())
+	default:
+		log.Printf("[ERROR] Failed to expand diameter for planet #%d: %v", id, err)
+		writeError(w, http.StatusInternalServerError, "Failed to expand diameter")
 	}
 }
 

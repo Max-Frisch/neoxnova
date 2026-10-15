@@ -36,6 +36,8 @@ var (
 	ErrLotExpired              = errors.New("market lot has expired")
 	ErrCannotBuyOwnLot         = errors.New("cannot buy your own market lot")
 	ErrInsufficientAntimatter  = errors.New("insufficient antimatter")
+	ErrInsufficientStardust    = errors.New("insufficient stardust")
+	ErrInsufficientDebris      = errors.New("insufficient debris field for the diameter expansion")
 )
 
 // NoobProtectionRatio is the maximum allowed points ratio (in either direction)

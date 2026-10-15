@@ -69,8 +69,9 @@ type ExpeditionResult struct {
 	// DarkMatter found (Outcome == ExpeditionDarkMatter).
 	DarkMatter int64
 	// Stardust found (Outcome == ExpeditionStardust). A rare currency, always a
-	// single unit per find (live messages read "1 unit of Stardust"); the
-	// debris-based diameter/fields sink that spends it is not modelled yet.
+	// single unit per find (live messages read "1 unit of Stardust"). It is spent
+	// at the Planetarium's "increase in diameter" sink (game.DiameterExpansion* /
+	// PlanetStore.ExpandDiameter).
 	Stardust int64
 	// Recovered ships added to the returning fleet (Outcome == ExpeditionShips).
 	Ships map[string]int64

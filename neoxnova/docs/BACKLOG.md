@@ -36,19 +36,19 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Stardust diameter sink**: Planetarium "increase in diameter" (`POST /planets/{id}/diameter`)
+      spends a coords debris field (100B metal/50B crystal) + 1 Stardust → +276..414 km / +12..18 fields (planets & moons); store+API+tests.
 - 2026-10-15 — **Expedition mix recalibration (X4)**: combat 13.5 % (owner direction, vs the
       suppressed live 10.2 %) + stardust 1.9 %, fatal BH 1.68 %/positive BH-loot 1.7 % pinned, six
       unlocked buckets normalized to the measured n=2062 split; point/cargo-scaled finds kept (+test).
 - 2026-10-15 — **Stardust find (X3)**: rare `stardust` expedition outcome (~1.9 %) + live flavours;
       `users.stardust` (migration `0018`) credited/persisted, shown via `/auth/me` + resource state + web bar.
-- 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` — ship
-      picker, `exp_time` 1–10 → 0.25–2.5 h (new `holding_minutes`, overrides `holding_hours`),
-      `exp_speed` 1–10 → 10–100 %, "send N" (stops at slot limit), auto `[g:s:21]`, htmx-polled
-      slots used/total + active expeditions + outcomes, nav link, slider JS; `/fleet` untouched.
-- 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe
-  `expedition_slots_bonus` (optional `_cap`; migration `0017`), enforced in
-  `FleetStore.Dispatch` (`ErrExpeditionSlotsFull`); expeditions pinned to `[g:s:21]`
-  (`ErrInvalidExpeditionTarget`); pure + store integration tests.
+- 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` — ship picker,
+      `exp_time` 1–10 → 0.25–2.5 h (new `holding_minutes`), `exp_speed` 1–10 → 10–100 %, "send N"
+      (stops at slot limit), auto `[g:s:21]`, htmx-polled slots + active expeditions + outcomes; `/fleet` untouched.
+- 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe `expedition_slots_bonus`
+  (optional `_cap`; migration `0017`), enforced in `FleetStore.Dispatch`; expeditions pinned to
+  `[g:s:21]`; pure + store integration tests.
 - 2026-10-12 — 2 more acc1 colonies on the builder: cp1917 `3:137:9`, cp1918 `3:139:9`
   (VM tmux `colo-1917`/`colo-1918`, plan `plans/acc1-colo-1917-1918.json`). Bootstrap
   Robot 11 / Nanite 1 / storages 9/8/7 / shipyard 12 / lab 12 / mines 26/24/21 / solar 21

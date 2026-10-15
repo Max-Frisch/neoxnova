@@ -155,8 +155,11 @@ persists it verbatim. Harvest the exact strings from `data/_lang_FLEETphp` +
 **Find shipped 2026-10-15 (X3).** A distinct `stardust` outcome (weight ~1.9 %,
 folded out of the unlocked buckets) yields 1 unit, credited to `users.stardust`
 (migration `0018`) and surfaced via `/auth/me`, the resource state and the web
-resource bar. The debris-based diameter/fields sink that spends it remains
-deferred (backlog X4 / the private ops repo §11e).
+resource bar. The debris-based diameter/fields sink that spends it is now
+implemented (2026-10-15): the Planetarium "The increase in diameter" option
+(`POST /api/v1/planets/{id}/diameter`, `PlanetStore.ExpandDiameter`) consumes a
+debris field at the celestial's coordinates (100B metal + 50B crystal) plus 1
+Stardust to add +276..+414 km diameter and +12..+18 fields (planets and moons).
 
 ---
 

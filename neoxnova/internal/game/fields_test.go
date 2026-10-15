@@ -44,3 +44,42 @@ func TestFieldExpansionCostEdgeCases(t *testing.T) {
 		t.Error("per-field price should increase monotonically")
 	}
 }
+
+// TestDiameterExpansionGains locks the captured Stardust diameter-expansion
+// ranges (diameter +276..+414 km, fields +12..+18) and their roll mapping.
+func TestDiameterExpansionGains(t *testing.T) {
+	if DiameterExpansionMetalDebris != 100_000_000_000 ||
+		DiameterExpansionCrystalDebris != 50_000_000_000 ||
+		DiameterExpansionStardust != 1 {
+		t.Fatalf("unexpected diameter cost: metal %d crystal %d stardust %d",
+			DiameterExpansionMetalDebris, DiameterExpansionCrystalDebris, DiameterExpansionStardust)
+	}
+
+	cases := []struct {
+		roll       float64
+		wantKm     int
+		wantFields int
+	}{
+		{0, DiameterExpansionMinKm, DiameterExpansionMinFields},
+		{0.999999, DiameterExpansionMaxKm, DiameterExpansionMaxFields},
+		{1, DiameterExpansionMaxKm, DiameterExpansionMaxFields},  // clamped
+		{-1, DiameterExpansionMinKm, DiameterExpansionMinFields}, // clamped
+	}
+	for _, c := range cases {
+		km, f := DiameterExpansionGains(c.roll, c.roll)
+		if km != c.wantKm || f != c.wantFields {
+			t.Errorf("DiameterExpansionGains(%v) = (%d,%d), want (%d,%d)", c.roll, km, f, c.wantKm, c.wantFields)
+		}
+	}
+
+	// Sweep many rolls and assert both gains always stay within their range.
+	for i := 0; i < 1000; i++ {
+		km, f := DiameterExpansionGains(float64(i)/1000.0, float64(1000-i)/1000.0)
+		if km < DiameterExpansionMinKm || km > DiameterExpansionMaxKm {
+			t.Fatalf("diameter gain %d outside [%d,%d]", km, DiameterExpansionMinKm, DiameterExpansionMaxKm)
+		}
+		if f < DiameterExpansionMinFields || f > DiameterExpansionMaxFields {
+			t.Fatalf("field gain %d outside [%d,%d]", f, DiameterExpansionMinFields, DiameterExpansionMaxFields)
+		}
+	}
+}

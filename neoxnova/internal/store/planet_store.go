@@ -297,6 +297,113 @@ func (s *PlanetStore) ExpandFields(ctx context.Context, planetID, userID int64, 
 	return FieldsResult{Cost: cost, FieldsMax: newMax, FieldsBought: newBought}, nil
 }
 
+// DiameterResult reports a successful Stardust diameter expansion.
+type DiameterResult struct {
+	StardustSpent int64
+	MetalDebris   int64
+	CrystalDebris int64
+	DiameterGain  int
+	FieldsGain    int
+	DiameterKm    int
+	FieldsMax     int64
+}
+
+// ExpandDiameter spends one unit of Stardust plus the required metal/crystal
+// debris field located at the celestial's own coordinates to raise a planet's
+// (or moon's) diameter and field capacity by the given gains (from
+// game.DiameterExpansionGains). The debris field must hold at least the required
+// amounts and is consumed down. Diameter is cosmetic; the field gain is folded
+// into base_fields_max so RecomputeCelestial preserves it across builds.
+func (s *PlanetStore) ExpandDiameter(ctx context.Context, celestialID, userID int64, diameterGain, fieldsGain int) (DiameterResult, error) {
+	if diameterGain < 0 || fieldsGain < 0 {
+		return DiameterResult{}, ErrInvalidQuantity
+	}
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return DiameterResult{}, err
+	}
+	defer tx.Rollback()
+
+	var (
+		owner       sql.NullInt64
+		universe    string
+		g, sys, pos int
+		objectType  string
+	)
+	err = tx.QueryRowContext(ctx, `
+		SELECT user_id, universe_id::text, galaxy, system, position, object_type
+		FROM celestial_objects WHERE id = $1 FOR UPDATE
+	`, celestialID).Scan(&owner, &universe, &g, &sys, &pos, &objectType)
+	if err == sql.ErrNoRows {
+		return DiameterResult{}, ErrNotFound
+	} else if err != nil {
+		return DiameterResult{}, err
+	}
+	if !owner.Valid || owner.Int64 != userID || (objectType != "PLANET" && objectType != "MOON") {
+		return DiameterResult{}, ErrNotFound
+	}
+
+	// Spend the Stardust first so a missing one short-circuits before the debris.
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users SET stardust = stardust - $1 WHERE id = $2 AND stardust >= $1
+	`, game.DiameterExpansionStardust, userID)
+	if err != nil {
+		return DiameterResult{}, err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return DiameterResult{}, err
+	}
+	if affected == 0 {
+		return DiameterResult{}, ErrInsufficientStardust
+	}
+
+	// Consume the debris field at the celestial's coordinates (shared by a moon
+	// and its planet). Atomic check-and-deduct so a partial field is refused.
+	res, err = tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET metal = metal - $1, crystal = crystal - $2
+		WHERE universe_id = $3 AND galaxy = $4 AND system = $5 AND position = $6
+		  AND object_type = 'DEBRIS_FIELD'
+		  AND metal >= $1 AND crystal >= $2
+	`, game.DiameterExpansionMetalDebris, game.DiameterExpansionCrystalDebris, universe, g, sys, pos)
+	if err != nil {
+		return DiameterResult{}, err
+	}
+	affected, err = res.RowsAffected()
+	if err != nil {
+		return DiameterResult{}, err
+	}
+	if affected == 0 {
+		return DiameterResult{}, ErrInsufficientDebris
+	}
+
+	var newDiameter int
+	var newFieldsMax int64
+	if err := tx.QueryRowContext(ctx, `
+		UPDATE celestial_objects
+		SET diameter_km = diameter_km + $1,
+		    base_fields_max = base_fields_max + $2::bigint,
+		    fields_max = fields_max + $2::int
+		WHERE id = $3
+		RETURNING diameter_km, fields_max
+	`, diameterGain, int64(fieldsGain), celestialID).Scan(&newDiameter, &newFieldsMax); err != nil {
+		return DiameterResult{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return DiameterResult{}, err
+	}
+	return DiameterResult{
+		StardustSpent: game.DiameterExpansionStardust,
+		MetalDebris:   game.DiameterExpansionMetalDebris,
+		CrystalDebris: game.DiameterExpansionCrystalDebris,
+		DiameterGain:  diameterGain,
+		FieldsGain:    fieldsGain,
+		DiameterKm:    newDiameter,
+		FieldsMax:     newFieldsMax,
+	}, nil
+}
+
 // UpdateResources runs the continuous resource accumulator and returns the fresh state.
 func (s *PlanetStore) UpdateResources(ctx context.Context, planetID string) (float64, float64, float64, time.Time, error) {
 	var metal, crystal, deut float64

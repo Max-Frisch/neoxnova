@@ -34,3 +34,44 @@ func FieldExpansionCost(purchased, additional int) int64 {
 		(math.Pow(FieldExpansionFactor, float64(additional)) - 1.0)
 	return int64(math.Round(cost))
 }
+
+// Stardust diameter expansion — the Planetarium / Black-market "The increase in
+// diameter" option (captured 2026-10-15, screenshot of planet 3:125:12). It
+// consumes the metal + crystal debris field at the celestial's own coordinates
+// plus one unit of Stardust to raise the celestial's diameter and field capacity
+// by a rolled amount. Planets and moons (which share their planet's
+// coordinates) use the same cost and ranges; the field gain is separate from
+// the Dark-Matter field purchase above.
+const (
+	// DiameterExpansionMetalDebris is the metal debris spent per expansion.
+	DiameterExpansionMetalDebris int64 = 100_000_000_000
+	// DiameterExpansionCrystalDebris is the crystal debris spent per expansion.
+	DiameterExpansionCrystalDebris int64 = 50_000_000_000
+	// DiameterExpansionStardust is the Stardust spent per expansion.
+	DiameterExpansionStardust int64 = 1
+	// DiameterExpansionMinKm/MaxKm bound the diameter gain (inclusive).
+	DiameterExpansionMinKm = 276
+	DiameterExpansionMaxKm = 414
+	// DiameterExpansionMinFields/MaxFields bound the field gain (inclusive).
+	DiameterExpansionMinFields = 12
+	DiameterExpansionMaxFields = 18
+)
+
+// DiameterExpansionGains maps two uniform [0,1) rolls onto the captured diameter
+// (km) and field-count gains (each inclusive of both bounds). Rolls outside
+// [0,1) are clamped so the result always stays within the captured ranges.
+func DiameterExpansionGains(diameterRoll, fieldsRoll float64) (diameterKm, fields int) {
+	return expansionRoll(DiameterExpansionMinKm, DiameterExpansionMaxKm, diameterRoll),
+		expansionRoll(DiameterExpansionMinFields, DiameterExpansionMaxFields, fieldsRoll)
+}
+
+// expansionRoll maps a [0,1) roll onto lo..hi inclusive.
+func expansionRoll(lo, hi int, roll float64) int {
+	if roll < 0 {
+		roll = 0
+	}
+	if roll >= 1 {
+		roll = 0.999999999
+	}
+	return lo + int(roll*float64(hi-lo+1))
+}
