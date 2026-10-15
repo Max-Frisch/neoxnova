@@ -21,11 +21,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI menu coverage** — remaining in-game menus missing from the frontend: Premium
-      Account, Antimatter Store, Senate, Academy, Achievements, Alliance, Referals, Tournaments,
-      Promote Server. Now covered too: Arsenal, Black market, Technologies (tech tree),
-      Simulator (page + `POST /api/v1/sim`). Already covered: Research, Buildings, Hangar,
-      Defenses (Shipyard), Fleet, Resources, Galaxy.
+- [ ] **Web UI reskin (I1–I5)** — I0 artwork capture done (below). Mirror the live Niburuspace
+      OGame-Redesign UI; plan + phases in `docs/WEB_UI_RESKIN_PLAN.md` (I1 shell/skin →
+      I2 build/research/cancel → I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/messages).
+      Supersedes the old "Web UI menu coverage" item.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -36,6 +35,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Web UI reskin I0 (artwork capture)**: ops `tools/explorer/assets.mjs` captures the
+      live skin read-only (acc1 session, page `<img>`/CSS `url()`) → curated `internal/web/static/
+      niburu/**` (`buildings/research/ships/defenses/icons/bg` + `README.md` id→file map); `go:embed
+      static` + serving and catalog-completeness tests.
 - 2026-10-15 — **Stardust diameter sink**: Planetarium "increase in diameter" (`POST /planets/{id}/diameter`)
       spends a coords debris field (100B metal/50B crystal) + 1 Stardust → +276..414 km / +12..18 fields (planets & moons); store+API+tests.
 - 2026-10-15 — **Expedition mix recalibration (X4)**: combat 13.5 % (owner direction, vs the
@@ -49,11 +52,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 - 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe `expedition_slots_bonus`
   (optional `_cap`; migration `0017`), enforced in `FleetStore.Dispatch`; expeditions pinned to
   `[g:s:21]`; pure + store integration tests.
-- 2026-10-12 — 2 more acc1 colonies on the builder: cp1917 `3:137:9`, cp1918 `3:139:9`
-  (VM tmux `colo-1917`/`colo-1918`, plan `plans/acc1-colo-1917-1918.json`). Bootstrap
-  Robot 11 / Nanite 1 / storages 9/8/7 / shipyard 12 / lab 12 / mines 26/24/21 / solar 21
-  (then sats); `gradual` to caps, bumped same day to mines 48/47/44, Robot 22 / Nanite 11,
-  shipyard 18, lab 23, storages 10/9/8, conveyors 9/8/7 (run-one-colony.sh, per-colony loop).
+- 2026-10-12 — 2 more acc1 colonies (cp1917 `3:137:9`, cp1918 `3:139:9`); bootstrap + `gradual`
+  bumps to mines 48/47/44, Robot 22 / Nanite 11, conveyors 9/8/7 (`run-one-colony.sh`).
 - 2026-10-12 — expedicion full deep-scan analysis (BW night): outcome mix n=652, loot, 53
   fights (24/24 overnight wins), fatal-BH 2.30 % window / 1.95 % since relaunch
   (`the private ops repo` §14; no code changed).

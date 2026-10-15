@@ -19,7 +19,7 @@ import (
 	"neoxnova/internal/store"
 )
 
-//go:embed static/*
+//go:embed static
 var staticFiles embed.FS
 
 const sessionTTL = 7 * 24 * time.Hour
