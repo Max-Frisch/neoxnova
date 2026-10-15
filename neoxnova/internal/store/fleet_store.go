@@ -37,14 +37,17 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	var universeID string
 	var userID int64
 	var originDeut, fleetSpeed float64
+	var planetsPerSystem, expoSlotBonus, expoSlotCap int
 	var attackLockedUntil sql.NullTime
 	originQuery := `SELECT c.universe_id, c.user_id, c.galaxy, c.system, c.position, c.deuterium, u.fleet_speed,
+	                       u.planets_per_system, u.expedition_slots_bonus, u.expedition_slots_cap,
 	                       c.attack_locked_until
 	                FROM celestial_objects c
 	                JOIN universes u ON u.id = c.universe_id
 	                WHERE c.id = $1 FOR UPDATE OF c`
 	err = tx.QueryRowContext(ctx, originQuery, req.OriginPlanetID).Scan(
-		&universeID, &userID, &oG, &oS, &oP, &originDeut, &fleetSpeed, &attackLockedUntil,
+		&universeID, &userID, &oG, &oS, &oP, &originDeut, &fleetSpeed,
+		&planetsPerSystem, &expoSlotBonus, &expoSlotCap, &attackLockedUntil,
 	)
 	if err != nil {
 		return DispatchResult{}, ErrNotFound
@@ -81,6 +84,14 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	// the fleet would sit in deep space forever.
 	if req.Mission == models.MissionExpedition && req.HoldingHours <= 0 {
 		return DispatchResult{}, ErrExpeditionHoldRequired
+	}
+	// Expeditions always run in the deep-space slot (one past the last planet
+	// slot in a system), matching the reference fleet panel that auto-targets
+	// [g:s:21].
+	if req.Mission == models.MissionExpedition {
+		if req.Target.Type != models.TypeDeepSpace || req.Target.Position != game.DeepSpacePosition(planetsPerSystem) {
+			return DispatchResult{}, ErrInvalidExpeditionTarget
+		}
 	}
 
 	// Noob protection: attacks are only allowed within a ~4:1 points ratio in
@@ -129,14 +140,38 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 
 	// Engine technologies speed up their class of ships (+10%/level); Arsenal
 	// engine upgrades add an extra additive percent on top.
-	var combustion, impulse, hyperspace int
+	var combustion, impulse, hyperspace, astrophysics int
 	if err := tx.QueryRowContext(ctx, `
 		SELECT COALESCE(MAX(level) FILTER (WHERE tech_code = 'combustion_drive'), 0),
 		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'impulse_drive'), 0),
-		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'hyperspace_drive'), 0)
+		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'hyperspace_drive'), 0),
+		       COALESCE(MAX(level) FILTER (WHERE tech_code = 'astrophysics'), 0)
 		FROM user_technologies WHERE user_id = $1
-	`, userID).Scan(&combustion, &impulse, &hyperspace); err != nil {
+	`, userID).Scan(&combustion, &impulse, &hyperspace, &astrophysics); err != nil {
 		return DispatchResult{}, err
+	}
+
+	// Expedition slots: one per two Astrophysics levels plus the universe bonus,
+	// clamped by the optional cap. Reject a send once every slot is airborne.
+	if req.Mission == models.MissionExpedition {
+		slots := game.ExpeditionSlots(astrophysics, expoSlotBonus)
+		if expoSlotCap > 0 && slots > expoSlotCap {
+			slots = expoSlotCap
+		}
+		if slots <= 0 {
+			return DispatchResult{}, ErrExpeditionSlotsFull
+		}
+		var active int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM fleets
+			WHERE user_id = $1 AND mission = 'EXPEDITION'
+			  AND phase IN ('OUTBOUND', 'HOLDING', 'RETURNING')
+		`, userID).Scan(&active); err != nil {
+			return DispatchResult{}, err
+		}
+		if active >= slots {
+			return DispatchResult{}, ErrExpeditionSlotsFull
+		}
 	}
 	upgrades, err := LoadAccountUpgrades(ctx, tx, userID)
 	if err != nil {

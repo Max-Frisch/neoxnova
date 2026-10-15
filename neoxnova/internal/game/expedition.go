@@ -195,6 +195,28 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 	return res
 }
 
+// ExpeditionSlots is the number of simultaneous expeditions a player may run.
+// The reference server grants one slot per two Astrophysics levels ("every 2
+// levels adds 1 expedition slot"), plus a configurable bonus (the extras it
+// sells in its premium menu). The result is floored at zero.
+func ExpeditionSlots(astrophysicsLevel, bonus int) int {
+	if astrophysicsLevel < 0 {
+		astrophysicsLevel = 0
+	}
+	slots := astrophysicsLevel/2 + bonus
+	if slots < 0 {
+		return 0
+	}
+	return slots
+}
+
+// DeepSpacePosition is the expedition / deep-space slot: one past the last
+// colonisable planet slot in a system (21 on the seeded alpha universe, where
+// planets_per_system = 20). Expeditions always target this position.
+func DeepSpacePosition(planetsPerSystem int) int {
+	return planetsPerSystem + 1
+}
+
 // FleetPoints is the metal+crystal value of a fleet's base hulls. It is the
 // expedition scale input and the Arsenal drop tier driver.
 func FleetPoints(units map[string]int64) int64 {

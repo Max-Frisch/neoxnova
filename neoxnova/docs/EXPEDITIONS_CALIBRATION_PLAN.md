@@ -164,3 +164,18 @@ sink). Not part of this pass.
 - `cmd/exposim` sweep: confirm expected pirate loss ≈ live (median ~24 %) and alien
   tail can still wipe; sample the new outcome distribution.
 - Commit split: (a) weights+npc+enemy+template+DM+positive BH, (b) flavour catalogue.
+
+---
+
+## 2026-10-15 — slots shipped; owner calibration direction
+
+- **X1 (slots + deep-space target) DONE.** `floor(astrophysics/2)` + universe bonus,
+  optional cap (migration `0017`); enforced in `Dispatch`; expeditions pinned to
+  `[g:s:21]`. See `BACKLOG.md`.
+- **Owner re-lock (pending, the X4 pass):** ships/resources/DM proportions stay
+  fleet-size-scaled — `expeditionRecovery` (points-scaled) and `expeditionLoot`
+  (cargo-scaled) are deliberately **not** the live static/nerfed behavior. Set
+  **combat ≈ 13.5 %** (not the measured 10.2 %, which the reference admin lowered);
+  add a rare **stardust** find (~1.5–2 %) and fold the remaining weight into the
+  ships/resources/DM/delay/nothing/fast buckets. Fatal BH stays 1.68 %.
+

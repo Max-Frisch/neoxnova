@@ -345,6 +345,25 @@ func TestMirroredResearchBonus(t *testing.T) {
 	}
 }
 
+// TestExpeditionSlots locks the Astrophysics slot curve (+ configurable bonus)
+// and the deep-space position derived from the planet-slot count.
+func TestExpeditionSlots(t *testing.T) {
+	cases := []struct {
+		astro, bonus, want int
+	}{
+		{0, 0, 0}, {1, 0, 0}, {2, 0, 1}, {3, 0, 1}, {4, 0, 2}, {9, 0, 4},
+		{4, 3, 5}, {0, 2, 2}, {-5, 0, 0}, {0, -3, 0},
+	}
+	for _, c := range cases {
+		if got := ExpeditionSlots(c.astro, c.bonus); got != c.want {
+			t.Fatalf("ExpeditionSlots(%d,%d) = %d, want %d", c.astro, c.bonus, got, c.want)
+		}
+	}
+	if got := DeepSpacePosition(20); got != 21 {
+		t.Fatalf("DeepSpacePosition(20) = %d, want 21", got)
+	}
+}
+
 // TestFleetPoints locks the metal+crystal point sum used for scaling and tiers.
 func TestFleetPoints(t *testing.T) {
 	// 227 = 30M+10M = 40M, 219 = 1M+0.6M = 1.6M.

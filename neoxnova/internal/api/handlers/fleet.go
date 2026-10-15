@@ -32,6 +32,10 @@ func (h *Handler) FleetDispatch(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "This mission requires an existing target at those coordinates")
 		case errors.Is(err, store.ErrExpeditionHoldRequired):
 			writeError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, store.ErrExpeditionSlotsFull):
+			writeError(w, http.StatusConflict, err.Error())
+		case errors.Is(err, store.ErrInvalidExpeditionTarget):
+			writeError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, store.ErrAttackLocked):
 			writeError(w, http.StatusConflict, "This planet cannot attack yet: it was relocated recently")
 		default:
