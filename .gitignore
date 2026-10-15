@@ -9,3 +9,6 @@
 # Local build artifacts and environment overrides
 neoxnova/bin/
 neoxnova/.env
+
+# Local SSH key/config for the acc1 VM (never commit)
+neoxnova/secrets/
