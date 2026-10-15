@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"neoxnova/internal/game"
@@ -24,12 +25,13 @@ func (h *Handler) accountShell(r *http.Request, userID int64, title string) Shel
 	return sh
 }
 
-// ---- Arsenal -------------------------------------------------------------
+// ---- Arsenal (tabbed: Arsenal / Market / Sell Upgrades) ------------------
 
 type ArsenalItem struct {
 	Code      int
 	Name      string
 	Group     string
+	Image     string
 	Level     int
 	Bonus     float64
 	NextBonus float64
@@ -37,24 +39,71 @@ type ArsenalItem struct {
 }
 
 type ArsenalData struct {
-	Items []ArsenalItem
+	Active   string
+	Tabs     []TechTabLink
+	Items    []ArsenalItem
+	Lots     []models.MarketLot
+	Mine     []models.MarketLot
+	Listable []ArsenalItem
+}
+
+// arsenalTabs are the three live Arsenal page tabs (captured from page=arsenal).
+var arsenalTabs = []TechTabLink{
+	{Key: "arsenal", Label: "Arsenal"},
+	{Key: "market", Label: "Market"},
+	{Key: "sell", Label: "Sell Upgrades"},
 }
 
 func (h *Handler) ArsenalPage(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
 	sh := h.accountShell(r, userID, "Arsenal")
+	data := ArsenalData{Active: arsenalTab(r.URL.Query().Get("tab")), Tabs: arsenalTabs}
+
 	items, err := h.arsenal.ArsenalList(r.Context(), userID)
 	if err != nil {
 		sh.Error = "Could not load the Arsenal"
 	}
-	data := ArsenalData{}
 	for _, it := range items {
-		data.Items = append(data.Items, ArsenalItem{
-			Code: it.Code, Name: it.Name, Group: it.Group, Level: it.Level,
-			Bonus: it.Bonus, NextBonus: it.NextBonus, Available: it.Available,
-		})
+		item := ArsenalItem{
+			Code: it.Code, Name: it.Name, Group: it.Group, Image: upgradeImage(it.Code),
+			Level: it.Level, Bonus: it.Bonus, NextBonus: it.NextBonus, Available: it.Available,
+		}
+		data.Items = append(data.Items, item)
+		if it.Available > 0 {
+			data.Listable = append(data.Listable, item)
+		}
 	}
+	data.Lots, _ = h.arsenal.ListMarket(r.Context())
+	data.Mine, _ = h.arsenal.ListOwnLots(r.Context(), userID)
 	h.render(w, r, http.StatusOK, Page(sh, ArsenalBody(sh, data)))
+}
+
+// arsenalTab validates the ?tab= key, defaulting to the Arsenal listing.
+func arsenalTab(key string) string {
+	for _, t := range arsenalTabs {
+		if t.Key == key {
+			return key
+		}
+	}
+	return "arsenal"
+}
+
+// upgradeImages maps each Arsenal upgrade code to its captured live icon.
+var upgradeImages = map[int]string{
+	1: "laser.jpg", 2: "ion.jpg", 3: "plasma.jpg", 4: "gravity.jpg",
+	5: "d_light.jpg", 6: "d_medium.jpg", 7: "d_heavy.jpg",
+	8: "s_light.jpg", 9: "s_medium.jpg", 10: "s_heavy.jpg",
+	11: "combustion.jpg", 12: "impulse_motor.jpg", 13: "hyperspace_motor.jpg",
+	14: "l_conveyer.jpg", 15: "m_conveyer.jpg", 16: "h_conveyer.jpg",
+	17: "m_production.jpg", 18: "c_production.jpg", 19: "d_production.jpg",
+}
+
+// upgradeImage resolves an upgrade code to its Niburu icon URL.
+func upgradeImage(code int) string {
+	if f, ok := upgradeImages[code]; ok {
+		return "/static/niburu/icons/" + f
+	}
+	return ""
 }
 
 func (h *Handler) ArsenalActivateSubmit(w http.ResponseWriter, r *http.Request) {
@@ -109,41 +158,53 @@ func (h *Handler) MarketListSubmit(w http.ResponseWriter, r *http.Request) {
 	code, _ := strconv.Atoi(r.FormValue("upgrade_code"))
 	amount, _ := strconv.Atoi(r.FormValue("amount"))
 	rate, _ := strconv.ParseInt(r.FormValue("rate"), 10, 64)
+	base := redirectBase(r.FormValue("return"), "/market")
 	lot, err := h.arsenal.ListUpgrade(r.Context(), userID, code, amount, rate)
 	if err != nil {
-		h.redirect(w, r, "/market", "", err.Error())
+		h.redirect(w, r, base, "", err.Error())
 		return
 	}
-	h.redirect(w, r, "/market", "Listed "+strconv.Itoa(lot.Amount)+"× "+lot.Upgrade+" for "+strconv.FormatInt(lot.TotalPriceAtm, 10)+" AM", "")
+	h.redirect(w, r, base, "Listed "+strconv.Itoa(lot.Amount)+"× "+lot.Upgrade+" for "+strconv.FormatInt(lot.TotalPriceAtm, 10)+" AM", "")
 }
 
 func (h *Handler) MarketBuySubmit(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
+	base := redirectBase(r.FormValue("return"), "/market")
 	lotID, err := strconv.ParseInt(r.FormValue("lot_id"), 10, 64)
 	if err != nil || lotID <= 0 {
-		h.redirect(w, r, "/market", "", "Invalid lot")
+		h.redirect(w, r, base, "", "Invalid lot")
 		return
 	}
 	lot, err := h.arsenal.BuyLot(r.Context(), userID, lotID)
 	if err != nil {
-		h.redirect(w, r, "/market", "", err.Error())
+		h.redirect(w, r, base, "", err.Error())
 		return
 	}
-	h.redirect(w, r, "/market", "Bought "+strconv.Itoa(lot.Amount)+"× "+lot.Upgrade+" for "+strconv.FormatInt(lot.TotalPriceAtm, 10)+" AM", "")
+	h.redirect(w, r, base, "Bought "+strconv.Itoa(lot.Amount)+"× "+lot.Upgrade+" for "+strconv.FormatInt(lot.TotalPriceAtm, 10)+" AM", "")
 }
 
 func (h *Handler) MarketRemoveSubmit(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
+	base := redirectBase(r.FormValue("return"), "/market")
 	lotID, err := strconv.ParseInt(r.FormValue("lot_id"), 10, 64)
 	if err != nil || lotID <= 0 {
-		h.redirect(w, r, "/market", "", "Invalid lot")
+		h.redirect(w, r, base, "", "Invalid lot")
 		return
 	}
 	if err := h.arsenal.RemoveLot(r.Context(), userID, lotID); err != nil {
-		h.redirect(w, r, "/market", "", err.Error())
+		h.redirect(w, r, base, "", err.Error())
 		return
 	}
-	h.redirect(w, r, "/market", "Lot withdrawn", "")
+	h.redirect(w, r, base, "Lot withdrawn", "")
+}
+
+// redirectBase accepts a same-site `return` path from a form and falls back to
+// def for anything else, so a crafted value cannot turn into an open redirect.
+func redirectBase(returnTo, def string) string {
+	if strings.HasPrefix(returnTo, "/") && !strings.HasPrefix(returnTo, "//") {
+		return returnTo
+	}
+	return def
 }
 
 // ---- Technologies (tech tree) --------------------------------------------
@@ -465,6 +526,12 @@ func simSideView(s game.SideReport) SimSideView {
 // bonusStr renders an Arsenal bonus like "+1.5%".
 func bonusStr(v float64) string {
 	return "+" + strconv.FormatFloat(v, 'f', -1, 64) + "%"
+}
+
+// bonusBracket renders the per-activation value in the live Arsenal page's
+// bracket, e.g. "(+0.75)" (no percent sign).
+func bonusBracket(v float64) string {
+	return "+" + strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // pct renders a 0..1 probability as a whole percent.

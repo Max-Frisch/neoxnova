@@ -215,6 +215,7 @@ func TestWebEndToEnd(t *testing.T) {
 		})
 		body = e2eGet(t, clientA, srv.URL, fmt.Sprintf("/reports/%d", a.HomeID))
 		e2eWantContains(t, body, "Espionage reports", "reports page")
+		e2eWantContains(t, body, "Spy messages", "messages category grid")
 		e2eWantContains(t, body, e2eCoord(b.G, b.S, b.P), "espionage target coordinates")
 	})
 
@@ -294,6 +295,7 @@ func TestWebEndToEnd(t *testing.T) {
 		body := e2eGet(t, clientA, srv.URL, "/arsenal")
 		e2eWantContains(t, body, "Arsenal", "arsenal page")
 		e2eWantContains(t, body, "Laser weapons", "upgrade catalog row")
+		e2eWantContains(t, body, "Sell Upgrades", "arsenal tabs")
 
 		if _, err := db.ExecContext(ctx,
 			`INSERT INTO upgrade_items (account_id, upgrade_code, qty) VALUES ($1, 1, 1)
@@ -375,11 +377,13 @@ func TestWebEndToEnd(t *testing.T) {
 	})
 
 	t.Run("technologies renders the tech tree", func(t *testing.T) {
-		body := e2eGet(t, clientA, srv.URL, "/technologies")
+		// The page is tabbed (I4); the full grouped tree lives on the
+		// "Requirements" tab, which carries research and ship nodes.
+		body := e2eGet(t, clientA, srv.URL, "/technologies?tab=requirements")
 		e2eWantContains(t, body, "Technologies", "tech page")
 		e2eWantContains(t, body, "Research", "research group")
 		e2eWantContains(t, body, "Light Cargo", "ship node")
-		e2eWantContains(t, body, "Requires", "prerequisite column")
+		e2eWantContains(t, body, "?tab=requirements", "requirements tab")
 	})
 
 	t.Run("simulator resolves a battle", func(t *testing.T) {

@@ -4,65 +4,104 @@ import (
 	"strconv"
 
 	"neoxnova/internal/game"
+	"neoxnova/internal/models"
 )
 
 // ---- Arsenal body --------------------------------------------------------
 
 templ ArsenalBody(sh Shell, d ArsenalData) {
-	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-		<h2 class="text-lg font-semibold text-cyan-300">Arsenal</h2>
-		<span class="text-sm text-slate-400">Activate expedition drawings to raise your fleet-wide bonuses.</span>
-	</div>
-	<div class="overflow-x-auto rounded-lg border border-slate-800">
-		<table class="w-full text-left text-sm">
-			<thead class="bg-slate-900/70 text-slate-400">
-				<tr>
-					<th class="px-3 py-2">Upgrade</th>
-					<th>Group</th>
-					<th>Level</th>
-					<th>Bonus</th>
-					<th>Next</th>
-					<th>Drawings</th>
-					<th class="px-3">Action</th>
-				</tr>
-			</thead>
-			<tbody>
-				for _, it := range d.Items {
-					<tr class="border-t border-slate-800">
-						<td class="px-3 py-2">{ it.Name }</td>
-						<td class="text-slate-400">{ it.Group }</td>
-						<td>{ strconv.Itoa(it.Level) }</td>
-						<td class="text-emerald-300">{ bonusStr(it.Bonus) }</td>
-						<td class="text-slate-500">{ bonusStr(it.NextBonus) }</td>
-						<td>{ strconv.Itoa(it.Available) }</td>
-						<td class="px-3 py-2">
-							if it.Available > 0 {
-								<form method="post" action="/arsenal/activate">
-									<input type="hidden" name="code" value={ strconv.Itoa(it.Code) }/>
-									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Activate</button>
-								</form>
-							} else {
-								<span class="text-xs text-slate-500">No drawings</span>
-							}
-						</td>
-					</tr>
-				}
-			</tbody>
-		</table>
+	<div class="panel arsenal-panel">
+		<nav class="tabs">
+			for _, t := range d.Tabs {
+				<a class={ tabClass(d.Active, t.Key) } href={ templ.URL("/arsenal?tab=" + t.Key) }>{ t.Label }</a>
+			}
+		</nav>
+		if d.Active == "market" {
+			@arsenalMarket(d)
+		} else if d.Active == "sell" {
+			@arsenalSell(d)
+		} else {
+			@arsenalGrid(d)
+		}
 	</div>
 }
 
-// ---- Black market body ---------------------------------------------------
+// arsenalGrid renders the upgrade catalog as the live two-column card boxes
+// (icon, current bonus with the next-activation bracket, drawings held).
+templ arsenalGrid(d ArsenalData) {
+	<div class="upgrade-grid">
+		for _, it := range d.Items {
+			<div class="upgrade-box">
+				<div class="upgrade-head">{ it.Name }</div>
+				<div class="upgrade-body">
+					if it.Image != "" {
+						<img class="upgrade-icon" src={ it.Image } alt=""/>
+					}
+					<div class="upgrade-info">
+						<span class="upgrade-line">Bonus: <b class="upgrade-bonus">{ bonusStr(it.Bonus) }</b> <sup>({ bonusBracket(it.NextBonus) })</sup></span>
+						<span class="upgrade-line">Available: <b>{ strconv.Itoa(it.Available) }</b></span>
+						if it.Available > 0 {
+							<form method="post" action="/arsenal/activate">
+								<input type="hidden" name="code" value={ strconv.Itoa(it.Code) }/>
+								<button class="btn" type="submit">Activate</button>
+							</form>
+						} else {
+							<span class="upgrade-absent">Absent</span>
+						}
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+}
 
-templ MarketBody(sh Shell, d MarketData) {
-	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Black market</h2>
+// arsenalMarket is the live auction listing (buy other players' drawings).
+templ arsenalMarket(d ArsenalData) {
+	@marketLotsTable(d.Lots, "/arsenal?tab=market")
+}
+
+templ marketLotsTable(lots []models.MarketLot, returnTo string) {
+	if len(lots) == 0 {
+		<p class="text-sm text-slate-500">No lots on the market.</p>
+	} else {
+		<div class="overflow-x-auto">
+			<table class="game-table">
+				<thead>
+					<tr><th>ID</th><th>Upgrade</th><th class="num">Amount</th><th class="num">Total price</th><th>Expires</th><th></th></tr>
+				</thead>
+				<tbody>
+					for _, lot := range lots {
+						<tr>
+							<td>{ strconv.FormatInt(lot.ID, 10) }</td>
+							<td>{ lot.Upgrade }</td>
+							<td class="num">{ strconv.Itoa(lot.Amount) }</td>
+							<td class="num res-crystal">{ fnum(lot.TotalPriceAtm) } AM</td>
+							<td>{ dur(lotExpirySecs(lot)) }</td>
+							<td>
+								<form method="post" action="/market/buy">
+									<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
+									<input type="hidden" name="return" value={ returnTo }/>
+									<button class="btn" type="submit">Buy</button>
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// arsenalSell lists own drawings and the caller's live auctions.
+templ arsenalSell(d ArsenalData) {
 	<div class="grid gap-6 lg:grid-cols-2">
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">List drawings</h3>
+		<section>
+			<h3 class="tech-group-title">Sell Upgrades</h3>
 			if len(d.Listable) == 0 {
 				<p class="text-sm text-slate-500">You hold no un-activated drawings to sell.</p>
 			} else {
 				<form method="post" action="/market/list" class="space-y-3 text-sm">
+					<input type="hidden" name="return" value="/arsenal?tab=sell"/>
 					<label class="block text-slate-300">Upgrade
 						<select name="upgrade_code" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
 							for _, it := range d.Listable {
@@ -78,65 +117,90 @@ templ MarketBody(sh Shell, d MarketData) {
 							<input name="rate" type="number" min="1" value="100" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
 						</label>
 					</div>
-					<button type="submit" class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">List on market</button>
+					<button type="submit" class="btn">List on market</button>
 				</form>
 			}
 		</section>
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">Your auctions</h3>
-			if len(d.Mine) == 0 {
-				<p class="text-sm text-slate-500">No active listings.</p>
-			} else {
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500"><tr><th class="py-1">Upgrade</th><th>Amount</th><th>Price</th><th>Expires</th><th></th></tr></thead>
-					<tbody>
-						for _, lot := range d.Mine {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">{ lot.Upgrade }</td>
-								<td>{ strconv.Itoa(lot.Amount) }</td>
-								<td>{ fnum(lot.TotalPriceAtm) } AM</td>
-								<td>{ dur(lotExpirySecs(lot)) }</td>
-								<td>
-									<form method="post" action="/market/remove">
-										<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
-										<button class="rounded bg-amber-700 px-2 py-0.5 text-xs hover:bg-amber-600">Withdraw</button>
-									</form>
-								</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			}
+		<section>
+			<h3 class="tech-group-title">Your auctions</h3>
+			@marketMineTable(d.Mine, "/arsenal?tab=sell")
 		</section>
 	</div>
-	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-		<h3 class="mb-2 font-semibold text-slate-200">Live offers</h3>
-		if len(d.Lots) == 0 {
-			<p class="text-sm text-slate-500">No lots on the market.</p>
-		} else {
-			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500"><tr><th class="py-1">Upgrade</th><th>Amount</th><th>Total price</th><th>Expires</th><th></th></tr></thead>
-					<tbody>
-						for _, lot := range d.Lots {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">{ lot.Upgrade }</td>
-								<td>{ strconv.Itoa(lot.Amount) }</td>
-								<td class="text-emerald-300">{ fnum(lot.TotalPriceAtm) } AM</td>
-								<td>{ dur(lotExpirySecs(lot)) }</td>
-								<td>
-									<form method="post" action="/market/buy">
-										<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
-										<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Buy</button>
-									</form>
-								</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
-		}
-	</section>
+}
+
+templ marketMineTable(mine []models.MarketLot, returnTo string) {
+	if len(mine) == 0 {
+		<p class="text-sm text-slate-500">No active listings.</p>
+	} else {
+		<div class="overflow-x-auto">
+			<table class="game-table">
+				<thead>
+					<tr><th>Upgrade</th><th class="num">Amount</th><th class="num">Price</th><th>Expires</th><th></th></tr>
+				</thead>
+				<tbody>
+					for _, lot := range mine {
+						<tr>
+							<td>{ lot.Upgrade }</td>
+							<td class="num">{ strconv.Itoa(lot.Amount) }</td>
+							<td class="num res-crystal">{ fnum(lot.TotalPriceAtm) } AM</td>
+							<td>{ dur(lotExpirySecs(lot)) }</td>
+							<td>
+								<form method="post" action="/market/remove">
+									<input type="hidden" name="lot_id" value={ strconv.FormatInt(lot.ID, 10) }/>
+									<input type="hidden" name="return" value={ returnTo }/>
+									<button class="btn btn-warn" type="submit">Withdraw</button>
+								</form>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// ---- Black market body ---------------------------------------------------
+
+templ MarketBody(sh Shell, d MarketData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Black market</h2>
+		<p class="resource-sub">Trade un-activated upgrade drawings. Lots return to the seller after 72 hours.</p>
+		<div class="grid gap-6 lg:grid-cols-2">
+			<section>
+				<h3 class="tech-group-title">List drawings</h3>
+				if len(d.Listable) == 0 {
+					<p class="text-sm text-slate-500">You hold no un-activated drawings to sell.</p>
+				} else {
+					<form method="post" action="/market/list" class="space-y-3 text-sm">
+						<label class="block text-slate-300">Upgrade
+							<select name="upgrade_code" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+								for _, it := range d.Listable {
+									<option value={ strconv.Itoa(it.Code) }>{ it.Name } ({ strconv.Itoa(it.Available) } held)</option>
+								}
+							</select>
+						</label>
+						<div class="grid grid-cols-2 gap-2">
+							<label class="block text-slate-300">Amount (1-25)
+								<input name="amount" type="number" min="1" max="25" value="1" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+							</label>
+							<label class="block text-slate-300">Price / unit (AM)
+								<input name="rate" type="number" min="1" value="100" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+							</label>
+						</div>
+						<button type="submit" class="btn">List on market</button>
+					</form>
+				}
+			</section>
+			<section>
+				<h3 class="tech-group-title">Your auctions</h3>
+				@marketMineTable(d.Mine, "/market")
+			</section>
+		</div>
+		<section class="mt-6">
+			<h3 class="tech-group-title">Live offers</h3>
+			@marketLotsTable(d.Lots, "/market")
+		</section>
+	</div>
 }
 
 // ---- Technologies body ---------------------------------------------------
@@ -204,14 +268,15 @@ templ techRequirements(n TechNode) {
 // ---- Simulator body ------------------------------------------------------
 
 templ SimulatorBody(sh Shell, d SimulatorData) {
-	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Simulator</h2>
-	if d.FormErr != "" {
-		<div role="alert" class="mb-4 rounded-lg border border-rose-700/60 bg-rose-900/30 px-3 py-2 text-sm text-rose-200">{ d.FormErr }</div>
-	}
-	if d.Result != nil {
-		@simResult(sh, d.Result)
-	}
-	<form method="post" action="/simulator" class="space-y-4">
+	<div class="panel simulator-panel">
+		<h2 class="panel-title">Simulator</h2>
+		if d.FormErr != "" {
+			<div role="alert" class="mb-4 rounded-lg border border-rose-700/60 bg-rose-900/30 px-3 py-2 text-sm text-rose-200">{ d.FormErr }</div>
+		}
+		if d.Result != nil {
+			@simResult(sh, d.Result)
+		}
+		<form method="post" action="/simulator" class="space-y-4">
 		<div class="grid gap-6 lg:grid-cols-2">
 			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
 				<h3 class="mb-2 font-semibold text-slate-200">Attacker techs</h3>
@@ -242,8 +307,9 @@ templ SimulatorBody(sh Shell, d SimulatorData) {
 				</tbody>
 			</table>
 		</div>
-		<button type="submit" class="rounded bg-cyan-600 px-4 py-2 font-semibold text-white hover:bg-cyan-500">Simulate battle</button>
-	</form>
+		<button type="submit" class="btn">Simulate battle</button>
+		</form>
+	</div>
 }
 
 templ simTechInputs(prefix string, t game.CombatTechs) {

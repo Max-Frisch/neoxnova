@@ -124,6 +124,11 @@ id→file mapping (so templates can reference assets by catalog code).
 - **Exit:** `/resources/{id}` matches the screenshot; Galaxy footer populated.
 
 ## I5 — Account pages + categorized Messages + polish
+> **Status: ✅ done (2026-10-15).** Arsenal is tabbed (Arsenal / Market / Sell Upgrades)
+> with live upgrade icons and `return`-aware buy/withdraw redirects; Black market +
+> Simulator restyled onto skin panels/tables; `/reports/{id}` is now a categorized
+> Messages grid (Spy/Combat/Expedition/All backed with real counts + `?category=`
+> filter, other cells disabled); favicon + responsive pass; `i5_test.go` render tests.
 - Arsenal tabs (Arsenal / Market / Sell Upgrades) over the existing arsenal+market store;
   restyle Black market and Simulator.
 - Messages: category grid (Spy/Player/Alliance/Combat/System/Transport/Expedition/Game/

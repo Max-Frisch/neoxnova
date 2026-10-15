@@ -5,6 +5,7 @@ import (
 
 	"neoxnova/internal/game"
 	"neoxnova/internal/models"
+	"neoxnova/internal/store"
 )
 
 // Page wraps body content in the shared layout.
@@ -43,6 +44,7 @@ templ AuthPage(a AuthView) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="dark"/>
+			<link rel="icon" type="image/png" href="/static/niburu/icons/star.png"/>
 			<title>{ a.Mode } · Neo-XNova</title>
 			<link rel="stylesheet" href="/static/app.css"/>
 			<link rel="stylesheet" href="/static/skin.css"/>
@@ -751,63 +753,109 @@ templ galaxyDisabled(icon, label string) {
 	</span>
 }
 
-// ---- Reports body --------------------------------------------------------
+// ---- Messages body -------------------------------------------------------
 
-templ ReportsBody(sh Shell, d ReportsData) {
-	<div class="grid gap-6">
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">Combat reports</h3>
-			if len(d.Combat) == 0 {
-				<p class="text-sm text-slate-500">None.</p>
-			} else {
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500"><tr><th class="py-1">ID</th><th>Where</th><th>Result</th><th>Debris</th><th>When</th></tr></thead>
+templ MessagesBody(sh Shell, d ReportsData) {
+	<div class="panel messages-panel">
+		<div class="panel-title">Messages</div>
+		<div class="msg-grid">
+			for _, c := range d.Categories {
+				@messageCell(c)
+			}
+		</div>
+		<div class="grid gap-6">
+			if len(d.Combat) > 0 || d.Active == "combat" || d.Active == "all" {
+				@combatSection(d.Combat)
+			}
+			if len(d.Espionage) > 0 || d.Active == "spy" || d.Active == "all" {
+				@espionageSection(d.Espionage)
+			}
+			if len(d.Expedition) > 0 || d.Active == "expedition" || d.Active == "all" {
+				@expeditionSection(d.Expedition)
+			}
+		</div>
+	</div>
+}
+
+templ messageCell(c MessageCategory) {
+	if c.Backed {
+		<a class={ "msg-cat " + c.Color } href={ templ.URL(c.Href) }>
+			<span class="msg-cat-name">{ c.Label }</span>
+			<span class="msg-cat-count">{ strconv.Itoa(c.Unread) }/{ strconv.Itoa(c.Count) }</span>
+		</a>
+	} else {
+		<span class={ "msg-cat " + c.Color + " is-disabled" } title="Coming soon">
+			<span class="msg-cat-name">{ c.Label }</span>
+			<span class="msg-cat-count">0/0</span>
+		</span>
+	}
+}
+
+templ combatSection(reports []store.CombatReport) {
+	<section>
+		<h3 class="tech-group-title">Combat reports</h3>
+		if len(reports) == 0 {
+			<p class="text-sm text-slate-500">None.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="game-table">
+					<thead><tr><th>ID</th><th>Where</th><th>Result</th><th class="num">Debris</th><th>When</th></tr></thead>
 					<tbody>
-						for _, rep := range d.Combat {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">#{ strconv.FormatInt(rep.ID, 10) }</td>
+						for _, rep := range reports {
+							<tr>
+								<td>#{ strconv.FormatInt(rep.ID, 10) }</td>
 								<td>{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
 								<td>{ rep.Result } ({ strconv.Itoa(rep.Rounds) } rounds)</td>
-								<td>{ fnum(rep.DebrisMetal) } / { fnum(rep.DebrisCrystal) }</td>
+								<td class="num">{ fnum(rep.DebrisMetal) } / { fnum(rep.DebrisCrystal) }</td>
 								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
 							</tr>
 						}
 					</tbody>
 				</table>
-			}
-		</section>
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">Espionage reports</h3>
-			if len(d.Espionage) == 0 {
-				<p class="text-sm text-slate-500">None.</p>
-			} else {
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500"><tr><th class="py-1">ID</th><th>Where</th><th>Probes</th><th>Score</th><th>When</th></tr></thead>
+			</div>
+		}
+	</section>
+}
+
+templ espionageSection(reports []store.EspionageReport) {
+	<section>
+		<h3 class="tech-group-title">Espionage reports</h3>
+		if len(reports) == 0 {
+			<p class="text-sm text-slate-500">None.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="game-table">
+					<thead><tr><th>ID</th><th>Where</th><th class="num">Probes</th><th class="num">Score</th><th>When</th></tr></thead>
 					<tbody>
-						for _, rep := range d.Espionage {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">#{ strconv.FormatInt(rep.ID, 10) }</td>
+						for _, rep := range reports {
+							<tr>
+								<td>#{ strconv.FormatInt(rep.ID, 10) }</td>
 								<td>{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
-								<td>{ strconv.Itoa(rep.ProbesSent) }</td>
-								<td>{ strconv.Itoa(rep.Score) }</td>
+								<td class="num">{ strconv.Itoa(rep.ProbesSent) }</td>
+								<td class="num">{ strconv.Itoa(rep.Score) }</td>
 								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
 							</tr>
 						}
 					</tbody>
 				</table>
-			}
-		</section>
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="mb-2 font-semibold text-slate-200">Expedition reports</h3>
-			if len(d.Expedition) == 0 {
-				<p class="text-sm text-slate-500">None.</p>
-			} else {
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500"><tr><th class="py-1">Where</th><th>Outcome</th><th>Message</th><th>When</th></tr></thead>
+			</div>
+		}
+	</section>
+}
+
+templ expeditionSection(reports []store.ExpeditionReport) {
+	<section>
+		<h3 class="tech-group-title">Expedition reports</h3>
+		if len(reports) == 0 {
+			<p class="text-sm text-slate-500">None.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="game-table">
+					<thead><tr><th>Where</th><th>Outcome</th><th>Message</th><th>When</th></tr></thead>
 					<tbody>
-						for _, rep := range d.Expedition {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
+						for _, rep := range reports {
+							<tr>
+								<td>{ coord3(rep.Galaxy, rep.System, rep.Position) }</td>
 								<td>{ rep.Outcome }</td>
 								<td class="max-w-md">{ rep.Title }</td>
 								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
@@ -815,9 +863,9 @@ templ ReportsBody(sh Shell, d ReportsData) {
 						}
 					</tbody>
 				</table>
-			}
-		</section>
-	</div>
+			</div>
+		}
+	</section>
 }
 
 // resLineLabel renders a resources-table row label: structures carry their

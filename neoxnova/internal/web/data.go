@@ -871,12 +871,72 @@ func (h *Handler) galaxyStats(r *http.Request, userID, activeID int64, scan mode
 	return st
 }
 
-// ---- Reports -------------------------------------------------------------
+// ---- Messages (categorized reports) --------------------------------------
+
+// MessageCategory is one cell of the live Messages category grid. Backed
+// categories (Spy/Combat/Expedition/All) carry real counts and link to the
+// filtered list; the rest render as disabled "coming soon" cells.
+type MessageCategory struct {
+	Key    string
+	Label  string
+	Color  string
+	Count  int
+	Unread int
+	Href   string
+	Backed bool
+}
 
 type ReportsData struct {
+	Categories []MessageCategory
+	Active     string
 	Combat     []store.CombatReport
 	Espionage  []store.EspionageReport
 	Expedition []store.ExpeditionReport
+}
+
+// messageCategories is the grid captured from page=messages, in display order.
+// Backed keys map to the reports store; the others have no engine source yet.
+var messageCategories = []struct {
+	Key, Label, Color string
+	Backed            bool
+}{
+	{"spy", "Spy messages", "msg-spy", true},
+	{"player", "Player messages", "msg-player", false},
+	{"alliance", "Alliance messages", "msg-alliance", false},
+	{"combat", "Combat messages", "msg-combat", true},
+	{"system", "System messages", "msg-system", false},
+	{"transport", "Transport messages", "msg-transport", false},
+	{"expedition", "Expedition messages", "msg-expedition", true},
+	{"game", "Game messages", "msg-game", false},
+	{"construction", "Construction messages", "msg-construction", false},
+	{"all", "All messages", "msg-all", true},
+	{"archive", "Archive", "msg-archive", false},
+	{"outbox", "Outbox", "msg-outbox", false},
+}
+
+// messageCategory validates the ?category= key, defaulting to All messages.
+func messageCategory(key string) string {
+	for _, c := range messageCategories {
+		if c.Key == key && c.Backed {
+			return key
+		}
+	}
+	return "all"
+}
+
+// messageCategoryGrid builds the category cells, wiring real counts and links
+// into the backed categories (base is the reports URL prefix).
+func messageCategoryGrid(base string, counts map[string]int) []MessageCategory {
+	out := make([]MessageCategory, 0, len(messageCategories))
+	for _, c := range messageCategories {
+		cat := MessageCategory{Key: c.Key, Label: c.Label, Color: c.Color, Backed: c.Backed}
+		if c.Backed {
+			cat.Count = counts[c.Key]
+			cat.Href = base + c.Key
+		}
+		out = append(out, cat)
+	}
+	return out
 }
 
 func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
@@ -887,12 +947,30 @@ func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sh := h.shell(r, userID, id)
-	sh.Title = "Reports"
-	data := ReportsData{}
-	data.Combat, _ = h.combat.ListForCelestial(r.Context(), id, 25)
-	data.Espionage, _ = h.espionage.ListForCelestial(r.Context(), id, 25)
-	data.Expedition, _ = h.expedition.ListForCelestial(r.Context(), id, 25)
-	h.render(w, r, http.StatusOK, Page(sh, ReportsBody(sh, data)))
+	sh.Title = "Messages"
+
+	combat, _ := h.combat.ListForCelestial(r.Context(), id, 100)
+	espionage, _ := h.espionage.ListForCelestial(r.Context(), id, 100)
+	expedition, _ := h.expedition.ListForCelestial(r.Context(), id, 100)
+
+	active := messageCategory(r.URL.Query().Get("category"))
+	data := ReportsData{Active: active}
+	counts := map[string]int{
+		"spy": len(espionage), "combat": len(combat), "expedition": len(expedition),
+		"all": len(combat) + len(espionage) + len(expedition),
+	}
+	data.Categories = messageCategoryGrid("/reports/"+r.PathValue("id")+"?category=", counts)
+	switch active {
+	case "spy":
+		data.Espionage = espionage
+	case "combat":
+		data.Combat = combat
+	case "expedition":
+		data.Expedition = expedition
+	default:
+		data.Combat, data.Espionage, data.Expedition = combat, espionage, expedition
+	}
+	h.render(w, r, http.StatusOK, Page(sh, MessagesBody(sh, data)))
 }
 
 // ---- helpers -------------------------------------------------------------

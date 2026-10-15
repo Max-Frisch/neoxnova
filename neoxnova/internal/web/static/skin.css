@@ -1184,6 +1184,148 @@ img {
   font-size: 12px;
 }
 
+/* ---- Arsenal / black market ------------------------------------------- */
+
+.arsenal-panel,
+.market-panel,
+.simulator-panel,
+.messages-panel {
+  max-width: 1100px;
+}
+
+.btn-warn {
+  background: linear-gradient(#a31616, #6d0d0d);
+  border-color: #d94b4b;
+  color: #ffe9e9;
+}
+
+.btn-warn:hover {
+  background: linear-gradient(#c81e1e, #8a1010);
+}
+
+.upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 10px;
+}
+
+.upgrade-box {
+  background: rgba(10, 20, 34, 0.72);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.upgrade-head {
+  padding: 5px 10px;
+  background: linear-gradient(#24405f, #142640);
+  border-bottom: 1px solid var(--line);
+  color: #eaf2ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.upgrade-body {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.upgrade-icon {
+  width: 96px;
+  height: 64px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+}
+
+.upgrade-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #dce8f8;
+}
+
+.upgrade-line i {
+  font-style: normal;
+}
+
+.upgrade-info b {
+  color: #eaf2ff;
+}
+
+.upgrade-info .upgrade-bonus {
+  color: var(--ok);
+}
+
+.upgrade-absent {
+  color: #ff6b6b;
+  font-weight: 700;
+}
+
+.upgrade-info form {
+  margin-top: auto;
+}
+
+/* ---- Messages category grid ------------------------------------------- */
+
+.msg-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2px;
+  margin-bottom: 16px;
+  padding: 2px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.msg-cat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  background: rgba(6, 13, 24, 0.88);
+  text-align: center;
+}
+
+a.msg-cat:hover {
+  background: rgba(36, 64, 95, 0.6);
+  text-decoration: none;
+}
+
+.msg-cat-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.msg-cat-count {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.msg-cat.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.msg-spy .msg-cat-name { color: #e8d44d; }
+.msg-player .msg-cat-name,
+.msg-alliance .msg-cat-name { color: #ff7a7a; }
+.msg-combat .msg-cat-name { color: #ffa64d; }
+.msg-system .msg-cat-name { color: #c08bff; }
+.msg-transport .msg-cat-name { color: #7fe0b0; }
+.msg-expedition .msg-cat-name { color: #6db3ff; }
+.msg-game .msg-cat-name { color: #7fe0b0; }
+.msg-construction .msg-cat-name { color: #5fd0e0; }
+.msg-all .msg-cat-name { color: #eaf2ff; }
+.msg-archive .msg-cat-name,
+.msg-outbox .msg-cat-name { color: #9fbf5f; }
+
 /* ---- Responsive -------------------------------------------------------- */
 
 @media (max-width: 900px) {
@@ -1202,5 +1344,23 @@ img {
 
   .res {
     min-width: 150px;
+  }
+
+  .upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .msg-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .msg-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .upgrade-body {
+    flex-direction: column;
   }
 }

@@ -21,8 +21,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI reskin (I5)** — I0–I4 done. I5 = Arsenal tabs + categorized Messages + polish
-      (`docs/WEB_UI_RESKIN_PLAN.md`). Mirrors the live Niburuspace OGame-Redesign UI.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -33,6 +31,13 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Web UI reskin I5 (arsenal/market/simulator/messages)**: Arsenal is now tabbed
+      (Arsenal / Market / Sell Upgrades) over the arsenal+market store — upgrade card boxes with
+      live icons, buy/withdraw with `return`-aware redirects; Black market + Simulator restyled
+      onto skin panels/tables; `/reports/{id}` became a categorized **Messages** grid
+      (Spy/Combat/Expedition/All backed with real counts + `?category=` filter, the rest disabled);
+      favicon + responsive pass; `i5_test.go` render tests; fixed the stale I4 e2e tech-tree
+      assertion. Closes the I0–I5 reskin.
 - 2026-10-15 — **Web UI reskin I4 (galaxy/tech/resources)**: Galaxy restyled (galaxy+system
       steppers, Saved/View, slot table with moon/debris/player/action icons → fleet/spy/colonize/
       recycle dispatch links with mission preselect, footer stats + omission note); Technologies
