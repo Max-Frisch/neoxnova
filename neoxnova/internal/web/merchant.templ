@@ -1,0 +1,53 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/game"
+)
+
+// MerchantBody is the Merchant of Fleets page (Black market -> Merchant of
+// Fleets): scrap ships and defenses for merchant_rate% of their base cost.
+templ MerchantBody(sh Shell, d MerchantData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Merchant of Fleets</h2>
+		<p class="resource-sub">Scrap old ships and defenses for resources. Some are lost in the process and kept by the trader: the merchant pays back { strconv.Itoa(d.RatePercent) }% of the original cost.</p>
+		<div class="trader-balances">
+			<span class="trader-balance"><b>Dark Matter</b> { fnum(d.DarkMatter) }</span>
+		</div>
+		<form method="post" action="/blackmarket/merchant" class="space-y-3 text-sm">
+			<input type="hidden" name="return" value="/blackmarket/merchant"/>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<label class="block text-slate-300">Unit
+					<select name="unit" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+						for _, u := range d.Units {
+							<option value={ u.Code }>{ u.Name } ({ fnum(u.Available) })</option>
+						}
+					</select>
+				</label>
+				<label class="block text-slate-300">Number
+					<input name="number" type="number" min="1" value="1" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+				</label>
+			</div>
+			<div class="flex gap-2">
+				<button type="button" class="btn" hx-post="/blackmarket/merchant/preview" hx-include="closest form" hx-target="#merchant-quote" hx-swap="innerHTML">Preview</button>
+				<button type="submit" class="btn">Send</button>
+			</div>
+		</form>
+		<div id="merchant-quote"></div>
+		<p class="resource-sub mt-4"><a href="/blackmarket">Back to Black market</a></p>
+	</div>
+}
+
+// MerchantQuotePartial is the htmx preview fragment shown under the form.
+templ MerchantQuotePartial(refund *game.Cost, name string, number int64, ratePercent int, errMsg string) {
+	if errMsg != "" {
+		<div class="trader-quote trader-quote--err">{ errMsg }</div>
+	} else if refund != nil {
+		<div class="trader-quote">
+			Scrap <b>{ fnum(number) }× { name }</b> at { strconv.Itoa(ratePercent) }% →
+			Metal <b>{ fnum(refund.Metal) }</b>, Crystal <b>{ fnum(refund.Crystal) }</b>,
+			Deuterium <b>{ fnum(refund.Deuterium) }</b>
+		</div>
+	}
+}

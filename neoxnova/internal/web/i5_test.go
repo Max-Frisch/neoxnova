@@ -117,8 +117,7 @@ func TestArsenalMarketTab(t *testing.T) {
 }
 
 // TestBlackMarketHub locks the standalone six-tile hub: every live entry
-// renders, the two backed sub-pages link to their own route and the four
-// undesigned ones are disabled "coming soon" tiles (no fake pages).
+// renders and each backed sub-page links to its own /blackmarket route.
 func TestBlackMarketHub(t *testing.T) {
 	sh := Shell{ActivePlanetID: 7}
 	html := renderComponent(t, BlackMarketBody(sh, blackMarketTiles))
@@ -135,22 +134,26 @@ func TestBlackMarketHub(t *testing.T) {
 		"Voucher System",
 		`href="/blackmarket/trader"`,
 		`href="/blackmarket/planetarium"`,
+		`href="/blackmarket/merchant"`,
+		`href="/blackmarket/buildings"`,
+		`href="/blackmarket/technology"`,
+		`href="/blackmarket/voucher"`,
 		"/static/niburu/icons/exchange_res.png",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("black market hub HTML missing %q", want)
 		}
 	}
-	if c := strings.Count(html, `class="bm-tile"`); c != 2 {
-		t.Errorf("linked tiles = %d, want 2", c)
+	if c := strings.Count(html, `class="bm-tile"`); c != 6 {
+		t.Errorf("linked tiles = %d, want 6", c)
 	}
-	if c := strings.Count(html, "class=\"bm-tile is-disabled\""); c != 4 {
-		t.Errorf("disabled tiles = %d, want 4", c)
+	if c := strings.Count(html, "class=\"bm-tile is-disabled\""); c != 0 {
+		t.Errorf("disabled tiles = %d, want 0", c)
 	}
 }
 
-// TestBlackMarketTilesDecoupled keeps the hub off the Arsenal /market: the two
-// built tiles point at /blackmarket sub-routes only.
+// TestBlackMarketTilesDecoupled keeps the hub off the Arsenal /market: every
+// built tile points at a /blackmarket sub-route and carries a captured icon.
 func TestBlackMarketTilesDecoupled(t *testing.T) {
 	if len(blackMarketTiles) != 6 {
 		t.Fatalf("tile count = %d, want 6", len(blackMarketTiles))

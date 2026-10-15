@@ -270,6 +270,28 @@ Raw page text saved under `testdata/map/`.
   + 1 Stardust). **Scrapped for now** (owner decision 2026-10-06) — the debris-spend
   path and the Stardust currency are out of scope; DM field expansion covers growth.
 
+## Black market B4 — Merchant of Fleets + DM markets (owner-provided)
+
+- **Not HAR-captured.** B4 shipped 2026-10-15 from owner-provided rules and the
+  Merchant screenshots in `neoxnova/info/MoF/` (gitignored). Both knobs live in
+  `config/game.json` → `universes` (`merchant_rate`, `dm_market_divisor`,
+  migration `0021_blackmarket.sql`) so they can be retuned without a deploy.
+- **Merchant of Fleets** (`page=FleetDealer`, `/blackmarket/merchant`): scraps one
+  ship/defense kind; refund = `floor(merchant_rate% × base cost)` per resource
+  (default **50%**, matching the captured "Merchant rate: 50%" and the
+  `TOTAL` column). Excess above storage capacity is lost. Implemented as
+  `game.MerchantRefund` + `store.TradeStore.ScrapUnits`; scrap of solar
+  satellites refreshes the cached energy.
+- **Buildings / Technology markets** (`page=dmbuild`/`dmtech`,
+  `/blackmarket/{buildings,technology}`): buy **one instant level** for Dark
+  Matter priced as `ceil((metal + crystal + deuterium) / dm_market_divisor)`
+  (default **1000** resources = 1 DM). Respects prerequisites and the planet's
+  field budget; no queue. Implemented as `game.DMMarketPrice` +
+  `store.BuildStore.InstantStructure`/`InstantTech`.
+- **Voucher System** (`page=reward2`, `/blackmarket/voucher`): captured layout
+  only; redemption is **not wired** (needs the live operator to issue/validate
+  codes) — the Redeem button is disabled.
+
 ## Explorer tool
 
 `neoxnova/the ops repo` (Node + playwright-core, drives installed Edge):

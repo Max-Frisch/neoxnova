@@ -135,16 +135,16 @@ type BlackMarketTile struct {
 	Built bool
 }
 
-// blackMarketTiles is the hub captured from the live black market. Resource
-// Trader (B2) and Planetarium (B3) are the two backed sub-pages; the remaining
-// four are stubbed until designed.
+// blackMarketTiles is the hub captured from the live black market. All six
+// sub-pages are backed: Resource Trader (B2), Planetarium (B3), Merchant of
+// Fleets / Buildings Market / Technology Market / Voucher System (B4).
 var blackMarketTiles = []BlackMarketTile{
 	{Key: "trader", Label: "Resource Trader", Image: "exchange_res.png", Href: "/blackmarket/trader", Built: true},
-	{Key: "fleets", Label: "Merchant of Fleets", Image: "fleet.png"},
+	{Key: "fleets", Label: "Merchant of Fleets", Image: "fleet.png", Href: "/blackmarket/merchant", Built: true},
 	{Key: "planetarium", Label: "Planetarium", Image: "planets.png", Href: "/blackmarket/planetarium", Built: true},
-	{Key: "buildings", Label: "Buildings Market", Image: "build.png"},
-	{Key: "technology", Label: "Technology Market", Image: "tech.png"},
-	{Key: "voucher", Label: "Voucher System", Image: "stars.png"},
+	{Key: "buildings", Label: "Buildings Market", Image: "build.png", Href: "/blackmarket/buildings", Built: true},
+	{Key: "technology", Label: "Technology Market", Image: "tech.png", Href: "/blackmarket/technology", Built: true},
+	{Key: "voucher", Label: "Voucher System", Image: "stars.png", Href: "/blackmarket/voucher", Built: true},
 }
 
 // BlackMarketPage is the standalone hub (decoupled from the Arsenal /market).

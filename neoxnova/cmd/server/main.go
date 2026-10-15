@@ -50,9 +50,10 @@ func main() {
 	if applied, err := store.ApplyGameSettings(ctx, db, cfg.UniverseID, gameSettings); err != nil {
 		log.Fatalf("[FATAL] Failed to apply game settings to universe %q: %v", cfg.UniverseID, err)
 	} else if applied {
-		log.Printf("[INIT] Applied game tuning: game_speed=%g resource_speed=%g fleet_speed=%g build_slots=%d research_slots=%d",
+		log.Printf("[INIT] Applied game tuning: game_speed=%g resource_speed=%g fleet_speed=%g build_slots=%d research_slots=%d merchant_rate=%d dm_divisor=%d",
 			gameSettings.GameSpeed, gameSettings.ResourceSpeed, gameSettings.FleetSpeed,
-			gameSettings.BuildQueueSlots, gameSettings.ResearchQueueSlots)
+			gameSettings.BuildQueueSlots, gameSettings.ResearchQueueSlots,
+			gameSettings.MerchantRate, gameSettings.DMMarketDivisor)
 	} else {
 		log.Printf("[WARN] Universe %q not found; game settings not applied (run `make migrate && make seed`)", cfg.UniverseID)
 	}

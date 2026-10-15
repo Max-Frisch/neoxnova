@@ -1,0 +1,19 @@
+package web
+
+// VoucherBody is the Black market -> Voucher System page (page=reward2). The
+// captured layout renders, but redeeming is not wired up yet — the button is
+// disabled and a note says so.
+templ VoucherBody(sh Shell) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Voucher System</h2>
+		<p class="resource-sub">If you have an active voucher code, you can use it here to claim its reward. Voucher codes are given if you encountered an in-game bug, or for free in an active event. You can also receive some codes from our social profiles.</p>
+		<div class="space-y-3 text-sm">
+			<label class="block text-slate-300">Voucher code
+				<input name="voucher" type="text" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+			</label>
+			<button type="button" class="btn is-disabled" title="Coming soon" disabled>Redeem</button>
+		</div>
+		<p class="resource-sub mt-4">Redeeming codes is not available yet — coming soon.</p>
+		<p class="resource-sub mt-4"><a href="/blackmarket">Back to Black market</a></p>
+	</div>
+}

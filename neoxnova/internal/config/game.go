@@ -18,6 +18,12 @@ type GameSettings struct {
 	FleetSpeed         float64 `json:"fleet_speed"`
 	BuildQueueSlots    int     `json:"build_queue_slots"`
 	ResearchQueueSlots int     `json:"research_queue_slots"`
+	// MerchantRate is the Merchant of Fleets refund as a percent of a scrapped
+	// unit's base cost (50 = the trader pays half back).
+	MerchantRate int `json:"merchant_rate"`
+	// DMMarketDivisor prices the Buildings/Technology markets: 1 Dark Matter per
+	// this many resource points of a level's cost (1000 => 1000 res = 1 DM).
+	DMMarketDivisor int64 `json:"dm_market_divisor"`
 }
 
 // DefaultGameSettings returns the built-in tuning, used when the config file is
@@ -30,6 +36,8 @@ func DefaultGameSettings() GameSettings {
 		FleetSpeed:         15.0,
 		BuildQueueSlots:    10,
 		ResearchQueueSlots: 4,
+		MerchantRate:       50,
+		DMMarketDivisor:    1000,
 	}
 }
 

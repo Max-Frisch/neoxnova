@@ -31,13 +31,15 @@ func TestLoadGameSettingsParsesFile(t *testing.T) {
 		"resource_speed": 10000,
 		"fleet_speed": 15,
 		"build_queue_slots": 10,
-		"research_queue_slots": 4
+		"research_queue_slots": 4,
+		"merchant_rate": 40,
+		"dm_market_divisor": 2000
 	}`)
 	got, err := LoadGameSettings(path)
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	want := GameSettings{GameSpeed: 4000, ResourceSpeed: 10000, FleetSpeed: 15, BuildQueueSlots: 10, ResearchQueueSlots: 4}
+	want := GameSettings{GameSpeed: 4000, ResourceSpeed: 10000, FleetSpeed: 15, BuildQueueSlots: 10, ResearchQueueSlots: 4, MerchantRate: 40, DMMarketDivisor: 2000}
 	if got != want {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}

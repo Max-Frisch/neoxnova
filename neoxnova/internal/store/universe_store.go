@@ -15,9 +15,11 @@ func ApplyGameSettings(ctx context.Context, db *sql.DB, codeName string, s confi
 	res, err := db.ExecContext(ctx, `
 		UPDATE universes
 		SET game_speed = $2, resource_speed = $3, fleet_speed = $4,
-		    build_queue_slots = $5, research_queue_slots = $6
+		    build_queue_slots = $5, research_queue_slots = $6,
+		    merchant_rate = $7, dm_market_divisor = $8
 		WHERE code_name = $1
-	`, codeName, s.GameSpeed, s.ResourceSpeed, s.FleetSpeed, s.BuildQueueSlots, s.ResearchQueueSlots)
+	`, codeName, s.GameSpeed, s.ResourceSpeed, s.FleetSpeed, s.BuildQueueSlots, s.ResearchQueueSlots,
+		s.MerchantRate, s.DMMarketDivisor)
 	if err != nil {
 		return false, err
 	}

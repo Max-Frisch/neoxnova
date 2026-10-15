@@ -838,6 +838,30 @@ func (s *PlanetStore) PlanetShips(ctx context.Context, celestialID int64) (map[s
 	return out, rows.Err()
 }
 
+// PlanetDefenses returns the defensive unit counts (defense code -> quantity)
+// for a celestial. Companion to PlanetShips; the Merchant of Fleets can scrap
+// both lines.
+func (s *PlanetStore) PlanetDefenses(ctx context.Context, celestialID int64) (map[string]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT defense_code, quantity FROM planet_defenses
+		WHERE celestial_id = $1 AND quantity > 0
+	`, celestialID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var code string
+		var n int64
+		if err := rows.Scan(&code, &n); err != nil {
+			return nil, err
+		}
+		out[code] = n
+	}
+	return out, rows.Err()
+}
+
 func (s *PlanetStore) activeFleets(ctx context.Context, userID int64) ([]models.FleetEventSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, mission, phase, origin_galaxy, origin_system, origin_position, origin_type,

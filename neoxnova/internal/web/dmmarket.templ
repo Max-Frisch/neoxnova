@@ -1,0 +1,41 @@
+package web
+
+import "strconv"
+
+// DMMarketBody is the shared layout of the Buildings (page=dmbuild) and
+// Technology (page=dmtech) markets: each item buys one instant level for Dark
+// Matter.
+templ DMMarketBody(sh Shell, d DMMarketData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">{ d.Title }</h2>
+		<p class="resource-sub">{ d.Subtitle } An instant level costs 1 Dark Matter per { fnum(d.Divisor) } resources of its normal price.</p>
+		<div class="trader-balances">
+			<span class="trader-balance"><b>Dark Matter</b> { fnum(d.DarkMatter) }</span>
+		</div>
+		<div class="bm-grid">
+			for _, item := range d.Items {
+				@dmMarketCard(item, d.Action)
+			}
+		</div>
+		<p class="resource-sub mt-4"><a href="/blackmarket">Back to Black market</a></p>
+	</div>
+}
+
+templ dmMarketCard(item DMMarketItem, action string) {
+	<div class="bm-tile">
+		if item.Image != "" {
+			<img class="bm-tile-icon" src={ item.Image } alt=""/>
+		}
+		<span class="bm-tile-name">{ item.Name }</span>
+		<span class="resource-sub">Level { strconv.Itoa(item.Level) } → { strconv.Itoa(item.NextLevel) }</span>
+		<span class="resource-sub">Metal { fnum(item.Cost.Metal) } · Crystal { fnum(item.Cost.Crystal) } · Deuterium { fnum(item.Cost.Deuterium) }</span>
+		if item.Unlocked {
+			<form method="post" action={ templ.URL(action) }>
+				<input type="hidden" name="code" value={ item.Code }/>
+				<button type="submit" class="btn">{ fnum(item.DarkMatter) } DM</button>
+			</form>
+		} else {
+			<span class="bm-tile is-disabled" title={ item.Reason }>{ item.Reason }</span>
+		}
+	</div>
+}

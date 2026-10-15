@@ -273,9 +273,24 @@ Work:
 **Tests:** render + submit tests (store logic already covered).
 **Exit:** Planetarium performs fields/diameter/teleport from the UI.
 
-## B4 (future, not this pass)
-Merchant of Fleets (ship scrapping), Buildings Market (build with DM), Technology Market (research
-with DM), Voucher System. Disabled until captured + designed.
+## B4 — Merchant of Fleets + Buildings/Technology markets + Voucher page
+> **Status: ✅ done (2026-10-15).** `game.MerchantRefund` (scrap refund = `merchant_rate`% of a
+> unit's base cost, default 50 captured from `info/MoF` screenshots) and `game.DMMarketPrice`
+> (DM = `ceil(resource cost / dm_market_divisor)`, default 1000). Store: `TradeStore.ScrapUnits`
+> (ships + defenses, accrues/row-locks, capacity clamp, recompute for satellite energy) and
+> `BuildStore.InstantStructure`/`InstantTech` (prereq/fields checked, DM debited, level applied,
+> production refreshed). Config: `merchant_rate` + `dm_market_divisor` added to `config/game.json`,
+> the `universes` row (migration `0021_blackmarket.sql`) and `GameSettings`; upserted on boot (C1).
+> Pages under `/blackmarket/{merchant,buildings,technology,voucher}`; the Voucher page renders the
+> captured "Redeem Code" layout with a disabled button — redemption is not wired (needs live
+> operator, TBD). All six hub tiles are now backed.
+> Merchant rate/divisor are **owner-provided defaults, not HAR-captured** — tune in `config/game.json`.
+Work:
+1. Merchant of Fleets (`page=FleetDealer`): select unit + number, live `TOTAL` refund at the
+   merchant rate; scrap removes the units and credits the refund clamped to storage.
+2. Buildings Market (`page=dmbuild`) / Technology Market (`page=dmtech`): list catalog entries with
+   the current level and an instant-level Dark Matter price; buy applies the level immediately.
+3. Voucher System (`page=reward2`): render the captured layout only; no redemption backend yet.
 
 ---
 

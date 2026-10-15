@@ -21,8 +21,7 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **B4 future** Merchant of Fleets / Buildings & Technology Market / Voucher.
+Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — **done through B4**.
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
 - [ ] **TOTP 2FA** — second auth factor (`internal/auth`).
 - [ ] **Full game-loop integration test** — register → … → abandon.
@@ -30,13 +29,17 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
-- 2026-10-15 — **B3 Planetarium page**: `GET /blackmarket/planetarium` lists each owned planet/moon
-  (coords, diameter, fields, local debris) with the three ops wired to the existing JSON/store
-  logic — buy fields with DM (`game.FieldExpansionCost`, htmx price preview), grow diameter with
-  Stardust + co-located debris (`DiameterExpansionGains`), teleport (`RelocationCost`; cooldown/
-  occupancy/attack-lock rules in `store.RelocatePlanet`). New `models.CelestialDetail` +
-  `store.{ListCelestialDetails,CelestialDetail,PlanetsPerSystem}`. Tests: `TestPlanetarium*` + e2e
-  planetarium subtest (resets the relocation attack-lock in `e2eReset`). Next: B4.
+- 2026-10-15 — **B4 Merchant of Fleets + DM Buildings/Technology + Voucher**: `game.MerchantRefund`
+  (refund = `merchant_rate`% of base cost, default **50**, from `info/MoF`; owner-provided, not HAR) +
+  `game.DMMarketPrice` (DM = `ceil(cost / dm_market_divisor)`, default **1000**); store `ScrapUnits` +
+  `InstantStructure`/`InstantTech`; knobs in `config/game.json` → `universes` (`0021_blackmarket.sql`).
+  Pages `/blackmarket/{merchant,buildings,technology,voucher}` (voucher = captured layout, redeem TBD);
+  all six hub tiles backed. Tests: `TestMerchantRefund`/`TestDMMarketPrice`, `TestScrapUnitsMerchant`,
+  `TestInstant*DMMarket`, migration + render + e2e. Next: playability plan complete.
+- 2026-10-15 — **B3 Planetarium page**: `GET /blackmarket/planetarium` — buy fields with DM
+  (`game.FieldExpansionCost`), grow diameter with Stardust + local debris, teleport
+  (`store.RelocatePlanet`). New `models.CelestialDetail` + `store.ListCelestialDetails`. Tests:
+  `TestPlanetarium*` + e2e (resets the relocation attack-lock in `e2eReset`).
 - 2026-10-15 — **B2 Resource Trader**: live M:C:D value **1:2:4** (4/2/1 amount ratio) + fixed
   **250 DM** per trade, verified from the ops HAR. `game.TradeQuote` (pure) + `store.TradeStore.
   ExecuteTrade` (accrue/row-lock, debit sold + DM, credit bought clamped to cap); `/blackmarket/

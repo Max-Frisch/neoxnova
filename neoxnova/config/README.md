@@ -13,7 +13,7 @@ seed / gwx "applied on every start").
    values by hand in Postgres is possible but will be overwritten on next boot.
 3. **Absent/invalid file ⇒ built-in defaults**, which are `game_speed 1.0`,
    `resource_speed 1.0`, `fleet_speed 15.0`, `build_queue_slots 10`,
-   `research_queue_slots 4`.
+   `research_queue_slots 4`, `merchant_rate 50`, `dm_market_divisor 1000`.
 4. Unknown keys are rejected (typo guard). Missing keys keep their default.
 
 Override the path with `GAME_CONFIG_PATH` (default `config/game.json`, relative
@@ -28,9 +28,13 @@ to the working directory — run the server from `neoxnova/`).
 | `fleet_speed` | flight-time divisor (`universes.fleet_speed`) |
 | `build_queue_slots` | building chain length cap (`universes.build_queue_slots`) |
 | `research_queue_slots` | research chain length cap (`universes.research_queue_slots`) |
+| `merchant_rate` | Merchant of Fleets refund, percent of base cost (`universes.merchant_rate`) |
+| `dm_market_divisor` | resources per Dark Matter for the Buildings/Technology markets (`universes.dm_market_divisor`) |
 
 Ships and defenses have **no slot cap** (unlimited back-to-back chains), so they
-have no key here.
+have no key here. The Merchant of Fleets refund is `floor(base_cost × merchant_rate / 100)`
+per resource; the DM markets price an instant level at
+`ceil((metal + crystal + deuterium) / dm_market_divisor)` Dark Matter.
 
 ## Speeds
 

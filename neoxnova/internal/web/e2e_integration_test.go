@@ -547,6 +547,142 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, "occupied or reserved", "occupied target rejection")
 	})
 
+	t.Run("merchant of fleets scraps ships", func(t *testing.T) {
+		// Quiesce the homeworld (no in-flight fleets or queues) and freeze
+		// production so the refund is the only balance change, then give a known
+		// batch of Light Cargo to scrap.
+		for _, q := range []struct {
+			sql  string
+			args []any
+		}{
+			{`DELETE FROM fleets WHERE user_id = $1`, []any{a.UserID}},
+			{`DELETE FROM construction_queues WHERE celestial_id = $1`, []any{a.HomeID}},
+			{`DELETE FROM shipyard_queues WHERE celestial_id = $1`, []any{a.HomeID}},
+			{`DELETE FROM research_queues WHERE celestial_id = $1`, []any{a.HomeID}},
+		} {
+			if _, err := db.ExecContext(ctx, q.sql, q.args...); err != nil {
+				t.Fatalf("quiesce homeworld: %v", err)
+			}
+		}
+		if _, err := db.ExecContext(ctx, `DELETE FROM planet_ships WHERE celestial_id = $1 AND ship_code = '202'`, a.HomeID); err != nil {
+			t.Fatalf("clear light cargo: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO planet_ships (celestial_id, ship_code, quantity) VALUES ($1, '202', 10)`, a.HomeID); err != nil {
+			t.Fatalf("seed light cargo: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `
+			UPDATE celestial_objects
+			SET metal = 0, crystal = 0, deuterium = 0,
+			    metal_capacity = 1000000000, crystal_capacity = 1000000000, deuterium_capacity = 1000000000,
+			    metal_prod_hourly = 0, crystal_prod_hourly = 0, deuterium_prod_hourly = 0,
+			    last_resource_calc_at = NOW()
+			WHERE id = $1`, a.HomeID); err != nil {
+			t.Fatalf("freeze homeworld: %v", err)
+		}
+		var rate int
+		if err := db.QueryRowContext(ctx, `
+			SELECT u.merchant_rate
+			FROM universes u JOIN celestial_objects c ON c.universe_id = u.id
+			WHERE c.id = $1`, a.HomeID).Scan(&rate); err != nil {
+			t.Fatalf("read merchant rate: %v", err)
+		}
+		refund := game.MerchantRefund(game.Ships["202"].BaseCost.Mul(4), rate)
+
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/merchant")
+		e2eWantContains(t, body, "Merchant of Fleets", "merchant page")
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/merchant/preview",
+			url.Values{"unit": {"202"}, "number": {"4"}})
+		e2eWantContains(t, body, fnum(refund.Metal), "merchant preview refund")
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/merchant",
+			url.Values{"unit": {"202"}, "number": {"4"}})
+		e2eWantContains(t, body, "Scrapped", "scrap flash")
+
+		var qty int64
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(quantity, 0) FROM planet_ships WHERE celestial_id = $1 AND ship_code = '202'`, a.HomeID).Scan(&qty); err != nil {
+			t.Fatalf("read ships: %v", err)
+		}
+		if qty != 6 {
+			t.Fatalf("light cargo = %d, want 6", qty)
+		}
+	})
+
+	t.Run("dm buildings market builds instantly", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 1000000000000 WHERE id = $1`, a.UserID); err != nil {
+			t.Fatalf("fund dm: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE celestial_objects SET fields_max = GREATEST(fields_max, 100000) WHERE id = $1`, a.HomeID); err != nil {
+			t.Fatalf("widen fields: %v", err)
+		}
+		var before int
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(level, 0) FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`, a.HomeID).Scan(&before); err != nil {
+			t.Fatalf("read level: %v", err)
+		}
+
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/buildings")
+		e2eWantContains(t, body, "Buildings Market", "dm buildings page")
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/buildings", url.Values{"code": {"metal_mine"}})
+		e2eWantContains(t, body, "Built", "instant build flash")
+
+		var after int
+		if err := db.QueryRowContext(ctx, `SELECT level FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`, a.HomeID).Scan(&after); err != nil {
+			t.Fatalf("read level: %v", err)
+		}
+		if after != before+1 {
+			t.Fatalf("metal_mine %d -> %d, want +1", before, after)
+		}
+	})
+
+	t.Run("dm technology market researches instantly", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 1000000000000 WHERE id = $1`, a.UserID); err != nil {
+			t.Fatalf("fund dm: %v", err)
+		}
+		// Seed Spy Technology's prerequisites, then research it instantly.
+		const techCode = "espionage_tech"
+		for code, need := range game.Requirements(techCode) {
+			if _, ok := game.Structures[code]; ok {
+				if _, err := db.ExecContext(ctx, `
+					INSERT INTO planet_structures (celestial_id, structure_code, level) VALUES ($1, $2, $3)
+					ON CONFLICT (celestial_id, structure_code)
+					DO UPDATE SET level = GREATEST(planet_structures.level, EXCLUDED.level)`,
+					a.HomeID, code, need); err != nil {
+					t.Fatalf("seed structure %s: %v", code, err)
+				}
+				continue
+			}
+			if _, err := db.ExecContext(ctx, `
+				INSERT INTO user_technologies (user_id, tech_code, level) VALUES ($1, $2, $3)
+				ON CONFLICT (user_id, tech_code)
+				DO UPDATE SET level = GREATEST(user_technologies.level, EXCLUDED.level)`,
+				a.UserID, code, need); err != nil {
+				t.Fatalf("seed tech %s: %v", code, err)
+			}
+		}
+		var before int
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(level, 0) FROM user_technologies WHERE user_id = $1 AND tech_code = $2`, a.UserID, techCode).Scan(&before); err != nil {
+			t.Fatalf("read level: %v", err)
+		}
+
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/technology")
+		e2eWantContains(t, body, "Technology Market", "dm tech page")
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/technology", url.Values{"code": {techCode}})
+		e2eWantContains(t, body, "Researched", "instant research flash")
+
+		var after int
+		if err := db.QueryRowContext(ctx, `SELECT level FROM user_technologies WHERE user_id = $1 AND tech_code = $2`, a.UserID, techCode).Scan(&after); err != nil {
+			t.Fatalf("read level: %v", err)
+		}
+		if after != before+1 {
+			t.Fatalf("%s %d -> %d, want +1", techCode, before, after)
+		}
+	})
+
+	t.Run("voucher system page renders", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/voucher")
+		e2eWantContains(t, body, "Voucher System", "voucher page")
+		e2eWantContains(t, body, "Redeem", "redeem control")
+		e2eWantContains(t, body, "coming soon", "placeholder note")
+	})
+
 	t.Run("technologies renders the tech tree", func(t *testing.T) {
 		// The page is tabbed (I4); the full grouped tree lives on the
 		// "Requirements" tab, which carries research and ship nodes.
@@ -675,7 +811,8 @@ func e2eReset(t *testing.T, ctx context.Context, db *sql.DB, a, b e2ePlayer) {
 		{`DELETE FROM account_upgrades WHERE account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`DELETE FROM market_lots WHERE seller_account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE users SET antimatter = 1000000 WHERE id IN ($1, $2)`, []any{a.UserID, b.UserID}},
-		{`UPDATE celestial_objects SET metal = 1.0e12, crystal = 5.0e11, deuterium = 1.0e11, fields_used = 0
+		{`UPDATE celestial_objects SET metal = 1.0e12, crystal = 5.0e11, deuterium = 1.0e11,
+		    fields_used = 0, fields_bought = 0, fields_max = base_fields_max
 		  WHERE id IN ($1, $2)`, []any{a.HomeID, b.HomeID}},
 		// Clear teleport cooldowns / post-relocation locks so a rerun of the
 		// Planetarium subtest does not bar the next run's attack dispatch.
