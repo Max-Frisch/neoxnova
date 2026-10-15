@@ -163,6 +163,7 @@ type TechNode struct {
 	Level    int
 	Leveled  bool
 	Unlocked bool
+	Image    string
 	Requires []TechRequirement
 }
 
@@ -171,12 +172,38 @@ type TechGroup struct {
 	Nodes []TechNode
 }
 
+// TechTabLink is one tab header on the technologies page.
+type TechTabLink struct {
+	Key   string
+	Label string
+}
+
 type TechnologiesData struct {
+	Active string
+	Tabs   []TechTabLink
 	Groups []TechGroup
 }
 
 // techOrder fixes the display order of the category groups.
 var techOrder = []string{"Research", "Buildings", "Ships", "Defenses", "Moon", "Other"}
+
+// techTabs are the tab headers captured from the live techtree page. The
+// "requirements" tab is the full grouped tree that the old page showed.
+var techTabs = []TechTabLink{
+	{Key: "buildings", Label: "Buildings"},
+	{Key: "research", Label: "Research"},
+	{Key: "fleet", Label: "Fleet"},
+	{Key: "defense", Label: "Planetary Defense"},
+	{Key: "requirements", Label: "Requirements"},
+}
+
+// techCategory maps a tab key to the catalog category it shows.
+var techCategory = map[string]string{
+	"buildings": "Buildings",
+	"research":  "Research",
+	"fleet":     "Ships",
+	"defense":   "Defenses",
+}
 
 func (h *Handler) TechnologiesPage(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
@@ -200,19 +227,36 @@ func (h *Handler) TechnologiesPage(w http.ResponseWriter, r *http.Request) {
 		}
 		byCat[node.Category] = append(byCat[node.Category], node)
 	}
-	data := TechnologiesData{}
-	for _, cat := range techOrder {
+	for cat := range byCat {
 		nodes := byCat[cat]
-		if len(nodes) == 0 {
-			continue
-		}
 		sort.Slice(nodes, func(i, j int) bool {
 			if nodes[i].ID != nodes[j].ID {
 				return nodes[i].ID < nodes[j].ID
 			}
 			return nodes[i].Name < nodes[j].Name
 		})
-		data.Groups = append(data.Groups, TechGroup{Name: cat, Nodes: nodes})
+		byCat[cat] = nodes
+	}
+
+	active := r.URL.Query().Get("tab")
+	if _, ok := techCategory[active]; !ok && active != "requirements" {
+		active = "buildings"
+	}
+	data := TechnologiesData{Active: active, Tabs: techTabs}
+	if active == "requirements" {
+		for _, cat := range techOrder {
+			if nodes := byCat[cat]; len(nodes) > 0 {
+				data.Groups = append(data.Groups, TechGroup{Name: cat, Nodes: nodes})
+			}
+		}
+	} else {
+		label := techTabs[0].Label
+		for _, t := range techTabs {
+			if t.Key == active {
+				label = t.Label
+			}
+		}
+		data.Groups = append(data.Groups, TechGroup{Name: label, Nodes: byCat[techCategory[active]]})
 	}
 	h.render(w, r, http.StatusOK, Page(sh, TechnologiesBody(sh, data)))
 }
@@ -220,7 +264,7 @@ func (h *Handler) TechnologiesPage(w http.ResponseWriter, r *http.Request) {
 // techNode resolves one TechTree code to a renderable node, reporting false when
 // the code has no catalog definition (e.g. an unmapped live-only id).
 func techNode(code string, reqs map[string]int, structLevels, researchLevels, levels map[string]int) (TechNode, bool) {
-	node := TechNode{Code: code}
+	node := TechNode{Code: code, Image: assetURL(code)}
 	switch {
 	case game.Structures[code].Code == code:
 		def := game.Structures[code]
@@ -230,13 +274,14 @@ func techNode(code string, reqs map[string]int, structLevels, researchLevels, le
 		node.Name, node.ID, node.Category, node.Level, node.Leveled = def.Name, def.ID, "Research", researchLevels[code], true
 	case game.Ships[code].Code == code:
 		def := game.Ships[code]
-		node.Name, node.Category = def.Name, "Ships"
+		node.Name, node.ID, node.Category = def.Name, atoiDefault(code, 0), "Ships"
 	case game.Defenses[code].Code == code:
 		def := game.Defenses[code]
-		node.Name, node.Category = def.Name, "Defenses"
+		node.Name, node.ID, node.Category = def.Name, atoiDefault(code, 0), "Defenses"
 	default:
 		if def, ok := game.MoonStructure(code); ok {
 			node.Name, node.ID, node.Category = def.Name, def.ID, "Moon"
+			node.Image = ""
 		} else {
 			return TechNode{}, false
 		}

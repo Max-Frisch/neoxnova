@@ -142,41 +142,51 @@ templ MarketBody(sh Shell, d MarketData) {
 // ---- Technologies body ---------------------------------------------------
 
 templ TechnologiesBody(sh Shell, d TechnologiesData) {
-	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-		<h2 class="text-lg font-semibold text-cyan-300">Technologies</h2>
-		<span class="text-sm text-slate-400">Prerequisite tree for every building, research, ship and defense.</span>
+	<div class="panel">
+		<div class="panel-title">Technologies</div>
+		<nav class="tabs">
+			for _, t := range d.Tabs {
+				<a class={ tabClass(d.Active, t.Key) } href={ templ.URL("/technologies?tab=" + t.Key) }>{ t.Label }</a>
+			}
+		</nav>
+		<div class="space-y-6">
+			for _, group := range d.Groups {
+				<section>
+					<h3 class="tech-group-title">{ group.Name }</h3>
+					<div class="tech-grid">
+						for _, n := range group.Nodes {
+							@techCard(n)
+						}
+					</div>
+				</section>
+			}
+		</div>
 	</div>
-	<div class="space-y-6">
-		for _, group := range d.Groups {
-			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-				<h3 class="mb-2 font-semibold text-slate-200">{ group.Name }</h3>
-				<div class="overflow-x-auto">
-					<table class="w-full text-left text-sm">
-						<thead class="text-slate-500"><tr><th class="py-1">Item</th><th>Level</th><th>Requires</th></tr></thead>
-						<tbody>
-							for _, n := range group.Nodes {
-								<tr class="border-t border-slate-800">
-									<td class="py-1">
-										<span class={ techNameClass(n) }>{ n.Name }</span>
-									</td>
-									<td>
-										if n.Leveled {
-											<span>{ strconv.Itoa(n.Level) }</span>
-										} else {
-											<span class="text-slate-500">—</span>
-										}
-									</td>
-									<td class="py-1">
-										@techRequirements(n)
-									</td>
-								</tr>
-							}
-					</tbody>
-					</table>
-				</div>
-			</section>
-		}
+}
+
+templ techCard(n TechNode) {
+	<div class="tech-card">
+		<div class="tech-card-head">
+			if n.Image != "" {
+				<img class="tech-icon" src={ n.Image } alt=""/>
+			}
+			<span class={ techNameClass(n) }>{ n.Name }</span>
+			if n.Leveled {
+				<span class="tech-level">Level { strconv.Itoa(n.Level) }</span>
+			}
+		</div>
+		<div class="tech-reqs">
+			@techRequirements(n)
+		</div>
 	</div>
+}
+
+// tabClass marks the active technologies tab.
+func tabClass(active, key string) string {
+	if active == key {
+		return "tab is-active"
+	}
+	return "tab"
 }
 
 templ techRequirements(n TechNode) {

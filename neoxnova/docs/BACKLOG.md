@@ -21,10 +21,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI reskin (I4–I5)** — I0 artwork + I1 shell/skin + I2 build/research/cancel + I3
-      hangar/defenses/fleet done (below). Mirror the live Niburuspace OGame-Redesign UI; plan +
-      phases in `docs/WEB_UI_RESKIN_PLAN.md` (I4 galaxy/tech/resources → I5 account/messages).
-      Supersedes the old "Web UI menu coverage" item.
+- [ ] **Web UI reskin (I5)** — I0–I4 done. I5 = Arsenal tabs + categorized Messages + polish
+      (`docs/WEB_UI_RESKIN_PLAN.md`). Mirrors the live Niburuspace OGame-Redesign UI.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -35,6 +33,12 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Web UI reskin I4 (galaxy/tech/resources)**: Galaxy restyled (galaxy+system
+      steppers, Saved/View, slot table with moon/debris/player/action icons → fleet/spy/colonize/
+      recycle dispatch links with mission preselect, footer stats + omission note); Technologies
+      is now tabbed (Buildings/Research/Fleet/Planetary Defense/Requirements) with sprite cards;
+      new `game.ProductionBreakdown` + `GET /resources/{id}` resources page (per-source lines,
+      bonus, storage, total/daily/weekly); Resources menu enabled; pure + render tests.
 - 2026-10-15 — **Web UI reskin I3 (hangar/defenses/fleet)**: `ShipyardBody`/`DefensesBody` are
       grouped sprite card grids (Recently built / Small / Medium / Large / Special — bands captured
       from the live pages, recent units pulled out of their class) with cost rows, duration, "Have"

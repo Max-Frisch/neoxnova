@@ -120,6 +120,82 @@ func (h *Handler) ResourcesPartial(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, http.StatusOK, ResourceBar(sh))
 }
 
+// ---- Resources (production breakdown) ------------------------------------
+
+// ResourcesData backs the resources page: a per-source production table for one
+// celestial.
+type ResourcesData struct {
+	Planet    string
+	Breakdown game.ProductionReport
+}
+
+// ResourcesPage renders the I4 resources breakdown (metal/crystal/deuterium
+// production per mine, plant and satellite, the account bonus, storage capacity
+// and the reconciled total/daily/weekly figures).
+func (h *Handler) ResourcesPage(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	sh := h.shell(r, userID, id)
+	sh.Title = "Resources"
+	idStr := r.PathValue("id")
+
+	var tempMax int
+	var objectType string
+	resourceSpeed := 1.0
+	if err := h.db.QueryRowContext(r.Context(), `
+		SELECT c.temp_max, c.object_type::text, u.resource_speed
+		FROM celestial_objects c
+		JOIN universes u ON u.id = c.universe_id
+		WHERE c.id = $1
+	`, id).Scan(&tempMax, &objectType, &resourceSpeed); err != nil {
+		http.Error(w, "resources failed", http.StatusInternalServerError)
+		return
+	}
+	levels := map[string]int{}
+	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
+		levels = b.Levels
+	}
+	researchLevels := map[string]int{}
+	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
+		researchLevels = rr.Levels
+	}
+	satCount := 0
+	if counts, err := h.planets.PlanetShips(r.Context(), id); err == nil {
+		satCount = int(counts["212"])
+	}
+	bonus := h.productionBonus(r, userID, researchLevels)
+
+	data := ResourcesData{Planet: sh.ActivePlanetName}
+	data.Breakdown = game.ProductionBreakdown(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
+	h.render(w, r, http.StatusOK, Page(sh, ResourcesBody(sh, data)))
+}
+
+// productionBonus combines an account's Arsenal production upgrades (17/18/19)
+// with its extraction researches (Mineral/Semi-Crystals/Fuel) into one
+// percentage bonus per resource.
+func (h *Handler) productionBonus(r *http.Request, userID int64, researchLevels map[string]int) game.ProductionBonus {
+	upgrades := map[int]float64{}
+	rows, err := h.db.QueryContext(r.Context(), `
+		SELECT upgrade_code, value FROM account_upgrades
+		WHERE account_id = $1 AND value > 0
+	`, userID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var code int
+			var value float64
+			if rows.Scan(&code, &value) == nil {
+				upgrades[code] = value
+			}
+		}
+	}
+	return game.ProductionBonusFor(upgrades).Plus(game.ResearchProductionBonus(researchLevels))
+}
+
 // ---- Buildings -----------------------------------------------------------
 
 // Prereq is one unmet requirement shown in a locked card's "Necessary for the
@@ -581,12 +657,14 @@ type FleetShip struct {
 }
 
 type FleetData struct {
-	Fleets   []models.FleetEventSummary
-	Incoming []models.IncomingFleet
-	Ships    []FleetShip
-	TargetG  int
-	TargetS  int
-	TargetP  int
+	Fleets     []models.FleetEventSummary
+	Incoming   []models.IncomingFleet
+	Ships      []FleetShip
+	TargetG    int
+	TargetS    int
+	TargetP    int
+	Mission    string
+	TargetType string
 }
 
 func (h *Handler) FleetPage(w http.ResponseWriter, r *http.Request) {
@@ -601,9 +679,11 @@ func (h *Handler) FleetPage(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 
 	data := FleetData{
-		TargetG: atoiDefault(r.URL.Query().Get("g"), 1),
-		TargetS: atoiDefault(r.URL.Query().Get("s"), 1),
-		TargetP: atoiDefault(r.URL.Query().Get("p"), 1),
+		TargetG:    atoiDefault(r.URL.Query().Get("g"), 1),
+		TargetS:    atoiDefault(r.URL.Query().Get("s"), 1),
+		TargetP:    atoiDefault(r.URL.Query().Get("p"), 1),
+		Mission:    strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("mission"))),
+		TargetType: strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("type"))),
 	}
 	if data.TargetG == 0 {
 		data.TargetG = 1
@@ -720,8 +800,22 @@ func (h *Handler) GalaxyRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/galaxy/%d/%d", g, s), http.StatusSeeOther)
 }
 
+// GalaxyStats is the footer summary. Some live-client stats have no engine
+// source (Giga Recycler); they are shown as zero and noted under the table
+// rather than hidden.
+type GalaxyStats struct {
+	ExistingPlanets   int
+	AvailableMissiles int64
+	GigaRecycler      int64
+	FleetSlotsActive  int
+	FleetSlotsTotal   int
+	SpyProbes         int64
+	Recycler          int64
+}
+
 type GalaxyData struct {
-	Scan models.GalaxyScanResponse
+	Scan  models.GalaxyScanResponse
+	Stats GalaxyStats
 }
 
 func (h *Handler) GalaxyPage(w http.ResponseWriter, r *http.Request) {
@@ -744,7 +838,37 @@ func (h *Handler) GalaxyPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "scan failed", http.StatusInternalServerError)
 		return
 	}
-	h.render(w, r, http.StatusOK, Page(sh, GalaxyBody(sh, GalaxyData{Scan: scan})))
+	data := GalaxyData{Scan: scan}
+	data.Stats = h.galaxyStats(r, userID, activeID, scan)
+	h.render(w, r, http.StatusOK, Page(sh, GalaxyBody(sh, data)))
+}
+
+// galaxyStats derives the galaxy footer: planet count from the scan and the
+// active planet's probes/recyclers/missiles from its hangar. Fleet slots follow
+// the classic 1 + computer-technology rule (active outbound fleets as the
+// numerator).
+func (h *Handler) galaxyStats(r *http.Request, userID, activeID int64, scan models.GalaxyScanResponse) GalaxyStats {
+	var st GalaxyStats
+	for _, slot := range scan.Slots {
+		if slot.Occupied && slot.Type == models.TypePlanet {
+			st.ExistingPlanets++
+		}
+	}
+	if activeID != 0 {
+		if counts, err := h.planets.PlanetShips(r.Context(), activeID); err == nil {
+			st.AvailableMissiles = counts["502"]
+			st.SpyProbes = counts["210"]
+			st.Recycler = counts["209"]
+		}
+		if ov, err := h.planets.GetOverview(r.Context(), strconv.FormatInt(activeID, 10)); err == nil {
+			st.FleetSlotsActive = len(ov.ActiveFleets)
+		}
+	}
+	st.FleetSlotsTotal = 1
+	if rr, err := h.builds.GetResearch(r.Context(), strconv.FormatInt(activeID, 10)); err == nil {
+		st.FleetSlotsTotal += rr.Levels["computer_tech"]
+	}
+	return st
 }
 
 // ---- Reports -------------------------------------------------------------
@@ -1050,9 +1174,35 @@ func costStr(c models.CargoManifest) string {
 // fleetLink deep-links to the dispatch form with target coordinates prefilled.
 // The active planet (origin) is the shell's ActivePlanetID.
 func fleetLink(sh Shell, g, s, p int, targetType string) string {
-	return "/fleet/" + pid(sh) +
+	return fleetLinkMission(sh, g, s, p, targetType, "")
+}
+
+// fleetLinkMission is fleetLink with an additional mission preselected (the
+// galaxy spy icon deep-links ESPIONAGE, colonize/recycle links their mission).
+func fleetLinkMission(sh Shell, g, s, p int, targetType, mission string) string {
+	link := "/fleet/" + pid(sh) +
 		"?g=" + strconv.Itoa(g) +
 		"&s=" + strconv.Itoa(s) +
 		"&p=" + strconv.Itoa(p) +
 		"&type=" + url.QueryEscape(targetType)
+	if mission != "" {
+		link += "&mission=" + url.QueryEscape(mission)
+	}
+	return link
+}
+
+// galaxyURL clamps galaxy/system into the valid coordinate domains so the
+// stepper arrows never send a visitor to a 404.
+func galaxyURL(g, s int) string {
+	if g < 1 {
+		g = 1
+	} else if g > 9 {
+		g = 9
+	}
+	if s < 1 {
+		s = 1
+	} else if s > 499 {
+		s = 499
+	}
+	return "/galaxy/" + strconv.Itoa(g) + "/" + strconv.Itoa(s)
 }

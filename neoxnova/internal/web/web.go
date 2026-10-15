@@ -82,6 +82,7 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /overview/{id}", h.page(h.requireUser(h.OverviewPage)))
 	mux.HandleFunc("GET /overview/{id}/resources", h.page(h.requireUser(h.ResourcesPartial)))
+	mux.HandleFunc("GET /resources/{id}", h.page(h.requireUser(h.ResourcesPage)))
 
 	mux.HandleFunc("GET /buildings/{id}", h.page(h.requireUser(h.BuildingsPage)))
 	mux.HandleFunc("POST /buildings/{id}/build", h.page(h.requireUser(h.BuildSubmit)))

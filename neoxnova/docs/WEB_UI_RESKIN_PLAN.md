@@ -106,6 +106,12 @@ id→file mapping (so templates can reference assets by catalog code).
 - **Exit:** Hangar and Defenses land on grouped card grids; dispatch unchanged functionally.
 
 ## I4 — Galaxy + Technologies (tabbed) + Resources page
+> **Status: ✅ done (2026-10-15).** Galaxy restyled (steppers + Saved/View, slot table with
+> moon/debris/player/action icons → fleet/spy/colonize/recycle dispatch links that preselect
+> the mission, footer stats + omission note). Technologies is now tabbed (Buildings / Research /
+> Fleet / Planetary Defense / Requirements) as sprite cards. `game.ProductionBreakdown` +
+> `GET /resources/{id}` reproduce `resources_view.png`; the Resources menu entry is live.
+
 - Galaxy: galaxy/system steppers + Saved/View, slot table (moon/debris/player state/alliance)
   with action icons (fleet → dispatch link, spy → `ESPIONAGE` dispatch; message/buddy =
   disabled). Footer stats where derivable (probes/recyclers from `PlanetShips`; fleet slots

@@ -3,6 +3,7 @@ package web
 import (
 	"strconv"
 
+	"neoxnova/internal/game"
 	"neoxnova/internal/models"
 )
 
@@ -462,22 +463,22 @@ templ FleetBody(sh Shell, d FleetData) {
 				<div class="grid grid-cols-2 gap-2">
 					<label class="block text-slate-300">Mission
 						<select name="mission" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
-							<option value="TRANSPORT">Transport</option>
-							<option value="DEPLOY">Deploy</option>
-							<option value="ATTACK">Attack</option>
-							<option value="ESPIONAGE">Espionage</option>
-							<option value="RECYCLE">Recycle</option>
-							<option value="COLONIZE">Colonize</option>
-							<option value="EXPEDITION">Expedition</option>
-							<option value="DESTROY_MOON">Destroy moon</option>
+							<option value="TRANSPORT" selected?={ d.Mission == "TRANSPORT" }>Transport</option>
+							<option value="DEPLOY" selected?={ d.Mission == "DEPLOY" }>Deploy</option>
+							<option value="ATTACK" selected?={ d.Mission == "ATTACK" }>Attack</option>
+							<option value="ESPIONAGE" selected?={ d.Mission == "ESPIONAGE" }>Espionage</option>
+							<option value="RECYCLE" selected?={ d.Mission == "RECYCLE" }>Recycle</option>
+							<option value="COLONIZE" selected?={ d.Mission == "COLONIZE" }>Colonize</option>
+							<option value="EXPEDITION" selected?={ d.Mission == "EXPEDITION" }>Expedition</option>
+							<option value="DESTROY_MOON" selected?={ d.Mission == "DESTROY_MOON" }>Destroy moon</option>
 						</select>
 					</label>
 					<label class="block text-slate-300">Target type
 						<select name="target_type" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
-							<option value="PLANET">Planet</option>
-							<option value="MOON">Moon</option>
-							<option value="DEBRIS_FIELD">Debris</option>
-							<option value="DEEP_SPACE">Deep space</option>
+							<option value="PLANET" selected?={ d.TargetType == "PLANET" }>Planet</option>
+							<option value="MOON" selected?={ d.TargetType == "MOON" }>Moon</option>
+							<option value="DEBRIS_FIELD" selected?={ d.TargetType == "DEBRIS_FIELD" }>Debris</option>
+							<option value="DEEP_SPACE" selected?={ d.TargetType == "DEEP_SPACE" }>Deep space</option>
 						</select>
 					</label>
 				</div>
@@ -558,67 +559,168 @@ templ FleetBody(sh Shell, d FleetData) {
 	</div>
 }
 
+// ---- Resources body ------------------------------------------------------
+
+templ ResourcesBody(sh Shell, d ResourcesData) {
+	<div class="panel resource-panel">
+		<div class="resource-head">
+			<h2 class="panel-title">Resources</h2>
+			<span class="resource-sub">Resources produced on the planet "{ d.Planet }"</span>
+		</div>
+		<div class="overflow-x-auto">
+			<table class="game-table resource-table">
+				<thead>
+					<tr><th></th><th class="num">Metal</th><th class="num">Crystal</th><th class="num">Deuterium</th><th class="num">Energy</th><th></th></tr>
+				</thead>
+				<tbody>
+					for _, l := range d.Breakdown.Lines {
+						<tr>
+							<td class="res-name">{ resLineLabel(l) }</td>
+							<td class="num res-metal">{ resAmount(l.Metal) }</td>
+							<td class="num res-crystal">{ resAmount(l.Crystal) }</td>
+							<td class="num res-deut">{ resAmount(l.Deuterium) }</td>
+							<td class="num res-energy">{ energyAmount(l.Energy) }</td>
+							<td class="pct-cell">
+								if l.Code != "" {
+									<span class="prod-pct">{ strconv.Itoa(l.Percent) }%</span>
+								}
+							</td>
+						</tr>
+					}
+					<tr class="res-bonus">
+						<td class="res-name">{ d.Breakdown.Bonus.Name }</td>
+						<td class="num res-metal">{ resAmount(d.Breakdown.Bonus.Metal) }</td>
+						<td class="num res-crystal">{ resAmount(d.Breakdown.Bonus.Crystal) }</td>
+						<td class="num res-deut">{ resAmount(d.Breakdown.Bonus.Deuterium) }</td>
+						<td class="num res-energy"></td>
+						<td></td>
+					</tr>
+					<tr class="res-storage">
+						<td class="res-name">Storage capacity</td>
+						<td class="num res-metal">{ resAmount(d.Breakdown.Storage.Metal) }</td>
+						<td class="num res-crystal">{ resAmount(d.Breakdown.Storage.Crystal) }</td>
+						<td class="num res-deut">{ resAmount(d.Breakdown.Storage.Deuterium) }</td>
+						<td class="num res-energy">-</td>
+						<td></td>
+					</tr>
+					<tr class="res-total">
+						<td class="res-name">Total</td>
+						<td class="num res-metal">{ resAmount(d.Breakdown.Total.Metal) }</td>
+						<td class="num res-crystal">{ resAmount(d.Breakdown.Total.Crystal) }</td>
+						<td class="num res-deut">{ resAmount(d.Breakdown.Total.Deuterium) }</td>
+						<td class="num res-energy">{ energyAmount(d.Breakdown.Total.Energy) }</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td class="res-name">Daily Production</td>
+						<td class="num res-metal">{ resAmount(d.Breakdown.Total.Metal * 24) }</td>
+						<td class="num res-crystal">{ resAmount(d.Breakdown.Total.Crystal * 24) }</td>
+						<td class="num res-deut">{ resAmount(d.Breakdown.Total.Deuterium * 24) }</td>
+						<td class="num res-energy">{ energyAmount(d.Breakdown.Total.Energy) }</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td class="res-name">Weekly Production</td>
+						<td class="num res-metal">{ resAmount(d.Breakdown.Total.Metal * 24 * 7) }</td>
+						<td class="num res-crystal">{ resAmount(d.Breakdown.Total.Crystal * 24 * 7) }</td>
+						<td class="num res-deut">{ resAmount(d.Breakdown.Total.Deuterium * 24 * 7) }</td>
+						<td class="num res-energy">{ energyAmount(d.Breakdown.Total.Energy) }</td>
+						<td></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
 // ---- Galaxy body ---------------------------------------------------------
 
 templ GalaxyBody(sh Shell, d GalaxyData) {
-	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-		<h2 class="text-lg font-semibold text-cyan-300">Galaxy { strconv.Itoa(d.Scan.Galaxy) }:{ strconv.Itoa(d.Scan.System) }</h2>
-		<div class="flex gap-2 text-sm">
-			@galaxyLink("Prev system", d.Scan.Galaxy, d.Scan.System-1)
-			@galaxyLink("Next system", d.Scan.Galaxy, d.Scan.System+1)
+	<div class="panel galaxy-panel">
+		<div class="galaxy-toolbar">
+			<div class="galaxy-stepper">
+				<span class="galaxy-label">Galaxy:</span>
+				<a class="galaxy-arrow" href={ templ.URL(galaxyURL(d.Scan.Galaxy-1, d.Scan.System)) } title="Previous galaxy">◄</a>
+				<span class="galaxy-coord">{ strconv.Itoa(d.Scan.Galaxy) }</span>
+				<a class="galaxy-arrow" href={ templ.URL(galaxyURL(d.Scan.Galaxy+1, d.Scan.System)) } title="Next galaxy">►</a>
+			</div>
+			<div class="galaxy-stepper">
+				<span class="galaxy-label">System:</span>
+				<a class="galaxy-arrow" href={ templ.URL(galaxyURL(d.Scan.Galaxy, d.Scan.System-1)) } title="Previous system">◄</a>
+				<span class="galaxy-coord">{ strconv.Itoa(d.Scan.System) }</span>
+				<a class="galaxy-arrow" href={ templ.URL(galaxyURL(d.Scan.Galaxy, d.Scan.System+1)) } title="Next system">►</a>
+			</div>
+			<div class="galaxy-toolbar-spacer"></div>
+			<button type="button" class="btn is-disabled" title="Coming soon" disabled>Saved</button>
+			<button type="button" class="btn is-disabled" title="Coming soon" disabled>View</button>
 		</div>
-	</div>
-	<div class="mb-4">
-		<form method="get" action="/galaxy" class="flex flex-wrap items-end gap-2 text-sm">
-			<label class="text-slate-300">Galaxy<input name="g" type="number" min="1" max="9" value={ strconv.Itoa(d.Scan.Galaxy) } class="ml-1 w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
-			<label class="text-slate-300">System<input name="s" type="number" min="1" max="499" value={ strconv.Itoa(d.Scan.System) } class="ml-1 w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/></label>
-			<button class="rounded bg-slate-700 px-3 py-1 hover:bg-slate-600">Go</button>
-		</form>
-	</div>
-	<div class="overflow-x-auto rounded-lg border border-slate-800">
-		<table class="w-full text-left text-sm">
-			<thead class="bg-slate-900/70 text-slate-400">
-				<tr><th class="px-3 py-2">Slot</th><th>Occupant</th><th>Owner</th><th>Debris</th><th class="px-3">Actions</th></tr>
-			</thead>
-			<tbody>
-				for _, slot := range d.Scan.Slots {
-					@galaxyRow(sh, slot, d.Scan.Galaxy, d.Scan.System)
-				}
-			</tbody>
-		</table>
+		<div class="overflow-x-auto">
+			<table class="game-table galaxy-table">
+				<thead>
+					<tr>
+						<th class="gal-num">Nº</th>
+						<th>Planet Name (Activity)</th>
+						<th class="gal-moon">Moon</th>
+						<th>Debris</th>
+						<th>Player (State)</th>
+						<th>Alliance</th>
+						<th class="gal-actions">Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, slot := range d.Scan.Slots {
+						if slot.Position == 21 {
+							<tr class="gal-deepspace">
+								<td class="gal-num">21</td>
+								<td colspan="6"><span class="gal-deepspace-bar">Deep area of galaxy</span></td>
+							</tr>
+						} else {
+							@galaxyRow(sh, slot, d.Scan.Galaxy, d.Scan.System)
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="galaxy-footer">
+			<div class="gal-stat"><span class="gal-stat-val">{ strconv.Itoa(d.Stats.ExistingPlanets) }</span><span class="gal-stat-lbl">Existing planets</span></div>
+			<div class="gal-stat"><span class="gal-stat-val">{ fnum(d.Stats.AvailableMissiles) }</span><span class="gal-stat-lbl">Available Missiles</span></div>
+			<div class="gal-stat"><span class="gal-stat-val">{ fnum(d.Stats.GigaRecycler) }</span><span class="gal-stat-lbl">Giga Recycler</span></div>
+			<div class="gal-stat"><span class="gal-stat-val">{ strconv.Itoa(d.Stats.FleetSlotsActive) }/{ strconv.Itoa(d.Stats.FleetSlotsTotal) }</span><span class="gal-stat-lbl">Fleet Slots</span></div>
+			<div class="gal-stat"><span class="gal-stat-val">{ fnum(d.Stats.SpyProbes) }</span><span class="gal-stat-lbl">Spy Probes</span></div>
+			<div class="gal-stat"><span class="gal-stat-val">{ fnum(d.Stats.Recycler) }</span><span class="gal-stat-lbl">Recycler</span></div>
+		</div>
+		<p class="gal-note">Player state, alliance and Giga Recycler have no engine source yet and render empty/zero.</p>
+		<details class="gal-details"><summary>Diplomacy Colors</summary><p>Alliance diplomacy colouring arrives with the alliance system.</p></details>
+		<details class="gal-details"><summary>Legend</summary><p>Fleet · Espionage · Message · Buddy request · Recycle · Colonize.</p></details>
 	</div>
 }
 
 templ galaxyRow(sh Shell, slot models.GalaxySlot, g, s int) {
-	<tr class="border-t border-slate-800">
-		<td class="px-3 py-2">{ strconv.Itoa(slot.Position) }</td>
-		<td>
+	<tr>
+		<td class="gal-num">{ strconv.Itoa(slot.Position) }</td>
+		<td class="gal-planet">
 			if slot.Occupied {
-				<span class="text-slate-200">{ string(slot.Type) }</span>
-				if slot.HasMoon {
-					<span class="ml-1 rounded bg-slate-700 px-1 text-xs">moon</span>
+				<img class="gal-planet-icon" src="/static/niburu/icons/planets.png" alt=""/>
+				if slot.IsOwn {
+					<span class="gal-own">({ slot.OwnerName })</span>
+				} else {
+					<span class="gal-other">{ slot.OwnerName }</span>
 				}
-			} else if slot.Locked {
-				<span class="text-slate-500">locked</span>
-			} else {
-				<span class="text-slate-600">empty</span>
 			}
 		</td>
-		<td>
-			if slot.Occupied {
-				if slot.IsOwn {
-					<span class="text-cyan-400">{ slot.OwnerName }</span>
-				} else {
-					<span class="text-rose-400">{ slot.OwnerName }</span>
-				}
+		<td class="gal-moon">
+			if slot.HasMoon {
+				<img src="/static/niburu/icons/moon.png" alt="moon" title="Moon"/>
 			}
 		</td>
 		<td>
 			if slot.DebrisMetal > 0 || slot.DebrisCrystal > 0 {
-				<span class="text-amber-300">{ fnum(slot.DebrisMetal) }</span> / <span class="text-sky-300">{ fnum(slot.DebrisCrystal) }</span>
+				<span class="gal-debris-m">{ fnum(slot.DebrisMetal) }</span> / <span class="gal-debris-c">{ fnum(slot.DebrisCrystal) }</span>
 			}
 		</td>
-		<td class="px-3 py-2">
+		<td class="gal-player">{ slot.OwnerName }</td>
+		<td class="gal-alliance"></td>
+		<td class="gal-actions">
 			@slotAction(sh, slot, g, s)
 		</td>
 	</tr>
@@ -626,18 +728,27 @@ templ galaxyRow(sh Shell, slot models.GalaxySlot, g, s int) {
 
 templ slotAction(sh Shell, slot models.GalaxySlot, g, s int) {
 	if slot.Occupied && !slot.IsOwn {
-		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "PLANET")) } class="rounded bg-rose-800 px-2 py-0.5 text-xs hover:bg-rose-700">Fleet</a>
+		@galaxyIcon(sh, g, s, slot.Position, "PLANET", "ATTACK", "fleet.png", "Fleet")
+		@galaxyIcon(sh, g, s, slot.Position, "PLANET", "ESPIONAGE", "espionage.png", "Espionage")
+		@galaxyDisabled("mesages.png", "Message")
+		@galaxyDisabled("friend.png", "Buddy request")
+	} else if !slot.Occupied && (slot.DebrisMetal > 0 || slot.DebrisCrystal > 0) {
+		@galaxyIcon(sh, g, s, slot.Position, "DEBRIS_FIELD", "RECYCLE", "p_select_grab.png", "Recycle")
 	} else if !slot.Occupied && !slot.Locked {
-		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "PLANET")) } class="rounded bg-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-700">Colonize</a>
-	} else if slot.DebrisMetal > 0 || slot.DebrisCrystal > 0 {
-		<a href={ templ.URL(fleetLink(sh, g, s, slot.Position, "DEBRIS_FIELD")) } class="rounded bg-amber-800 px-2 py-0.5 text-xs hover:bg-amber-700">Recycle</a>
+		@galaxyIcon(sh, g, s, slot.Position, "PLANET", "COLONIZE", "coloni.png", "Colonize")
 	}
 }
 
-templ galaxyLink(label string, g, s int) {
-	if s >= 1 && s <= 499 {
-		<a href={ templ.URL("/galaxy/" + strconv.Itoa(g) + "/" + strconv.Itoa(s)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">{ label }</a>
-	}
+templ galaxyIcon(sh Shell, g, s, p int, targetType, mission, icon, label string) {
+	<a class="gal-action" href={ templ.URL(fleetLinkMission(sh, g, s, p, targetType, mission)) } title={ label }>
+		<img src={ "/static/niburu/icons/" + icon } alt={ label }/>
+	</a>
+}
+
+templ galaxyDisabled(icon, label string) {
+	<span class="gal-action is-disabled" title={ label + " — coming soon" }>
+		<img src={ "/static/niburu/icons/" + icon } alt={ label }/>
+	</span>
 }
 
 // ---- Reports body --------------------------------------------------------
@@ -707,4 +818,35 @@ templ ReportsBody(sh Shell, d ReportsData) {
 			}
 		</section>
 	</div>
+}
+
+// resLineLabel renders a resources-table row label: structures carry their
+// level, the solar satellite its quantity, computed rows just their name.
+func resLineLabel(l game.ProductionLine) string {
+	switch {
+	case l.Code == "212":
+		return l.Name + " (Quantity " + fnum(l.Quantity) + ")"
+	case l.Code != "":
+		return l.Name + " (Level " + strconv.Itoa(l.Level) + ")"
+	default:
+		return l.Name
+	}
+}
+
+// resAmount formats an hourly resource figure with thousands separators.
+func resAmount(v float64) string {
+	return fnumF(v)
+}
+
+// energyAmount formats a signed energy figure (the live client omits the plus
+// on a surplus).
+func energyAmount(v float64) string {
+	n := int64(v)
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + fnum(-n)
+	}
+	return fnum(n)
 }
