@@ -1345,6 +1345,71 @@ a.bm-tile:hover {
   color: #ffb4b4;
 }
 
+/* ---- Planetarium ------------------------------------------------------- */
+
+.planetarium-card {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(10, 20, 34, 0.6);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+}
+
+.planetarium-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.planetarium-name {
+  color: #eaf2ff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.planetarium-coords {
+  color: #9fb6d4;
+  font-size: 12px;
+}
+
+.planetarium-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+  color: #dce8f8;
+  font-size: 12px;
+}
+
+.planetarium-stats b {
+  color: #eaf2ff;
+}
+
+.planetarium-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.planetarium-next {
+  color: #9fb6d4;
+  font-size: 12px;
+}
+
+.planetarium-note {
+  color: #ffcf8f;
+  font-size: 12px;
+}
+
+.planetarium-quote:empty {
+  display: none;
+}
+
 /* ---- Messages category grid ------------------------------------------- */
 
 .msg-grid {

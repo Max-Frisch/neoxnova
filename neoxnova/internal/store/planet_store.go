@@ -594,6 +594,112 @@ func (s *PlanetStore) ListOwnedCelestials(ctx context.Context, userID int64) ([]
 	return out, nil
 }
 
+// celestialDetailQuery selects one owned celestial's size/field/teleport state,
+// together with the debris field sharing its coordinates (if any) that the
+// Stardust diameter expansion consumes.
+const celestialDetailQuery = `
+	SELECT c.id, COALESCE(c.name, ''), c.object_type::text, c.galaxy, c.system, c.position,
+	       c.diameter_km, c.fields_used, c.fields_max, c.fields_bought,
+	       c.relocation_next_at, c.attack_locked_until,
+	       COALESCE(d.metal, 0)::bigint, COALESCE(d.crystal, 0)::bigint
+	FROM celestial_objects c
+	LEFT JOIN celestial_objects d
+	  ON d.universe_id = c.universe_id AND d.galaxy = c.galaxy
+	 AND d.system = c.system AND d.position = c.position
+	 AND d.object_type = 'DEBRIS_FIELD'
+`
+
+func scanCelestialDetail(row interface {
+	Scan(dest ...any) error
+}) (models.CelestialDetail, error) {
+	var (
+		d          models.CelestialDetail
+		otype      string
+		nextAt     sql.NullTime
+		attackLock sql.NullTime
+	)
+	err := row.Scan(&d.ID, &d.Name, &otype, &d.Galaxy, &d.System, &d.Position,
+		&d.DiameterKm, &d.FieldsUsed, &d.FieldsMax, &d.FieldsBought,
+		&nextAt, &attackLock, &d.DebrisMetal, &d.DebrisCrystal)
+	if err != nil {
+		return models.CelestialDetail{}, err
+	}
+	d.Type = models.CelestialType(otype)
+	if nextAt.Valid {
+		t := nextAt.Time
+		d.RelocationNextAt = &t
+	}
+	if attackLock.Valid {
+		t := attackLock.Time
+		d.AttackLockedUntil = &t
+	}
+	return d, nil
+}
+
+// ListCelestialDetails returns every planet and moon an account owns with its
+// size, field and teleport state for the Planetarium page, homeworld flagged.
+func (s *PlanetStore) ListCelestialDetails(ctx context.Context, userID int64) ([]models.CelestialDetail, error) {
+	rows, err := s.db.QueryContext(ctx, celestialDetailQuery+`
+		WHERE c.user_id = $1 AND c.object_type IN ('PLANET', 'MOON')
+		ORDER BY (c.object_type = 'PLANET') DESC, c.id
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var homeID int64
+	out := make([]models.CelestialDetail, 0)
+	for rows.Next() {
+		d, err := scanCelestialDetail(rows)
+		if err != nil {
+			return nil, err
+		}
+		if d.Type == models.TypePlanet && (homeID == 0 || d.ID < homeID) {
+			homeID = d.ID
+		}
+		out = append(out, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].IsHome = out[i].ID == homeID
+	}
+	return out, nil
+}
+
+// CelestialDetail returns one owned celestial's Planetarium state (ErrNotFound
+// when it does not exist or is not owned by userID).
+func (s *PlanetStore) CelestialDetail(ctx context.Context, celestialID, userID int64) (models.CelestialDetail, error) {
+	row := s.db.QueryRowContext(ctx, celestialDetailQuery+`
+		WHERE c.id = $1 AND c.user_id = $2 AND c.object_type IN ('PLANET', 'MOON')
+	`, celestialID, userID)
+	d, err := scanCelestialDetail(row)
+	if err == sql.ErrNoRows {
+		return models.CelestialDetail{}, ErrNotFound
+	}
+	return d, err
+}
+
+// PlanetsPerSystem returns the colonisable position count of a universe
+// (game.MaxPlanetSlots when unset/out of range).
+func (s *PlanetStore) PlanetsPerSystem(ctx context.Context, universeCode string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT planets_per_system FROM universes WHERE code_name = $1`, universeCode).Scan(&n)
+	if err == sql.ErrNoRows {
+		return 0, ErrNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+	if n < 1 || n > game.MaxPlanetSlots {
+		n = game.MaxPlanetSlots
+	}
+	return n, nil
+}
+
 // HomeworldID returns the account's oldest planet id (0 when none exists).
 func (s *PlanetStore) HomeworldID(ctx context.Context, userID int64) (int64, error) {
 	var id int64

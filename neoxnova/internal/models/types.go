@@ -133,6 +133,26 @@ type OwnedCelestial struct {
 	IsHome   bool          `json:"is_home"`
 }
 
+// CelestialDetail is one owned planet or moon enriched with the size, field and
+// teleport state the Planetarium (Black market -> Planetarium) page needs.
+type CelestialDetail struct {
+	ID                int64         `json:"id"`
+	Name              string        `json:"name"`
+	Type              CelestialType `json:"type"`
+	Galaxy            int           `json:"galaxy"`
+	System            int           `json:"system"`
+	Position          int           `json:"position"`
+	IsHome            bool          `json:"is_home"`
+	DiameterKm        int           `json:"diameter_km"`
+	FieldsUsed        int           `json:"fields_used"`
+	FieldsMax         int           `json:"fields_max"`
+	FieldsBought      int64         `json:"fields_bought"`
+	RelocationNextAt  *time.Time    `json:"relocation_next_at,omitempty"`
+	AttackLockedUntil *time.Time    `json:"attack_locked_until,omitempty"`
+	DebrisMetal       int64         `json:"debris_metal"`
+	DebrisCrystal     int64         `json:"debris_crystal"`
+}
+
 // GalaxySlot is one position in a system scan (GET /api/v1/galaxy/{g}/{s}).
 type GalaxySlot struct {
 	Position      int           `json:"position"`

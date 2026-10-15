@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **B3** Planetarium page (fields/diameter/teleport UI over existing JSON endpoints).
 - [ ] **B4 future** Merchant of Fleets / Buildings & Technology Market / Voucher.
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
 - [ ] **TOTP 2FA** — second auth factor (`internal/auth`).
@@ -31,61 +30,43 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
-- 2026-10-15 — **B2 Resource Trader**: rules verified from the ops HAR (`Resource_Trader_Crys_
-  for_Deut_example.har`): selling 100 B deuterium-dealing crystal for deuterium debited exactly
-  200 B crystal / credited 100 B deut, so value M:C:D = **1:2:4** (live 4/2/1), and every trade
-  costs **250 DM**. `game.TradeQuote(sell,buy,amount,dm)` is pure (ratio + ceil + DM fee); the two
-  ids `901/902/903` map to live resource codes. `store.TradeStore.ExecuteTrade` accrues + row-locks
-  the celestial, debits the sold resource and DM, and credits the bought resource clamped to
-  `LEAST(cap,…)`. Web: `/blackmarket/trader` page with sell/buy/amount + htmx Preview
-  (`POST /blackmarket/trader/preview`) and `POST /blackmarket/trader`. Tests: `TestTradeQuote*`
-  (game), `TestExecuteTrade` (store), `TestTraderBodyRenders`/`TestTraderQuotePartial` (web),
-  e2e trader subtest. Next: B3.
-- 2026-10-15 — **B1 standalone `/blackmarket` hub**: `GET /blackmarket` renders the six-tile hub
-  (Resource Trader / Merchant of Fleets / Planetarium / Buildings Market / Technology Market /
-  Voucher System); the two backed sub-routes (`/blackmarket/trader`, `/blackmarket/planetarium`)
-  render coming-soon placeholders and the rest are disabled tiles. `GET /market` now 303s to
-  `/arsenal?tab=market` (Arsenal owns the drawing auctions); the `/market/{list,buy,remove}` POSTs
-  stay and default back to the Arsenal market tab. Nav "Black market" → `/blackmarket`. Tests:
-  `TestBlackMarketHub`, `TestBlackMarketTilesDecoupled`, `TestBlackMarketComingSoon`,
-  `TestShellRendersReskin`/`TestMenuActiveAliases`, e2e hub+redirect. Next: B2.
-- 2026-10-15 — **Q4 target-level UI + live cost/time + multi-row queues**: build/research cards got
-  an editable named `target_level` input (default = next unqueued level) and an embedded per-level
-  cost/time table (`data-cost-table`, depth 20, from `internal/game`); `static/app.js` sums it live
-  into the card total. All three scopes render the **whole** queue (numbered rows, frozen cost
-  `QueueEntrySummary.Cost` computed in read models, ETA, per-row cancel). Handlers parse
-  `target_level`, flash "…to level N (partial)". `Busy` dropped (chaining allows re-queue). Tests:
-  `Test*BodyReskin` rewritten (editable input, JSON table, 2 rows) + e2e pass `target_level`. Next: B1.
-- 2026-10-15 — **Q3 cancel by id + renumber/refund**: `CancelQueue(ctx, scope, queueID, ownerID)`
-  cancels one order (owner-checked, `FOR UPDATE`, race-safe) and refunds its frozen cost; the tail is
-  pulled forward and later same-code orders shift down a level (difference refunded). Tests:
-  `TestCancelQueueRefunds*ByID`, e2e cancel passes `queue_id`. Next: Q4.
-- 2026-10-15 — **Q2 chained queues**: `EnqueueStructure`/`EnqueueResearch` take a target level and
-  chain orders up to the slot cap or first unaffordable level (partial); `EnqueueShipyard` chains per
-  kind (unlimited). Read models return `[]QueueEntrySummary`; engine unchanged. Tests:
-  `TestEnqueue*Chain`, `TestEnqueueStructureSlotCap/PartialOnPoverty`, `TestResolveConstructionChain`.
-  Next: Q3.
-- 2026-10-15 — **C1 game tuning config**: `config/game.json` parsed by
-  `internal/config.LoadGameSettings` and upserted onto the `universes` row on boot
-  (`store.ApplyGameSettings`); `GAME_CONFIG_PATH` overrides. Tests: `TestLoadGameSettings*`,
-  `TestApplyGameSettings*`. Next: Q2.
+- 2026-10-15 — **B3 Planetarium page**: `GET /blackmarket/planetarium` lists each owned planet/moon
+  (coords, diameter, fields, local debris) with the three ops wired to the existing JSON/store
+  logic — buy fields with DM (`game.FieldExpansionCost`, htmx price preview), grow diameter with
+  Stardust + co-located debris (`DiameterExpansionGains`), teleport (`RelocationCost`; cooldown/
+  occupancy/attack-lock rules in `store.RelocatePlanet`). New `models.CelestialDetail` +
+  `store.{ListCelestialDetails,CelestialDetail,PlanetsPerSystem}`. Tests: `TestPlanetarium*` + e2e
+  planetarium subtest (resets the relocation attack-lock in `e2eReset`). Next: B4.
+- 2026-10-15 — **B2 Resource Trader**: live M:C:D value **1:2:4** (4/2/1 amount ratio) + fixed
+  **250 DM** per trade, verified from the ops HAR. `game.TradeQuote` (pure) + `store.TradeStore.
+  ExecuteTrade` (accrue/row-lock, debit sold + DM, credit bought clamped to cap); `/blackmarket/
+  trader` sell/buy/amount page + htmx preview. Tests: `TestTradeQuote*`, `TestExecuteTrade`,
+  `TestTraderBodyRenders`/`TestTraderQuotePartial`, e2e trader subtest.
+- 2026-10-15 — **B1 standalone `/blackmarket` hub**: six-tile hub (Trader + Planetarium backed, four
+  disabled); `GET /market` 303s to `/arsenal?tab=market` (Arsenal owns the drawing auctions), the
+  `/market/{list,buy,remove}` POSTs stay. Tests: `TestBlackMarketHub`/`…TilesDecoupled`/`…ComingSoon`,
+  `TestShellRendersReskin`, e2e hub+redirect.
+- 2026-10-15 — **Q4 target-level UI + live cost/time + multi-row queues**: editable `target_level`
+  input + embedded per-level `data-cost-table` (summed live by `static/app.js`); all three scopes
+  render the whole queue (frozen cost, ETA, per-row cancel). `Busy` dropped. Tests: `Test*BodyReskin`
+  rewritten + e2e pass `target_level`.
+- 2026-10-15 — **Q3 cancel by id + renumber/refund**: `CancelQueue(ctx,scope,queueID,ownerID)`
+  refunds one order and pulls the tail forward (same-code orders shift down a level, difference
+  refunded). Tests: `TestCancelQueueRefunds*ByID`, e2e cancel passes `queue_id`.
+- 2026-10-15 — **Q2 chained queues**: `EnqueueStructure`/`EnqueueResearch` chain to a target level up
+  to the slot cap / first unaffordable (partial); `EnqueueShipyard` chains per kind. Read models
+  return `[]QueueEntrySummary`; engine unchanged. Tests: `TestEnqueue*Chain`, `…SlotCap/PartialOnPoverty`.
+- 2026-10-15 — **C1 game tuning config**: `config/game.json` → `internal/config.LoadGameSettings` →
+  `store.ApplyGameSettings` upserts speeds/slots onto the `universes` row on boot; `GAME_CONFIG_PATH`
+  overrides. Tests: `TestLoadGameSettings*`, `TestApplyGameSettings*`.
 - 2026-10-15 — **Q1 queue schema**: `0020_queue_slots.sql` adds `universes.build_queue_slots`(10)/
-  `research_queue_slots`(4) and drops the single-active partial unique indexes. Tests:
-  `TestQueueSlotsMigrationIdempotent`, `TestQueueAllowsMultipleActive`. Next: C1.
-- 2026-10-15 — **P2 perf**: session + owned celestials resolved once per request via a
-  `page`-middleware `userPrincipal` in context (was 2–3 `SessionUser`/ownership queries per
-  request); `shell()` reuses the principal (drops `GetCoordinates`/`HomeworldID`/`ownsCelestial`
-  queries); Overview no longer double-runs `update_celestial_resources`; resbar poll 2s→5s
-  (`internal/web/web.go`, `data.go`, `layout.templ`). Tests: `TestResbarPollsEveryFiveSeconds`,
-  `TestUserIDReadsPrincipal`, `TestOwnsCelestialReadsPrincipal`.
-- 2026-10-15 — **P1 perf**: `/static/` served outside the per-IP rate limiter (was throttling
-  page loads to 40 req/s → the "56k" feel) + ETag/Cache-Control/`304`/gzip (`internal/web/static.go`)
-  + server Read/Write/Idle timeouts. Tests: `TestStaticAssetsCacheable`,
-  `TestStaticAssetsBypassGlobalRateLimit`.
-- 2026-10-15 — **Moons (item 4)** (build/DESTROY_MOON/Jumpgate/Phalanx), **Web UI reskin I0–I5**
-  (live-parity: shell, buildings/research queue+cancel, hangar/defenses/fleet, galaxy/tech/resources,
-  arsenal/market/messages), **Expeditions X1–X4**, **Stardust diameter sink**. Full notes:
-  `docs/BACKLOG_ARCHIVE.md`.
+  `research_queue_slots`(4), drops the single-active partial unique indexes. Tests:
+  `TestQueueSlotsMigrationIdempotent`, `TestQueueAllowsMultipleActive`.
+- 2026-10-15 — **P1/P2 perf**: `/static/` outside the per-IP limiter + ETag/Cache-Control/`304`/gzip
+  + server timeouts; session/owned celestials resolved once per request (`userPrincipal`), Overview
+  no longer double-accrues, resbar poll 2s→5s. Tests: `TestStaticAssets*`, `TestResbar*`, `TestUserID*`.
+- 2026-10-15 — **Moons (item 4)** (build/DESTROY_MOON/Jumpgate/Phalanx), **Web UI reskin I0–I5**,
+  **Expeditions X1–X4**, **Stardust diameter sink**. Full notes: `docs/BACKLOG_ARCHIVE.md`.
 - 2026-10-11 and earlier — Arsenal/Black-market pages, tech-tree + Simulator, frontend balance,
   drain `bwlean-split-v7`, 7+ acc1 colonies. See `docs/BACKLOG_ARCHIVE.md`.
 

@@ -1,0 +1,95 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/game"
+)
+
+// PlanetariumBody is the Black market -> Planetarium page: it lists the
+// account's celestials and the three captured actions (buy fields with Dark
+// Matter, grow diameter with Stardust + local debris, teleport for Dark Matter).
+templ PlanetariumBody(sh Shell, d PlanetariumData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Planetarium</h2>
+		<p class="resource-sub">Increase a planet's fields with Dark Matter, spend Stardust plus the local debris to grow its diameter, or teleport it to new coordinates.</p>
+		<div class="trader-balances">
+			<span class="trader-balance"><b>Dark Matter</b> { fnum(d.DarkMatter) }</span>
+			<span class="trader-balance"><b>Stardust</b> { fnum(d.Stardust) }</span>
+		</div>
+		if len(d.Celestials) == 0 {
+			<p class="resource-sub">You have no planets or moons to show.</p>
+		}
+		for _, c := range d.Celestials {
+			@planetariumCard(c, d)
+		}
+		<p class="resource-sub mt-4"><a href="/blackmarket">Back to Black market</a></p>
+	</div>
+}
+
+templ planetariumCard(c PlanetariumCelestial, d PlanetariumData) {
+	<div class="planetarium-card">
+		<div class="planetarium-head">
+			<span class="planetarium-name">{ c.Name }</span>
+			<span class="planetarium-coords">{ c.Coords } · { c.Type }</span>
+		</div>
+		<div class="planetarium-stats">
+			<span>Diameter <b>{ fnum(int64(c.DiameterKm)) } km</b></span>
+			<span>Fields <b>{ c.FieldsUsed } / { c.FieldsMax }</b></span>
+			<span>Bought <b>{ fnum(c.FieldsBought) }</b></span>
+			<span>Debris <b>{ fnum(c.DebrisMetal) } M</b> / <b>{ fnum(c.DebrisCrystal) } C</b></span>
+		</div>
+
+		<form method="post" action="/blackmarket/planetarium/fields" class="planetarium-form">
+			<input type="hidden" name="return" value="/blackmarket/planetarium"/>
+			<input type="hidden" name="celestial_id" value={ strconv.FormatInt(c.ID, 10) }/>
+			<label class="block text-slate-300">Fields
+				<input name="fields" type="number" min="1" max={ strconv.Itoa(d.MaxFields) } value="1" class="mt-1 w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+			</label>
+			<span class="planetarium-next">next field { fnum(c.NextFieldDM) } DM</span>
+			<button type="button" class="btn" hx-post="/blackmarket/planetarium/fields/preview" hx-include="closest form" hx-target="next .planetarium-quote" hx-swap="innerHTML">Price</button>
+			<button type="submit" class="btn">Buy fields</button>
+		</form>
+		<div class="planetarium-quote"></div>
+
+		<form method="post" action="/blackmarket/planetarium/diameter" class="planetarium-form">
+			<input type="hidden" name="return" value="/blackmarket/planetarium"/>
+			<input type="hidden" name="celestial_id" value={ strconv.FormatInt(c.ID, 10) }/>
+			<span class="planetarium-next">{ fnum(game.DiameterExpansionStardust) } Stardust + { fnum(game.DiameterExpansionMetalDebris) } metal / { fnum(game.DiameterExpansionCrystalDebris) } crystal debris</span>
+			<button type="submit" class="btn">Increase diameter</button>
+		</form>
+
+		<form method="post" action="/blackmarket/planetarium/relocate" class="planetarium-form">
+			<input type="hidden" name="return" value="/blackmarket/planetarium"/>
+			<input type="hidden" name="celestial_id" value={ strconv.FormatInt(c.ID, 10) }/>
+			<label class="block text-slate-300">Galaxy
+				<input name="galaxy" type="number" min="1" max={ strconv.Itoa(game.MaxGalaxies) } value={ strconv.Itoa(c.Galaxy) } class="mt-1 w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+			</label>
+			<label class="block text-slate-300">System
+				<input name="system" type="number" min="1" max={ strconv.Itoa(game.MaxSystems) } value={ strconv.Itoa(c.System) } class="mt-1 w-24 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+			</label>
+			<label class="block text-slate-300">Position
+				<input name="position" type="number" min="1" max={ strconv.Itoa(d.PlanetsPerSystem) } value={ strconv.Itoa(c.Position) } class="mt-1 w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+			</label>
+			<button type="button" class="btn" hx-post="/blackmarket/planetarium/relocate/preview" hx-include="closest form" hx-target="next .planetarium-quote" hx-swap="innerHTML">Price</button>
+			<button type="submit" class="btn">Teleport</button>
+			if c.RelocCooldown != "" {
+				<span class="planetarium-note">inter-system cooldown { c.RelocCooldown }</span>
+			}
+		</form>
+		<div class="planetarium-quote"></div>
+
+		if c.AttackLock != "" {
+			<p class="planetarium-note">combat-locked after relocation for { c.AttackLock }</p>
+		}
+	</div>
+}
+
+// PlanetariumQuotePartial is the htmx price fragment shown under a form.
+templ PlanetariumQuotePartial(text, errMsg string) {
+	if errMsg != "" {
+		<div class="trader-quote trader-quote--err">{ errMsg }</div>
+	} else if text != "" {
+		<div class="trader-quote">{ text }</div>
+	}
+}

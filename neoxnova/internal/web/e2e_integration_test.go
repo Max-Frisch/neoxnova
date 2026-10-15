@@ -32,6 +32,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"neoxnova/internal/engine"
+	"neoxnova/internal/game"
 )
 
 const (
@@ -427,6 +428,125 @@ func TestWebEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("planetarium buys fields, grows diameter and teleports", func(t *testing.T) {
+		// Ground state: no active fleets (relocation is blocked by them), enough
+		// Dark Matter/Stardust and a fat debris field at the homeworld coords.
+		if _, err := db.ExecContext(ctx, `DELETE FROM fleets WHERE user_id = $1`, a.UserID); err != nil {
+			t.Fatalf("clear fleets: %v", err)
+		}
+		if _, err := db.ExecContext(ctx,
+			`UPDATE users SET dark_matter = 100000, stardust = 5 WHERE id = $1`, a.UserID); err != nil {
+			t.Fatalf("seed balances: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO celestial_objects (universe_id, name, object_type, galaxy, system, position, metal, crystal)
+			SELECT universe_id, 'Debris', 'DEBRIS_FIELD', galaxy, system, position, 200000000000, 100000000000
+			FROM celestial_objects WHERE id = $1
+			ON CONFLICT (universe_id, galaxy, system, position, object_type)
+			DO UPDATE SET metal = 200000000000, crystal = 100000000000`, a.HomeID); err != nil {
+			t.Fatalf("seed debris: %v", err)
+		}
+
+		var beforeMax, beforeBought, beforeDM, beforeStardust int64
+		var beforeDiameter int
+		if err := db.QueryRowContext(ctx,
+			`SELECT fields_max, fields_bought, diameter_km FROM celestial_objects WHERE id = $1`,
+			a.HomeID).Scan(&beforeMax, &beforeBought, &beforeDiameter); err != nil {
+			t.Fatalf("read celestial: %v", err)
+		}
+		if err := db.QueryRowContext(ctx,
+			`SELECT dark_matter, stardust FROM users WHERE id = $1`, a.UserID).Scan(&beforeDM, &beforeStardust); err != nil {
+			t.Fatalf("read balances: %v", err)
+		}
+
+		id := strconv.FormatInt(a.HomeID, 10)
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/planetarium")
+		e2eWantContains(t, body, "Planetarium", "planetarium page")
+		e2eWantContains(t, body, "Test Alpha", "celestial card")
+
+		// Preview 6 fields at the captured 200/420/662/928/1221/1543 curve.
+		cost := game.FieldExpansionCost(int(beforeBought), 6)
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/fields/preview",
+			url.Values{"celestial_id": {id}, "fields": {"6"}})
+		e2eWantContains(t, body, fnum(cost), "fields preview cost")
+
+		// Edge: an out-of-range amount is rejected.
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/fields/preview",
+			url.Values{"celestial_id": {id}, "fields": {"101"}})
+		e2eWantContains(t, body, "between 1 and 100", "fields amount cap")
+
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/fields",
+			url.Values{"celestial_id": {id}, "fields": {"6"}})
+		e2eWantContains(t, body, "Added 6 fields", "fields flash")
+
+		var afterMax, afterBought, afterDM int64
+		if err := db.QueryRowContext(ctx,
+			`SELECT fields_max, fields_bought FROM celestial_objects WHERE id = $1`, a.HomeID).Scan(&afterMax, &afterBought); err != nil {
+			t.Fatalf("read fields: %v", err)
+		}
+		if err := db.QueryRowContext(ctx, `SELECT dark_matter FROM users WHERE id = $1`, a.UserID).Scan(&afterDM); err != nil {
+			t.Fatalf("read dm: %v", err)
+		}
+		if afterMax != beforeMax+6 || afterBought != beforeBought+6 || afterDM != beforeDM-cost {
+			t.Fatalf("after fields: max %d→%d bought %d→%d dm %d→%d (cost %d)",
+				beforeMax, afterMax, beforeBought, afterBought, beforeDM, afterDM, cost)
+		}
+
+		// Diameter: 1 Stardust + the local debris for a rolled growth.
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/diameter",
+			url.Values{"celestial_id": {id}})
+		e2eWantContains(t, body, "grew by", "diameter flash")
+
+		var afterDiameter, afterDiameterFields int
+		var afterStardust int64
+		if err := db.QueryRowContext(ctx,
+			`SELECT diameter_km, fields_max FROM celestial_objects WHERE id = $1`, a.HomeID).Scan(&afterDiameter, &afterDiameterFields); err != nil {
+			t.Fatalf("read diameter: %v", err)
+		}
+		if err := db.QueryRowContext(ctx, `SELECT stardust FROM users WHERE id = $1`, a.UserID).Scan(&afterStardust); err != nil {
+			t.Fatalf("read stardust: %v", err)
+		}
+		if gain := afterDiameter - beforeDiameter; gain < game.DiameterExpansionMinKm || gain > game.DiameterExpansionMaxKm {
+			t.Fatalf("diameter gain = %d, want %d..%d", gain, game.DiameterExpansionMinKm, game.DiameterExpansionMaxKm)
+		}
+		if fg := afterDiameterFields - int(afterMax); fg < game.DiameterExpansionMinFields || fg > game.DiameterExpansionMaxFields {
+			t.Fatalf("diameter field gain = %d, want %d..%d", fg, game.DiameterExpansionMinFields, game.DiameterExpansionMaxFields)
+		}
+		if afterStardust != beforeStardust-1 {
+			t.Fatalf("stardust = %d, want %d", afterStardust, beforeStardust-1)
+		}
+
+		// Relocate within the same system (no cooldown). Pick a free slot that is
+		// not the current position; B sits at 1:1:5.
+		target := 2
+		if a.P == 2 {
+			target = 3
+		}
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/relocate", url.Values{
+			"celestial_id": {id},
+			"galaxy":       {strconv.Itoa(a.G)},
+			"system":       {strconv.Itoa(a.S)},
+			"position":     {strconv.Itoa(target)},
+		})
+		e2eWantContains(t, body, "Teleported", "relocate flash")
+
+		var g2, s2, p2 int
+		if err := db.QueryRowContext(ctx,
+			`SELECT galaxy, system, position FROM celestial_objects WHERE id = $1`, a.HomeID).Scan(&g2, &s2, &p2); err != nil {
+			t.Fatalf("read coords: %v", err)
+		}
+		if g2 != a.G || s2 != a.S || p2 != target {
+			t.Fatalf("after teleport = %d:%d:%d, want %d:%d:%d", g2, s2, p2, a.G, a.S, target)
+		}
+
+		// Edge: a teleport onto the neighbour's slot is refused.
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/planetarium/relocate", url.Values{
+			"celestial_id": {id},
+			"galaxy":       {"1"}, "system": {"1"}, "position": {"5"},
+		})
+		e2eWantContains(t, body, "occupied or reserved", "occupied target rejection")
+	})
+
 	t.Run("technologies renders the tech tree", func(t *testing.T) {
 		// The page is tabbed (I4); the full grouped tree lives on the
 		// "Requirements" tab, which carries research and ship nodes.
@@ -556,6 +676,10 @@ func e2eReset(t *testing.T, ctx context.Context, db *sql.DB, a, b e2ePlayer) {
 		{`DELETE FROM market_lots WHERE seller_account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE users SET antimatter = 1000000 WHERE id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE celestial_objects SET metal = 1.0e12, crystal = 5.0e11, deuterium = 1.0e11, fields_used = 0
+		  WHERE id IN ($1, $2)`, []any{a.HomeID, b.HomeID}},
+		// Clear teleport cooldowns / post-relocation locks so a rerun of the
+		// Planetarium subtest does not bar the next run's attack dispatch.
+		{`UPDATE celestial_objects SET attack_locked_until = NULL, relocation_next_at = NULL
 		  WHERE id IN ($1, $2)`, []any{a.HomeID, b.HomeID}},
 	}
 	for _, s := range steps {

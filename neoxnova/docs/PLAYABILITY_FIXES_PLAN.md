@@ -255,6 +255,14 @@ submit tests.
 **Exit:** a player can trade resources for 250 DM from the UI.
 
 ## B3 — Planetarium page
+> **Status: ✅ done (2026-10-15).** `GET /blackmarket/planetarium` renders one card per owned
+> celestial and wires the three existing operations through the UI: buy fields with DM
+> (`POST …/fields`, htmx price preview), grow diameter with Stardust + the local debris
+> (`POST …/diameter`, rolled gains) and teleport (`POST …/relocate` + preview), reusing
+> `game.FieldExpansionCost`/`RelocationCost`/`DiameterExpansionGains` and the cooldown/lock rules
+> in `store.RelocatePlanet`. New `models.CelestialDetail` + `store.ListCelestialDetails`/
+> `CelestialDetail`/`PlanetsPerSystem`. Tests: `PlanetariumBody*`/`PlanetariumQuotePartial` +
+> e2e planetarium subtest. Next: B4.
 Work:
 1. `GET /blackmarket/planetarium` wiring the **already-implemented** JSON endpoints into the
    captured layout: increase fields (`POST /api/v1/planets/{id}/fields`), increase diameter
