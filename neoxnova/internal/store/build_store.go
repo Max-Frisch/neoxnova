@@ -1011,6 +1011,18 @@ func (s *BuildStore) effectiveResearchLab(ctx context.Context, tx *sql.Tx, celes
 	return lvl, structLevels["university"], nil
 }
 
+// EffectiveResearchLab exposes the effective research-lab level (its own lab
+// plus IRN-connected colony labs) and the local University level of a celestial,
+// used by the web research page's live cost/time preview.
+func (s *BuildStore) EffectiveResearchLab(ctx context.Context, celestialID int64) (int, int, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: true})
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+	return s.effectiveResearchLab(ctx, tx, celestialID)
+}
+
 // cancelLookupErr maps a no-row lookup to ErrNotFound so callers can render
 // "nothing to cancel" without distinguishing a missing queue from a lost race.
 func cancelLookupErr(err error) error {
@@ -1189,6 +1201,11 @@ func (s *BuildStore) GetBuildings(ctx context.Context, planetID string) (models.
 	if resp.Queue, err = scanQueueSummaries(rows, true); err != nil {
 		return models.BuildingsResponse{}, err
 	}
+	for i := range resp.Queue {
+		if c, ok := game.StructureCost(resp.Queue[i].Code, resp.Queue[i].TargetLevel); ok {
+			resp.Queue[i].Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
+		}
+	}
 
 	return resp, nil
 }
@@ -1272,6 +1289,11 @@ func (s *BuildStore) GetResearch(ctx context.Context, planetID string) (models.R
 	if resp.Queue, err = scanQueueSummaries(rows, true); err != nil {
 		return models.ResearchResponse{}, err
 	}
+	for i := range resp.Queue {
+		if c, ok := game.TechCost(resp.Queue[i].Code, resp.Queue[i].TargetLevel); ok {
+			resp.Queue[i].Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
+		}
+	}
 
 	return resp, nil
 }
@@ -1296,6 +1318,11 @@ func (s *BuildStore) GetShipyardQueue(ctx context.Context, planetID string) (mod
 	queue, err := scanQueueSummaries(rows, false)
 	if err != nil {
 		return models.ShipyardResponse{}, err
+	}
+	for i := range queue {
+		if c, ok := game.UnitCost(queue[i].Code, queue[i].Quantity); ok {
+			queue[i].Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
+		}
 	}
 	return models.ShipyardResponse{PlanetID: id, Queue: queue}, nil
 }

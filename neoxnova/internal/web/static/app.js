@@ -99,11 +99,100 @@
     });
   }
 
+  // formatNumber inserts thousands separators (matches fnum server-side).
+  function formatNumber(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  // hms renders seconds as a fixed HH:MM:SS clock (matches the server queue
+  // counters and card durations).
+  function hms(secs) {
+    secs = Math.max(0, Math.floor(secs || 0));
+    var h = Math.floor(secs / 3600);
+    var m = Math.floor((secs % 3600) / 60);
+    var s = secs % 60;
+    return pad(h) + ":" + pad(m) + ":" + pad(s);
+  }
+
+  // renderCostTotal builds the same cost-row markup the server renders.
+  function renderCostTotal(cost) {
+    var parts = "";
+    if (cost.m > 0) {
+      parts += '<span class="cost-row"><img src="/static/niburu/icons/metall_mini.gif" alt="Metal"/>' + formatNumber(cost.m) + "</span>";
+    }
+    if (cost.c > 0) {
+      parts += '<span class="cost-row"><img src="/static/niburu/icons/kristall_mini.gif" alt="Crystal"/>' + formatNumber(cost.c) + "</span>";
+    }
+    if (cost.d > 0) {
+      parts += '<span class="cost-row"><img src="/static/niburu/icons/deuterium_mini.gif" alt="Deuterium"/>' + formatNumber(cost.d) + "</span>";
+    }
+    return '<div class="cost">' + parts + "</div>";
+  }
+
+  // updateLevelPreview sums the embedded per-level cost/time table from the
+  // card's next level up to the chosen target and updates the shown totals
+  // (no extra request; the table is generated server-side from internal/game).
+  function updateLevelPreview(input) {
+    var card = input.closest(".gcard");
+    var form = input.form;
+    if (!card || !form) {
+      return;
+    }
+    var table;
+    try {
+      table = JSON.parse(form.getAttribute("data-cost-table") || "[]");
+    } catch (e) {
+      return;
+    }
+    var min = parseInt(input.getAttribute("min"), 10);
+    if (isNaN(min)) {
+      min = 0;
+    }
+    var target = parseInt(input.value, 10);
+    if (isNaN(target) || target < min) {
+      target = min;
+    }
+    var totals = { m: 0, c: 0, d: 0, t: 0 };
+    for (var i = 0; i < table.length; i++) {
+      var row = table[i];
+      if (row.l < min) {
+        continue;
+      }
+      if (row.l > target) {
+        break;
+      }
+      totals.m += row.m;
+      totals.c += row.c;
+      totals.d += row.d;
+      totals.t += row.t;
+    }
+    var costEl = card.querySelector("[data-cost-total]");
+    if (costEl) {
+      costEl.innerHTML = renderCostTotal(totals);
+    }
+    var durEl = card.querySelector("[data-duration-total]");
+    if (durEl) {
+      durEl.textContent = hms(totals.t);
+    }
+  }
+
+  // wireLevelPreview updates a card's live cost/time as its target level input
+  // changes. Delegated so it survives htmx swaps.
+  function wireLevelPreview() {
+    document.addEventListener("input", function (evt) {
+      var el = evt.target;
+      if (el && el.hasAttribute && el.hasAttribute("data-level-input")) {
+        updateLevelPreview(el);
+      }
+    });
+  }
+
   function init() {
     applyBars(document);
     startClock();
     wirePlanetSelect();
     wireMaxButtons();
+    wireLevelPreview();
   }
 
   document.addEventListener("DOMContentLoaded", init);

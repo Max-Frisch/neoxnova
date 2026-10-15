@@ -14,12 +14,11 @@ import (
 // queue cancel.
 func TestShipyardBodyReskin(t *testing.T) {
 	sh := Shell{ActivePlanetID: 7}
-	queue := &models.QueueEntrySummary{
-		ID: 1, Code: "204", Quantity: 5,
-		EndTime: time.Now().Add(time.Minute), RemainingSecs: 60,
-	}
 	d := ShipyardData{
-		Queue: queue,
+		Queue: []models.QueueEntrySummary{
+			{ID: 1, Code: "204", Quantity: 5, EndTime: time.Now().Add(time.Minute), RemainingSecs: 60},
+			{ID: 2, Code: "202", Quantity: 3, EndTime: time.Now().Add(2 * time.Minute), RemainingSecs: 120},
+		},
 		Sections: []UnitSection{
 			{Title: "Recently built", Items: []UnitItem{
 				{Code: "210", Name: "Spy Probe", Count: 8, Unlocked: true,
@@ -28,7 +27,7 @@ func TestShipyardBodyReskin(t *testing.T) {
 			{Title: "Small class", Items: []UnitItem{
 				{Code: "202", Name: "Light Cargo", Count: 3, Unlocked: true,
 					Image: assetURL("202"), Cost: models.CargoManifest{Metal: 2000, Crystal: 2000}, DurationSecs: 1, MaxQty: 100},
-				{Code: "204", Name: "Light Fighter", Unlocked: true, Busy: true,
+				{Code: "204", Name: "Light Fighter", Unlocked: true,
 					Image: assetURL("204"), Cost: models.CargoManifest{Metal: 3000, Crystal: 1000}},
 			}},
 			{Title: "Medium class", Items: []UnitItem{
@@ -63,13 +62,15 @@ func TestShipyardBodyReskin(t *testing.T) {
 		`class="unit-max" data-target="q_202" data-max="100"`,
 		"Necessary for the construction:",
 		`/static/niburu/buildings/shipyard.gif`,
-		"Busy",
 		"Spy Probe (8)",
 		"Light Cargo (3)",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("hangar HTML missing %q", want)
 		}
+	}
+	if got := strings.Count(html, `class="queue-row"`); got != 2 {
+		t.Errorf("hangar queue-row count = %d, want 2", got)
 	}
 	if strings.Contains(html, "/static/niburu/defenses/401.gif") {
 		t.Error("hangar HTML unexpectedly contains a defense sprite")
@@ -81,14 +82,14 @@ func TestShipyardBodyReskin(t *testing.T) {
 func TestDefensesBodyReskin(t *testing.T) {
 	sh := Shell{ActivePlanetID: 7}
 	d := ShipyardData{
-		Queue: &models.QueueEntrySummary{ID: 2, Code: "401", Quantity: 10, EndTime: time.Now().Add(time.Minute), RemainingSecs: 60},
+		Queue: []models.QueueEntrySummary{{ID: 2, Code: "401", Quantity: 10, EndTime: time.Now().Add(time.Minute), RemainingSecs: 60}},
 		Sections: []UnitSection{
 			{Title: "Small class", Items: []UnitItem{
 				{Code: "401", Name: "Missile Launcher", Count: 25, Unlocked: true,
 					Image: assetURL("401"), Cost: models.CargoManifest{Metal: 2000}, DurationSecs: 1, MaxQty: 9},
 			}},
 			{Title: "Large class", Items: []UnitItem{
-				{Code: "407", Name: "Small Shield Dome", Unlocked: true, Busy: true,
+				{Code: "407", Name: "Small Shield Dome", Unlocked: true,
 					Image: assetURL("407"), Cost: models.CargoManifest{Metal: 1000000, Crystal: 1000000}},
 			}},
 		},

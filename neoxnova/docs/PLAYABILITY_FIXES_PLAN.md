@@ -181,6 +181,16 @@ Work:
 **Exit:** cancelling any queued order leaves a consistent, correctly-priced chain.
 
 ## Q4 — Web UI: target-level input + live cost/time + multi-row queues
+> **Status: ✅ done (2026-10-15).** Build/research cards now carry an editable, named
+> `target_level` number input (default = next unqueued level, min/max bounded) and an embedded
+> per-level cost/time table (`data-cost-table`, 20 levels deep, generated from `internal/game`);
+> `static/app.js` sums it live into the card's total cost + duration with no extra request. The
+> queue list renders every chained order in all three scopes, each row showing its own level,
+> frozen cost (`QueueEntrySummary.Cost`, computed in the read models) and ETA with a per-row
+> cancel X. Handlers parse `target_level`, call the Q2 store signatures and flash
+> "…to level N (partial)". `Busy` was removed from the card models (chaining allows re-queueing).
+> Tests: `TestBuildingsBodyReskin`/`TestResearchBodyReskin`/`TestShipyardBodyReskin`/
+> `TestDefensesBodyReskin` rewritten; e2e build/start subtests pass `target_level`. Next: B1.
 Work:
 1. `pages.templ`: make the level input (`buildCard:244`, `researchCard:471`) an **enabled, named**
    `target_level` field (default = next level); Build/Research submit it. Empty ⇒ 1 level.

@@ -123,8 +123,8 @@ func TestWebEndToEnd(t *testing.T) {
 			`SELECT COALESCE(level, 0) FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`,
 			a.HomeID)
 		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d/build", a.HomeID),
-			url.Values{"code": {"metal_mine"}})
-		e2eWantContains(t, body, "Queued metal_mine", "build queued")
+			url.Values{"code": {"metal_mine"}, "target_level": {"1"}})
+		e2eWantContains(t, body, "Queued Metal Mine to level", "build queued")
 		e2eWaitFor(t, "metal mine level to increase", func() bool {
 			return e2eScalarInt64(t, db,
 				`SELECT COALESCE(level, 0) FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`,
@@ -195,8 +195,8 @@ func TestWebEndToEnd(t *testing.T) {
 			`SELECT COALESCE(level, 0) FROM user_technologies WHERE user_id = $1 AND tech_code = 'espionage_tech'`,
 			a.UserID)
 		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/research/%d/start", a.HomeID),
-			url.Values{"code": {"espionage_tech"}})
-		e2eWantContains(t, body, "Researching espionage_tech", "research queued")
+			url.Values{"code": {"espionage_tech"}, "target_level": {"1"}})
+		e2eWantContains(t, body, "Researching Spy Technology to level", "research queued")
 		e2eWaitFor(t, "espionage tech level to increase", func() bool {
 			return e2eScalarInt64(t, db,
 				`SELECT COALESCE(level, 0) FROM user_technologies WHERE user_id = $1 AND tech_code = 'espionage_tech'`,

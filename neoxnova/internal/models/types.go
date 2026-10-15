@@ -249,13 +249,14 @@ type PlanetExpandDiameterResponse struct {
 }
 
 type QueueEntrySummary struct {
-	ID            int64     `json:"id"`
-	Code          string    `json:"code"`
-	TargetLevel   int       `json:"target_level,omitempty"`
-	Quantity      int64     `json:"quantity,omitempty"`
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
-	RemainingSecs int64     `json:"remaining_seconds"`
+	ID            int64         `json:"id"`
+	Code          string        `json:"code"`
+	TargetLevel   int           `json:"target_level,omitempty"`
+	Quantity      int64         `json:"quantity,omitempty"`
+	Cost          CargoManifest `json:"cost"`
+	StartTime     time.Time     `json:"start_time"`
+	EndTime       time.Time     `json:"end_time"`
+	RemainingSecs int64         `json:"remaining_seconds"`
 }
 
 type BuildingsResponse struct {

@@ -195,8 +195,10 @@ templ BuildingsBody(sh Shell, d BuildingsData) {
 				<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/phalanx/" + pid(sh)) }>Phalanx Sensor</a>
 			</div>
 		}
-		if d.Queue != nil {
-			@queueRow(1, displayName(d.Queue.Code)+" "+strconv.Itoa(d.Queue.TargetLevel), d.Queue, "/buildings/"+pid(sh)+"/cancel")
+		if len(d.Queue) > 0 {
+			for i, q := range d.Queue {
+				@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/buildings/"+pid(sh)+"/cancel")
+			}
 		}
 		<div class="card-grid">
 			for _, it := range d.Items {
@@ -207,7 +209,7 @@ templ BuildingsBody(sh Shell, d BuildingsData) {
 }
 
 templ buildCard(sh Shell, it BuildItem) {
-	<div class={ cardClass(it.Busy) }>
+	<div class="gcard">
 		<div class="gcard-head">
 			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
 			if it.Code == "jumpgate" {
@@ -223,10 +225,12 @@ templ buildCard(sh Shell, it BuildItem) {
 			}
 			if it.Unlocked {
 				<div class="gcard-info">
-					@costRows(it.Cost)
+					<div data-cost-total>
+						@costRows(it.Cost)
+					</div>
 					@energyNote(it.EnergyDelta)
 					if it.DurationSecs > 0 {
-						<span class="gcard-duration">Duration: { hms(it.DurationSecs) }</span>
+						<span class="gcard-duration">Duration: <span data-duration-total>{ hms(it.DurationSecs) }</span></span>
 					}
 				</div>
 			} else {
@@ -235,16 +239,12 @@ templ buildCard(sh Shell, it BuildItem) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked {
-				if it.Busy {
-					<span class="gcard-busy">Busy</span>
-				} else {
-					<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") } class="build-form">
-						<input type="hidden" name="code" value={ it.Code }/>
-						<button type="submit" class="build-next">Build to the next level</button>
-						<input class="build-level" type="text" inputmode="numeric" value={ strconv.Itoa(it.Level + 1) } readonly/>
-						<button type="submit" class="build-up" title="Build">▲</button>
-					</form>
-				}
+				<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) }>
+					<input type="hidden" name="code" value={ it.Code }/>
+					<button type="submit" class="build-next">Build to the next level</button>
+					<input class="build-level" name="target_level" type="number" inputmode="numeric" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-level-input/>
+					<button type="submit" class="build-up" title="Build">▲</button>
+				</form>
 			}
 		</div>
 	</div>
@@ -252,10 +252,11 @@ templ buildCard(sh Shell, it BuildItem) {
 
 // queueRow is one active-queue line with an htmx-free cancel form (the cancel X
 // posts to cancelURL and redirects back with a flash).
-templ queueRow(n int, label string, q *models.QueueEntrySummary, cancelURL string) {
+templ queueRow(n int, label string, q models.QueueEntrySummary, cancelURL string) {
 	<div class="queue-row">
 		<span class="queue-n">{ strconv.Itoa(n) }.</span>
 		<span class="queue-label">{ label }</span>
+		<span class="queue-cost">{ costStr(q.Cost) }</span>
 		<span class="queue-end">Ending: { endTimeStr(q.EndTime) }</span>
 		<span class="queue-remain">{ hms(q.RemainingSecs) }</span>
 		<form method="post" action={ templ.URL(cancelURL) }>
@@ -324,13 +325,6 @@ func prereqClass(p Prereq) string {
 	return "prereq-item"
 }
 
-func cardClass(busy bool) string {
-	if busy {
-		return "gcard is-busy"
-	}
-	return "gcard"
-}
-
 func itemTitle(name string, level int) string {
 	if level > 0 {
 		return name + " " + strconv.Itoa(level) + " Level"
@@ -365,8 +359,10 @@ templ unitSections(sh Shell, d ShipyardData, buildPath, cancelPath string) {
 			<span class="help" title="Ships and defenses built at this planet">?</span>
 			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 		</div>
-		if d.Queue != nil {
-			@queueRow(1, displayName(d.Queue.Code)+" × "+fnum(d.Queue.Quantity), d.Queue, cancelPath)
+		if len(d.Queue) > 0 {
+			for i, q := range d.Queue {
+				@queueRow(i+1, displayName(q.Code)+" × "+fnum(q.Quantity), q, cancelPath)
+			}
 		}
 		for _, sec := range d.Sections {
 			<h3 class="unit-section">{ sec.Title }</h3>
@@ -380,7 +376,7 @@ templ unitSections(sh Shell, d ShipyardData, buildPath, cancelPath string) {
 }
 
 templ unitCard(sh Shell, it UnitItem, buildPath string) {
-	<div class={ cardClass(it.Busy) }>
+	<div class="gcard">
 		<div class="gcard-head">
 			<span class="gcard-title">{ unitTitle(it.Name, it.Count) }</span>
 			<span class="help" title={ it.Name }>?</span>
@@ -402,16 +398,12 @@ templ unitCard(sh Shell, it UnitItem, buildPath string) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked {
-				if it.Busy {
-					<span class="gcard-busy">Busy</span>
-				} else {
-					<form method="post" action={ templ.URL(buildPath) } class="unit-form">
-						<input type="hidden" name="code" value={ it.Code }/>
-						<input id={ "q_" + it.Code } class="build-level unit-qty" name="quantity" type="text" inputmode="numeric" value="0"/>
-						<button type="button" class="unit-max" data-target={ "q_" + it.Code } data-max={ strconv.FormatInt(it.MaxQty, 10) }>Max</button>
-						<button type="submit" class="build-next">Build</button>
-					</form>
-				}
+				<form method="post" action={ templ.URL(buildPath) } class="unit-form">
+					<input type="hidden" name="code" value={ it.Code }/>
+					<input id={ "q_" + it.Code } class="build-level unit-qty" name="quantity" type="text" inputmode="numeric" value="0"/>
+					<button type="button" class="unit-max" data-target={ "q_" + it.Code } data-max={ strconv.FormatInt(it.MaxQty, 10) }>Max</button>
+					<button type="submit" class="build-next">Build</button>
+				</form>
 			}
 		</div>
 	</div>
@@ -432,8 +424,10 @@ templ ResearchBody(sh Shell, d ResearchData) {
 			<span class="help" title="Technologies researched account-wide">?</span>
 			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 		</div>
-		if d.Queue != nil {
-			@queueRow(1, displayName(d.Queue.Code)+" "+strconv.Itoa(d.Queue.TargetLevel), d.Queue, "/research/"+pid(sh)+"/cancel")
+		if len(d.Queue) > 0 {
+			for i, q := range d.Queue {
+				@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/research/"+pid(sh)+"/cancel")
+			}
 		}
 		<div class="card-grid">
 			for _, it := range d.Items {
@@ -444,7 +438,7 @@ templ ResearchBody(sh Shell, d ResearchData) {
 }
 
 templ researchCard(sh Shell, it ResearchItem) {
-	<div class={ cardClass(it.Busy) }>
+	<div class="gcard">
 		<div class="gcard-head">
 			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
 			<span class="help" title={ it.Name }>?</span>
@@ -455,7 +449,12 @@ templ researchCard(sh Shell, it ResearchItem) {
 			}
 			if it.Unlocked {
 				<div class="gcard-info">
-					@costRows(it.Cost)
+					<div data-cost-total>
+						@costRows(it.Cost)
+					</div>
+					if it.DurationSecs > 0 {
+						<span class="gcard-duration">Duration: <span data-duration-total>{ hms(it.DurationSecs) }</span></span>
+					}
 				</div>
 			} else {
 				@prereqBlock("For research is needed:", it.Prereqs)
@@ -463,16 +462,12 @@ templ researchCard(sh Shell, it ResearchItem) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked {
-				if it.Busy {
-					<span class="gcard-busy">Busy</span>
-				} else {
-					<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form">
-						<input type="hidden" name="code" value={ it.Code }/>
-						<button type="submit" class="build-next">Research to the next level</button>
-						<input class="build-level" type="text" inputmode="numeric" value={ strconv.Itoa(it.Level + 1) } readonly/>
-						<button type="submit" class="build-up" title="Research">▲</button>
-					</form>
-				}
+				<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) }>
+					<input type="hidden" name="code" value={ it.Code }/>
+					<button type="submit" class="build-next">Research to the next level</button>
+					<input class="build-level" name="target_level" type="number" inputmode="numeric" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-level-input/>
+					<button type="submit" class="build-up" title="Research">▲</button>
+				</form>
 			}
 		</div>
 	</div>

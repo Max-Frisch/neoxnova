@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -164,7 +165,7 @@ func (h *Handler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
 		data.ResQueue = firstQueue(rr.Queue)
 	}
-	data.ShipQueue = h.shipyardQueue(r, idStr)
+	data.ShipQueue = firstQueue(h.shipyardQueue(r, idStr))
 	if in, err := h.fleets.IncomingFleets(r.Context(), id, userID); err == nil {
 		data.Incoming = in
 	}
@@ -271,27 +272,91 @@ type Prereq struct {
 	Image    string
 }
 
+// costTableDepth is how many future levels each card embeds for the live
+// cost/time preview (static/app.js sums them as the target level changes).
+const costTableDepth = 20
+
+// levelCost is one row of an embedded live cost/time table. Field names are
+// kept short because the whole table rides along in a data-* attribute.
+type levelCost struct {
+	Level     int   `json:"l"`
+	Metal     int64 `json:"m"`
+	Crystal   int64 `json:"c"`
+	Deuterium int64 `json:"d"`
+	Secs      int64 `json:"t"`
+}
+
+// costTableJSON serialises a per-level cost/time table for embedding.
+func costTableJSON(table []levelCost) string {
+	b, err := json.Marshal(table)
+	if err != nil || len(table) == 0 {
+		return "[]"
+	}
+	return string(b)
+}
+
 type BuildItem struct {
 	Code         string
 	ID           int
 	Name         string
 	Level        int
+	NextLevel    int
+	MaxLevel     int
 	Cost         models.CargoManifest
+	CostTable    []levelCost
 	Unlocked     bool
 	Reason       string
 	Image        string
 	EnergyDelta  float64
 	DurationSecs int64
 	Prereqs      []Prereq
-	Busy         bool
 }
 
 type BuildingsData struct {
 	Items      []BuildItem
-	Queue      *models.QueueEntrySummary
+	Queue      []models.QueueEntrySummary
 	FieldsUsed int
 	FieldsMax  int
 	IsMoon     bool
+}
+
+// structureCostTable builds the per-level cost/time preview for a structure
+// starting at its next unqueued level, using the projected robotics/nanite
+// factories for the duration estimate.
+func structureCostTable(code string, next, robot, nanite int, speed float64) []levelCost {
+	out := make([]levelCost, 0, costTableDepth)
+	for lvl := next; lvl < next+costTableDepth; lvl++ {
+		c, ok := game.StructureCost(code, lvl)
+		if !ok {
+			break
+		}
+		d := game.StructureDuration(code, lvl, robot, nanite, speed)
+		out = append(out, levelCost{lvl, c.Metal, c.Crystal, c.Deuterium, int64(d.Seconds())})
+	}
+	return out
+}
+
+// techCostTable is structureCostTable for an empire-wide technology.
+func techCostTable(code string, next, lab, university int, speed float64) []levelCost {
+	out := make([]levelCost, 0, costTableDepth)
+	for lvl := next; lvl < next+costTableDepth; lvl++ {
+		c, ok := game.TechCost(code, lvl)
+		if !ok {
+			break
+		}
+		d := game.TechDuration(code, lvl, lab, university, speed)
+		out = append(out, levelCost{lvl, c.Metal, c.Crystal, c.Deuterium, int64(d.Seconds())})
+	}
+	return out
+}
+
+// queuedCounts tallies how many in-progress orders exist per code.
+func queuedCounts(queue []models.QueueEntrySummary) map[string]int {
+	out := map[string]int{}
+	for _, q := range queue {
+		out[q.Code]++
+	}
+	return out
 }
 
 func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +374,7 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	levels := map[string]int{}
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
 		levels = b.Levels
-		data.Queue = firstQueue(b.Queue)
+		data.Queue = b.Queue
 	}
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.FieldsUsed, data.FieldsMax = ov.FieldsUsed, ov.FieldsMax
@@ -317,24 +382,29 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	ctype, _ := h.planets.CelestialType(r.Context(), idStr)
 	data.IsMoon = ctype == models.TypeMoon
 	speed := h.gameSpeed(r)
-	robot, nanite := levels["robotics_factory"], levels["nanite_factory"]
+	queued := queuedCounts(data.Queue)
+	robot := levels["robotics_factory"] + queued["robotics_factory"]
+	nanite := levels["nanite_factory"] + queued["nanite_factory"]
 	defs := sortedStructures()
 	if data.IsMoon {
 		defs = game.MoonStructureDefs()
 	}
 	for _, def := range defs {
+		next := levels[def.Code] + queued[def.Code] + 1
 		item := BuildItem{
 			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
-			Image:   assetURL(def.Code),
-			Prereqs: prereqList(def.Requires, levels),
+			NextLevel: next,
+			MaxLevel:  next + costTableDepth - 1,
+			CostTable: structureCostTable(def.Code, next, robot, nanite, speed),
+			Image:     assetURL(def.Code),
+			Prereqs:   prereqList(def.Requires, levels),
 		}
-		if c, ok := game.StructureCost(def.Code, item.Level+1); ok {
+		if c, ok := game.StructureCost(def.Code, next); ok {
 			item.Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, levels)
-		item.EnergyDelta = game.StructureEnergyDelta(def.Code, item.Level+1)
-		item.DurationSecs = int64(game.StructureDuration(def.Code, item.Level+1, robot, nanite, speed).Seconds())
-		item.Busy = data.Queue != nil && data.Queue.Code == def.Code
+		item.EnergyDelta = game.StructureEnergyDelta(def.Code, next)
+		item.DurationSecs = int64(game.StructureDuration(def.Code, next, robot, nanite, speed).Seconds())
 		data.Items = append(data.Items, item)
 	}
 	h.render(w, r, http.StatusOK, Page(sh, BuildingsBody(sh, data)))
@@ -371,13 +441,24 @@ func (h *Handler) BuildSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.FormValue("code")
-	_, err := h.builds.EnqueueStructure(r.Context(), id, code, 0)
+	target := atoiDefault(r.FormValue("target_level"), 0)
+	res, err := h.builds.EnqueueStructure(r.Context(), id, code, target)
 	if err != nil {
 		h.redirect(w, r, "/buildings/"+r.PathValue("id"), "", err.Error())
 		return
 	}
 	h.nudge()
-	h.redirect(w, r, "/buildings/"+r.PathValue("id"), "Queued "+code, "")
+	h.redirect(w, r, "/buildings/"+r.PathValue("id"), queueFlash("Queued "+displayName(code), res, target), "")
+}
+
+// queueFlash renders the "queued to level N" flash, noting a partial enqueue
+// when the requested target could not be fully afforded or fit the slot cap.
+func queueFlash(prefix string, res store.QueueResult, requested int) string {
+	msg := prefix + " to level " + strconv.Itoa(res.TargetLevel)
+	if requested > res.TargetLevel {
+		msg += " (partial)"
+	}
+	return msg
 }
 
 // ---- Shipyard / Defenses -------------------------------------------------
@@ -393,7 +474,6 @@ type UnitItem struct {
 	Image        string
 	DurationSecs int64
 	Prereqs      []Prereq
-	Busy         bool
 	MaxQty       int64
 }
 
@@ -406,7 +486,7 @@ type UnitSection struct {
 
 type ShipyardData struct {
 	Sections []UnitSection
-	Queue    *models.QueueEntrySummary
+	Queue    []models.QueueEntrySummary
 }
 
 // unitClassDef is one fixed shipyard band captured from the live client.
@@ -494,7 +574,7 @@ func (h *Handler) unitPageData(r *http.Request, sh Shell, id int64, idStr string
 			if !ok {
 				continue
 			}
-			items = append(items, buildUnitItem(def, counts[code], levels, sh.Resources, shipyard, nanite, speed, queue))
+			items = append(items, buildUnitItem(def, counts[code], levels, sh.Resources, shipyard, nanite, speed))
 		}
 		if len(items) > 0 {
 			sections = append(sections, UnitSection{Title: title, Items: items})
@@ -515,7 +595,7 @@ func (h *Handler) unitPageData(r *http.Request, sh Shell, id int64, idStr string
 	return ShipyardData{Sections: sections, Queue: queue}
 }
 
-func buildUnitItem(def game.UnitDef, count int64, levels map[string]int, res *models.RealtimeResourceState, shipyard, nanite int, speed float64, queue *models.QueueEntrySummary) UnitItem {
+func buildUnitItem(def game.UnitDef, count int64, levels map[string]int, res *models.RealtimeResourceState, shipyard, nanite int, speed float64) UnitItem {
 	item := UnitItem{
 		Code: def.Code, Name: def.Name, Count: count, Cost: unitManifest(def),
 		Image:   assetURL(def.Code),
@@ -523,7 +603,6 @@ func buildUnitItem(def game.UnitDef, count int64, levels map[string]int, res *mo
 	}
 	item.Unlocked, item.Reason = reqOK(def.Requires, levels)
 	item.DurationSecs = int64(game.UnitDuration(def.Code, 1, shipyard, nanite, speed).Seconds())
-	item.Busy = queue != nil && queue.Code == def.Code
 	item.MaxQty = maxAffordable(res, item.Cost)
 	return item
 }
@@ -638,21 +717,24 @@ func (h *Handler) unitCancel(w http.ResponseWriter, r *http.Request, back string
 // ---- Research ------------------------------------------------------------
 
 type ResearchItem struct {
-	Code     string
-	ID       int
-	Name     string
-	Level    int
-	Cost     models.CargoManifest
-	Unlocked bool
-	Reason   string
-	Image    string
-	Prereqs  []Prereq
-	Busy     bool
+	Code         string
+	ID           int
+	Name         string
+	Level        int
+	NextLevel    int
+	MaxLevel     int
+	Cost         models.CargoManifest
+	CostTable    []levelCost
+	Unlocked     bool
+	Reason       string
+	Image        string
+	DurationSecs int64
+	Prereqs      []Prereq
 }
 
 type ResearchData struct {
 	Items []ResearchItem
-	Queue *models.QueueEntrySummary
+	Queue []models.QueueEntrySummary
 }
 
 func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
@@ -670,7 +752,7 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 	levels := map[string]int{}
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
 		levels = rr.Levels
-		data.Queue = firstQueue(rr.Queue)
+		data.Queue = rr.Queue
 	}
 	// Building levels are needed because some techs require a research lab etc.
 	structLevels := map[string]int{}
@@ -678,17 +760,27 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 		structLevels = b.Levels
 	}
 	all := mergeLevels(structLevels, levels)
+	speed := h.gameSpeed(r)
+	queued := queuedCounts(data.Queue)
+	lab, university := structLevels["research_lab"], structLevels["university"]
+	if l, u, err := h.builds.EffectiveResearchLab(r.Context(), id); err == nil {
+		lab, university = l, u
+	}
 	for _, def := range sortedTechs() {
+		next := levels[def.Code] + queued[def.Code] + 1
 		item := ResearchItem{
 			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
-			Image:   assetURL(def.Code),
-			Prereqs: prereqList(def.Requires, all),
+			NextLevel: next,
+			MaxLevel:  next + costTableDepth - 1,
+			CostTable: techCostTable(def.Code, next, lab, university, speed),
+			Image:     assetURL(def.Code),
+			Prereqs:   prereqList(def.Requires, all),
 		}
-		if c, ok := game.TechCost(def.Code, item.Level+1); ok {
+		if c, ok := game.TechCost(def.Code, next); ok {
 			item.Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
-		item.Busy = data.Queue != nil && data.Queue.Code == def.Code
+		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed).Seconds())
 		data.Items = append(data.Items, item)
 	}
 	h.render(w, r, http.StatusOK, Page(sh, ResearchBody(sh, data)))
@@ -725,12 +817,14 @@ func (h *Handler) ResearchSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.FormValue("code")
-	if _, err := h.builds.EnqueueResearch(r.Context(), id, code, 0); err != nil {
+	target := atoiDefault(r.FormValue("target_level"), 0)
+	res, err := h.builds.EnqueueResearch(r.Context(), id, code, target)
+	if err != nil {
 		h.redirect(w, r, "/research/"+r.PathValue("id"), "", err.Error())
 		return
 	}
 	h.nudge()
-	h.redirect(w, r, "/research/"+r.PathValue("id"), "Researching "+code, "")
+	h.redirect(w, r, "/research/"+r.PathValue("id"), queueFlash("Researching "+displayName(code), res, target), "")
 }
 
 // ---- Fleet ---------------------------------------------------------------
@@ -1084,16 +1178,14 @@ func (h *Handler) redirect(w http.ResponseWriter, r *http.Request, base, ok, err
 	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 
-// shipyardQueue returns the head of a celestial's ship/defense production
-// queue, or nil when idle. The full chain is available from the build store's
-// GetShipyardQueue read model; the current page renders only the head until the
-// multi-row queue UI lands.
-func (h *Handler) shipyardQueue(r *http.Request, idStr string) *models.QueueEntrySummary {
+// shipyardQueue returns the full ship/defense production chain for a celestial
+// (nil when idle) so the page can list every chained order.
+func (h *Handler) shipyardQueue(r *http.Request, idStr string) []models.QueueEntrySummary {
 	resp, err := h.builds.GetShipyardQueue(r.Context(), idStr)
 	if err != nil {
 		return nil
 	}
-	return firstQueue(resp.Queue)
+	return resp.Queue
 }
 
 // firstQueue returns the head of a queue list, or nil when empty.

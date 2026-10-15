@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **Q4** target-level input + live cost/time (embedded JSON) + multi-row queue UI.
 - [ ] **B1** `/blackmarket` hub (separate from Arsenal `/market`); stub unbuilt categories.
 - [ ] **B2** Resource Trader (250 DM; 4/2/1 + fees) — capture rules from ops HAR.
 - [ ] **B3** Planetarium page (fields/diameter/teleport UI over existing JSON endpoints).
@@ -34,31 +33,29 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **Q4 target-level UI + live cost/time + multi-row queues**: build/research cards got
+  an editable named `target_level` input (default = next unqueued level) and an embedded per-level
+  cost/time table (`data-cost-table`, depth 20, from `internal/game`); `static/app.js` sums it live
+  into the card total. All three scopes render the **whole** queue (numbered rows, frozen cost
+  `QueueEntrySummary.Cost` computed in read models, ETA, per-row cancel). Handlers parse
+  `target_level`, flash "…to level N (partial)". `Busy` dropped (chaining allows re-queue). Tests:
+  `Test*BodyReskin` rewritten (editable input, JSON table, 2 rows) + e2e pass `target_level`. Next: B1.
 - 2026-10-15 — **Q3 cancel by id + renumber/refund**: `CancelQueue(ctx, scope, queueID, ownerID)`
-  cancels one specific queued order (owner-checked, `FOR UPDATE`, scheduler-race safe) and refunds
-  its frozen cost; the tail is pulled forward and later orders of the same code/tech shift down one
-  level, the level-cost difference refunded (`renumberConstruction/Research/ShipyardTx`). Handlers
-  parse a hidden `queue_id` form field (`queueRow` renders it). Tests: `TestCancelQueueRefunds*ByID`
-  (middle-order renumber + refunds), e2e cancel subtests pass a `queue_id`. Next: Q4.
+  cancels one order (owner-checked, `FOR UPDATE`, race-safe) and refunds its frozen cost; the tail is
+  pulled forward and later same-code orders shift down a level (difference refunded). Tests:
+  `TestCancelQueueRefunds*ByID`, e2e cancel passes `queue_id`. Next: Q4.
 - 2026-10-15 — **Q2 chained queues**: `EnqueueStructure`/`EnqueueResearch` take a target level and
-  chain orders (`start = MAX(end_time)`, per-order target = current+queued+1) up to the scope's
-  slot cap or the first unaffordable level (partial); `EnqueueShipyard` chains per kind
-  (ships/defenses separate, unlimited). `GetBuildings`/`GetResearch`/new `GetShipyardQueue` return
-  `[]QueueEntrySummary`; web renders the head until Q4. `BlueprintStore.LoadState` projects queued
-  orders and marks a scope busy only at its cap. Engine unchanged. Tests: `TestEnqueue*Chain`,
-  `TestEnqueueStructureSlotCap/PartialOnPoverty`, `TestEnqueueShipyardChainsByKind`,
-  `TestResolveConstructionChain`. Next: Q3.
-- 2026-10-15 — **C1 game tuning config**: `config/game.json` (live-calibrated 4000/10000/15,
-  build 10 / research 4) parsed by `internal/config.LoadGameSettings` (built-in defaults when
-  absent, unknown keys rejected) and upserted onto the `universes` row for `UNIVERSE_ID` on boot
-  via `store.ApplyGameSettings` (`cmd/server/main.go`); `GAME_CONFIG_PATH` overrides the path.
-  No game-math change (`fleet_speed` already divides flight time; ships/expo round-trip scale,
-  hold is player-set). Tests: `TestLoadGameSettings*`, `TestApplyGameSettings*`. Next: Q2.
-- 2026-10-15 — **Q1 queue schema**: migration `0020_queue_slots.sql` adds
-  `universes.build_queue_slots` (10)/`research_queue_slots` (4) and drops the three
-  single-active partial unique indexes (`uq_active_construction/_research/_shipyard`) so all
-  three scopes take multi-row chains. Tests: `TestQueueSlotsMigrationIdempotent`,
-  `TestQueueAllowsMultipleActive`. Next: C1.
+  chain orders up to the slot cap or first unaffordable level (partial); `EnqueueShipyard` chains per
+  kind (unlimited). Read models return `[]QueueEntrySummary`; engine unchanged. Tests:
+  `TestEnqueue*Chain`, `TestEnqueueStructureSlotCap/PartialOnPoverty`, `TestResolveConstructionChain`.
+  Next: Q3.
+- 2026-10-15 — **C1 game tuning config**: `config/game.json` parsed by
+  `internal/config.LoadGameSettings` and upserted onto the `universes` row on boot
+  (`store.ApplyGameSettings`); `GAME_CONFIG_PATH` overrides. Tests: `TestLoadGameSettings*`,
+  `TestApplyGameSettings*`. Next: Q2.
+- 2026-10-15 — **Q1 queue schema**: `0020_queue_slots.sql` adds `universes.build_queue_slots`(10)/
+  `research_queue_slots`(4) and drops the single-active partial unique indexes. Tests:
+  `TestQueueSlotsMigrationIdempotent`, `TestQueueAllowsMultipleActive`. Next: C1.
 - 2026-10-15 — **P2 perf**: session + owned celestials resolved once per request via a
   `page`-middleware `userPrincipal` in context (was 2–3 `SessionUser`/ownership queries per
   request); `shell()` reuses the principal (drops `GetCoordinates`/`HomeworldID`/`ownsCelestial`
