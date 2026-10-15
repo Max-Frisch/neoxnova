@@ -150,10 +150,13 @@ persists it verbatim. Harvest the exact strings from `data/_lang_FLEETphp` +
 
 **Test:** each outcome maps to a non-empty title/body; flavour index bounded.
 
-## 8. Stardust — deferred
+## 8. Stardust
 
-Tracked separately as BACKLOG item 7 (rare currency + debris-based diameter/fields
-sink). Not part of this pass.
+**Find shipped 2026-10-15 (X3).** A distinct `stardust` outcome (weight ~1.9 %,
+folded out of the unlocked buckets) yields 1 unit, credited to `users.stardust`
+(migration `0018`) and surfaced via `/auth/me`, the resource state and the web
+resource bar. The debris-based diameter/fields sink that spends it remains
+deferred (backlog X4 / the private ops repo §11e).
 
 ---
 

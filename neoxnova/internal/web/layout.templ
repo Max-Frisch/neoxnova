@@ -100,6 +100,7 @@ templ ResourceBar(s Shell) {
 				<span><span class="text-slate-500">Crystal</span> <span class="text-sky-300">{ fnumF(s.Resources.CrystalCurrent) }</span> <span class="text-slate-600">/ { fnum(s.Resources.CrystalLimit) }</span> <span class="text-emerald-500">+{ fnumF(s.Resources.CrystalHourlyRate) }/h</span></span>
 				<span><span class="text-slate-500">Deuterium</span> <span class="text-teal-300">{ fnumF(s.Resources.DeutCurrent) }</span> <span class="text-slate-600">/ { fnum(s.Resources.DeutLimit) }</span> <span class="text-emerald-500">+{ fnumF(s.Resources.DeutHourlyRate) }/h</span></span>
 				<span><span class="text-slate-500">Energy</span> <span class="text-yellow-300">{ fnum(int64(s.Resources.EnergyAvailable)) }</span> <span class="text-slate-600">/ { fnum(int64(s.Resources.EnergyMax)) }</span></span>
+				<span><span class="text-slate-500">Stardust</span> <span class="text-fuchsia-300">{ fnum(s.Resources.Stardust) }</span></span>
 			}
 		</div>
 	</div>

@@ -201,6 +201,17 @@ func (s *AuthStore) UserByID(ctx context.Context, userID int64) (username, email
 	return username, email, err
 }
 
+// UserBalances returns a user's premium-currency balances (all empire-wide).
+func (s *AuthStore) UserBalances(ctx context.Context, userID int64) (darkMatter, antimatter, stardust int64, err error) {
+	err = s.db.QueryRowContext(ctx, `
+		SELECT dark_matter, antimatter, stardust FROM users WHERE id = $1
+	`, userID).Scan(&darkMatter, &antimatter, &stardust)
+	if err == sql.ErrNoRows {
+		return 0, 0, 0, ErrNotFound
+	}
+	return darkMatter, antimatter, stardust, err
+}
+
 // UserExists reports whether a username/email is taken.
 func (s *AuthStore) UserExists(ctx context.Context, username, email string) (bool, error) {
 	var exists bool

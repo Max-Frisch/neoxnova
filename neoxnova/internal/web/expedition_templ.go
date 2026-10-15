@@ -443,7 +443,10 @@ func freeSlots(d ExpeditionData) int {
 func expeditionCargo(rep store.ExpeditionReport) string {
 	c := costStr(cargoFromReport(rep))
 	if rep.DarkMatter > 0 {
-		return c + " · " + fnum(rep.DarkMatter) + " DM"
+		c += " · " + fnum(rep.DarkMatter) + " DM"
+	}
+	if rep.Stardust > 0 {
+		c += " · " + fnum(rep.Stardust) + " SD"
 	}
 	return c
 }

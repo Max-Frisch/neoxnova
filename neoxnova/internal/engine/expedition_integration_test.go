@@ -236,4 +236,37 @@ func TestResolveExpeditionPersistence(t *testing.T) {
 			t.Fatalf("expedition report outcome = %q, want blackhole-loot", outcome)
 		}
 	})
+
+	t.Run("stardust find", func(t *testing.T) {
+		var before int64
+		if err := db.QueryRowContext(ctx, `SELECT stardust FROM users WHERE id=2`).Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		withExpeditionRoll(t, game.ExpeditionResult{Outcome: game.ExpeditionStardust, Stardust: 1})
+		fleetID := expeditionFleet(t, db, universeID)
+		eng.resolveFleetEvent(ctx, fleetID)
+
+		var phase string
+		if err := db.QueryRowContext(ctx, `SELECT phase FROM fleets WHERE id=$1`, fleetID).Scan(&phase); err != nil {
+			t.Fatal(err)
+		}
+		if phase != "RETURNING" {
+			t.Fatalf("phase = %q, want RETURNING", phase)
+		}
+		var after int64
+		if err := db.QueryRowContext(ctx, `SELECT stardust FROM users WHERE id=2`).Scan(&after); err != nil {
+			t.Fatal(err)
+		}
+		if after != before+1 {
+			t.Fatalf("users.stardust = %d, want %d", after, before+1)
+		}
+		var outcome string
+		var sd int64
+		if err := db.QueryRowContext(ctx, `SELECT outcome, stardust FROM expedition_reports WHERE fleet_id=$1`, fleetID).Scan(&outcome, &sd); err != nil {
+			t.Fatalf("expected a stardust expedition report: %v", err)
+		}
+		if outcome != "stardust" || sd != 1 {
+			t.Fatalf("expedition report = %q stardust=%d, want stardust/1", outcome, sd)
+		}
+	})
 }

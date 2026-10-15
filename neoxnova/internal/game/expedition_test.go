@@ -3,6 +3,7 @@ package game
 import (
 	"math/rand"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -40,7 +41,8 @@ func TestRollExpeditionDeterministic(t *testing.T) {
 }
 
 // TestExpeditionOutcomeMix checks every outcome is reachable and the locked
-// rates hold: combat 15 %, fatal black hole 1.68 %, positive BH-loot 1.7 %.
+// rates hold: combat 15 %, fatal black hole 1.68 %, positive BH-loot 1.7 %,
+// stardust 1.9 %.
 func TestExpeditionOutcomeMix(t *testing.T) {
 	atk := expSampleAtk()
 	const n = 40000
@@ -51,7 +53,7 @@ func TestExpeditionOutcomeMix(t *testing.T) {
 	for _, o := range []ExpeditionOutcome{
 		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
 		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
-		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot, ExpeditionStardust,
 	} {
 		if counts[o] == 0 {
 			t.Errorf("outcome %q never occurred in %d rolls", o, n)
@@ -60,11 +62,12 @@ func TestExpeditionOutcomeMix(t *testing.T) {
 	assertShare(t, counts, n, ExpeditionCombat, 0.15, 0.02)
 	assertShare(t, counts, n, ExpeditionBlackHole, 0.0168, 0.005)
 	assertShare(t, counts, n, ExpeditionBlackHoleLoot, 0.017, 0.005)
-	assertShare(t, counts, n, ExpeditionResources, 0.2028, 0.03)
-	assertShare(t, counts, n, ExpeditionShips, 0.2879, 0.03)
-	assertShare(t, counts, n, ExpeditionDarkMatter, 0.1465, 0.03)
-	assertShare(t, counts, n, ExpeditionNothing, 0.079, 0.02)
-	assertShare(t, counts, n, ExpeditionFastReturn, 0.04, 0.015)
+	assertShare(t, counts, n, ExpeditionStardust, 0.019, 0.01)
+	assertShare(t, counts, n, ExpeditionResources, 0.1981, 0.03)
+	assertShare(t, counts, n, ExpeditionShips, 0.2812, 0.03)
+	assertShare(t, counts, n, ExpeditionDarkMatter, 0.1431, 0.03)
+	assertShare(t, counts, n, ExpeditionNothing, 0.0772, 0.02)
+	assertShare(t, counts, n, ExpeditionFastReturn, 0.039, 0.015)
 }
 
 // assertShare fails when an outcome's sampled share drifts beyond ±tol.
@@ -93,7 +96,7 @@ func TestExpeditionMessage(t *testing.T) {
 	for _, o := range []ExpeditionOutcome{
 		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
 		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
-		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot, ExpeditionStardust,
 	} {
 		title, body := ExpeditionMessage(ExpeditionResult{Outcome: o})
 		if title == "" || body == "" {
@@ -104,7 +107,7 @@ func TestExpeditionMessage(t *testing.T) {
 	for _, o := range []ExpeditionOutcome{
 		ExpeditionResources, ExpeditionShips, ExpeditionCombat, ExpeditionDelay,
 		ExpeditionDarkMatter, ExpeditionFastReturn, ExpeditionNothing,
-		ExpeditionBlackHole, ExpeditionBlackHoleLoot,
+		ExpeditionBlackHole, ExpeditionBlackHoleLoot, ExpeditionStardust,
 	} {
 		for f := 0; f < 40; f++ {
 			_, body := ExpeditionMessage(ExpeditionResult{Outcome: o, Flavor: f, NPC: NPCPirates})
@@ -277,6 +280,33 @@ func TestExpeditionBlackHoleIsBare(t *testing.T) {
 		return
 	}
 	t.Fatal("no black hole found in 2000 rolls")
+}
+
+// TestExpeditionStardustFind: a stardust outcome carries a single unit of the
+// rare currency and no other payload, and its message names Stardust.
+func TestExpeditionStardustFind(t *testing.T) {
+	atk := expSampleAtk()
+	found := false
+	for s := int64(0); s < 20000 && !found; s++ {
+		res := RollExpedition(atk, s)
+		if res.Outcome != ExpeditionStardust {
+			continue
+		}
+		found = true
+		if res.Stardust != expeditionStardustFind {
+			t.Fatalf("stardust find = %d, want %d", res.Stardust, expeditionStardustFind)
+		}
+		if res.Combat != nil || len(res.Ships) != 0 || res.Loot != (Cost{}) || res.DarkMatter != 0 {
+			t.Fatalf("stardust carried extra payload: %+v", res)
+		}
+		_, body := ExpeditionMessage(res)
+		if !strings.Contains(body, "Stardust") {
+			t.Fatalf("stardust message does not name Stardust: %q", body)
+		}
+	}
+	if !found {
+		t.Fatal("no stardust outcome found in 20000 rolls")
+	}
 }
 
 // TestExpeditionDarkMatterScales: DM finds scale with the fleet's points, so a

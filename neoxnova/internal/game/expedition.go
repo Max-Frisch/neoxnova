@@ -38,6 +38,7 @@ const (
 	ExpeditionNothing       ExpeditionOutcome = "nothing"
 	ExpeditionBlackHole     ExpeditionOutcome = "blackhole"
 	ExpeditionBlackHoleLoot ExpeditionOutcome = "blackhole-loot"
+	ExpeditionStardust      ExpeditionOutcome = "stardust"
 )
 
 // NPCType is the faction an expedition fights. Only Pirates and Aliens exist
@@ -67,6 +68,10 @@ type ExpeditionResult struct {
 	Loot Cost
 	// DarkMatter found (Outcome == ExpeditionDarkMatter).
 	DarkMatter int64
+	// Stardust found (Outcome == ExpeditionStardust). A rare currency, always a
+	// single unit per find (live messages read "1 unit of Stardust"); the
+	// debris-based diameter/fields sink that spends it is not modelled yet.
+	Stardust int64
 	// Recovered ships added to the returning fleet (Outcome == ExpeditionShips).
 	Ships map[string]int64
 	// ReturnAdjustSecs shifts the return ETA: positive = delayed, negative =
@@ -84,20 +89,25 @@ type ExpeditionResult struct {
 // combat 15 %, adopted the measured fatal black hole 1.68 % (was 0.5 %), added
 // the rare POSITIVE black-hole loot (~1.7 %) and moved the freed weight into
 // nothing/fast while preserving the live ships:resources:DM proportions
-// (29.1:20.5:14.8). Sums to 1.0. PROVISIONAL beyond the locked rates.
+// (29.1:20.5:14.8). 2026-10-15 (X3): added the rare stardust find at the
+// measured ~1.9 % (the private ops repo §15, n=2062) and folded that weight
+// proportionally out of the unlocked buckets (combat / both black holes stay
+// pinned). Sums to 1.0. PROVISIONAL beyond the locked rates (full n=2062
+// rebalance is the X4 pass).
 var expeditionOutcomeWeights = []struct {
 	outcome ExpeditionOutcome
 	weight  float64
 }{
-	{ExpeditionResources, 0.2028},
-	{ExpeditionShips, 0.2879},
+	{ExpeditionResources, 0.1981},
+	{ExpeditionShips, 0.2812},
 	{ExpeditionCombat, 0.15},
-	{ExpeditionNothing, 0.079},
-	{ExpeditionDarkMatter, 0.1465},
-	{ExpeditionDelay, 0.06},
-	{ExpeditionFastReturn, 0.04},
+	{ExpeditionNothing, 0.0772},
+	{ExpeditionDarkMatter, 0.1431},
+	{ExpeditionDelay, 0.0586},
+	{ExpeditionFastReturn, 0.039},
 	{ExpeditionBlackHoleLoot, 0.017},
 	{ExpeditionBlackHole, 0.0168},
+	{ExpeditionStardust, 0.019},
 }
 
 // npcWeights: within a combat encounter, live 58 pirates : 11 aliens = 84 / 16
@@ -146,6 +156,11 @@ const (
 // expeditionFlavorVariants bounds the cosmetic Flavor index rolled per outcome.
 const expeditionFlavorVariants = 16
 
+// expeditionStardustFind is the amount of Stardust a stardust expedition brings
+// home. Live finds are always reported as "1 unit of Stardust" (the private ops
+// repo §11e/§15a), so it is a fixed single unit rather than fleet-scaled.
+const expeditionStardustFind = int64(1)
+
 // RollExpedition resolves one expedition for a fleet. `atk` must carry the fleet
 // composition (atk.Units) plus the owner's combat techs/academy/upgrades; the
 // same seed always yields the same result, so a retried scheduler event is
@@ -167,6 +182,9 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 
 	case ExpeditionDarkMatter:
 		res.DarkMatter = expeditionDarkMatter(points, rng)
+
+	case ExpeditionStardust:
+		res.Stardust = expeditionStardustFind
 
 	case ExpeditionDelay:
 		res.ReturnAdjustSecs = 600 + rng.Int63n(6600) // +10 min .. ~+2 h
@@ -423,6 +441,12 @@ var (
 		"We found the remains of an alien ship with a small container of dark matter aboard.",
 		"Our expedition succeeded in a single experiment and won dark matter from a dying star.",
 	}
+	expeditionStardustFlavors = []string{
+		"Your fleet wandered off from the route and flew into an unknown region of the galaxy. What is this? Your fleet came across a rare star; from its wind we were able to get an extremely rare artifact: 1 unit of Stardust.",
+		"Your expedition found the destroyed ship of unknown origin. On board they found 1 unit of Stardust.",
+		"Your expedition got in the center of a strange star. The commander decided to send the fleet to search the module, but instead they managed to find 1 unit of Stardust.",
+		"Your expedition succeeded. They found a small dust particle after the explosion of a huge star; after closer examination scientists are sure that they have found 1 unit of the rare Stardust.",
+	}
 	expeditionFatalBlackHoleFlavors = []string{
 		"The expedition fleet has not returned from the hyperspace jump. The fleet seems lost for good.",
 		"A nuclear breach on one of the commanding ships destroyed the complete expedition.",
@@ -491,6 +515,8 @@ func ExpeditionMessage(res ExpeditionResult) (title, body string) {
 		return "Expedition: battle lost", intro + " The fleet was destroyed in battle."
 	case ExpeditionDarkMatter:
 		return "Expedition: dark matter found", expeditionFlavor(expeditionDarkMatterFlavors, res.Flavor)
+	case ExpeditionStardust:
+		return "Expedition: stardust found", expeditionFlavor(expeditionStardustFlavors, res.Flavor)
 	case ExpeditionDelay:
 		return "Expedition: delayed", expeditionFlavor(expeditionDelayFlavors, res.Flavor) +
 			" The return is delayed."

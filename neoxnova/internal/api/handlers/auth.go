@@ -124,8 +124,10 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	homeID, _ := h.Planets.HomeworldID(r.Context(), userID)
+	darkMatter, antimatter, stardust, _ := h.Auth.UserBalances(r.Context(), userID)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": userID, "username": username, "email": email, "planet_id": homeID,
+		"dark_matter": darkMatter, "antimatter": antimatter, "stardust": stardust,
 	})
 }
 

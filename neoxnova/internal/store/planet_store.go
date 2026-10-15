@@ -317,14 +317,16 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 	var metalCap, crystalCap, deutCap int64
 	var metalRate, crystalRate, deutRate float64
 	var energyAvailable, energyMax int
+	var stardust int64
 	query := `SELECT metal_capacity, crystal_capacity, deuterium_capacity,
 	                 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
-	                 energy_used, energy_max
+	                 energy_used, energy_max,
+	                 COALESCE((SELECT stardust FROM users WHERE users.id = celestial_objects.user_id), 0)
 	          FROM celestial_objects WHERE id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
-		&energyAvailable, &energyMax,
+		&energyAvailable, &energyMax, &stardust,
 	)
 	if err != nil {
 		return models.RealtimeResourceState{}, err
@@ -342,6 +344,7 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 		DeutHourlyRate:    deutRate,
 		EnergyAvailable:   energyMax - energyAvailable,
 		EnergyMax:         energyMax,
+		Stardust:          stardust,
 		LastCalculatedAt:  outLastCalc,
 	}, nil
 }
@@ -359,19 +362,21 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	var metalRate, crystalRate, deutRate float64
 	var energyUsed, energyMax int
 	var userID int64
+	var stardust int64
 
 	query := `SELECT user_id, name, galaxy, system, position, diameter_km,
 	                 fields_used, fields_max, temp_min, temp_max,
 	                 metal_capacity, crystal_capacity, deuterium_capacity,
 	                 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
-	                 energy_used, energy_max
+	                 energy_used, energy_max,
+	                 COALESCE((SELECT stardust FROM users WHERE users.id = celestial_objects.user_id), 0)
 	          FROM celestial_objects WHERE id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
 		&userID, &planetName, &galaxy, &system, &position, &diameter,
 		&fieldsUsed, &fieldsMax, &tempMin, &tempMax,
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
-		&energyUsed, &energyMax,
+		&energyUsed, &energyMax, &stardust,
 	)
 	if err != nil {
 		return models.PlanetOverviewResponse{}, err
@@ -406,6 +411,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 			DeutHourlyRate:    deutRate,
 			EnergyAvailable:   energyMax - energyUsed,
 			EnergyMax:         energyMax,
+			Stardust:          stardust,
 			LastCalculatedAt:  outLastCalc,
 		},
 		ActiveFleets: activeFleets,

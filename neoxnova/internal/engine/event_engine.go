@@ -957,6 +957,11 @@ func (e *EventEngine) resolveExpedition(ctx context.Context, tx *sql.Tx, fleetID
 			return err
 		}
 	}
+	if res.Stardust > 0 {
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET stardust = stardust + $1 WHERE id = $2`, res.Stardust, userID); err != nil {
+			return err
+		}
+	}
 
 	var combatReportID int64
 	switch res.Outcome {
@@ -1005,9 +1010,9 @@ func (e *EventEngine) resolveExpedition(ctx context.Context, tx *sql.Tx, fleetID
 		`, fleetID, eta, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium); err != nil {
 			return err
 		}
-		log.Printf("[EXPEDITION] Fleet #%d outcome=%s loot(M%d C%d D%d) ships=%d dm=%d drop=%d adjust=%ds",
+		log.Printf("[EXPEDITION] Fleet #%d outcome=%s loot(M%d C%d D%d) ships=%d dm=%d sd=%d drop=%d adjust=%ds",
 			fleetID, res.Outcome, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
-			totalCount(res.Ships), res.DarkMatter, res.UpgradeCode, res.ReturnAdjustSecs)
+			totalCount(res.Ships), res.DarkMatter, res.Stardust, res.UpgradeCode, res.ReturnAdjustSecs)
 	}
 
 	return e.persistExpeditionReport(ctx, tx, fleetID, userID, universeID,
@@ -1035,6 +1040,7 @@ func (e *EventEngine) persistExpeditionReport(ctx context.Context, tx *sql.Tx, f
 			"deuterium": res.Loot.Deuterium,
 		},
 		"dark_matter":        res.DarkMatter,
+		"stardust":           res.Stardust,
 		"ships":              res.Ships,
 		"upgrade_code":       res.UpgradeCode,
 		"return_adjust_secs": res.ReturnAdjustSecs,
@@ -1060,11 +1066,11 @@ func (e *EventEngine) persistExpeditionReport(ctx context.Context, tx *sql.Tx, f
 		INSERT INTO expedition_reports (
 			universe_id, fleet_id, user_id, target_galaxy, target_system, target_position,
 			outcome, npc, combat_report_id, cargo_metal, cargo_crystal, cargo_deuterium,
-			dark_matter, ships, upgrade_code, return_adjust_secs, title, message, detail
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+			dark_matter, stardust, ships, upgrade_code, return_adjust_secs, title, message, detail
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
 	`, universeID, fleetID, userID, galaxy, system, position,
 		string(res.Outcome), npc, combatID, res.Loot.Metal, res.Loot.Crystal, res.Loot.Deuterium,
-		res.DarkMatter, shipsArg, res.UpgradeCode, res.ReturnAdjustSecs, title, message, detail)
+		res.DarkMatter, res.Stardust, shipsArg, res.UpgradeCode, res.ReturnAdjustSecs, title, message, detail)
 	return err
 }
 

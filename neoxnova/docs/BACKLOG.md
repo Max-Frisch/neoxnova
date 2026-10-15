@@ -27,10 +27,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       Simulator (page + `POST /api/v1/sim`). Already covered: Research, Buildings, Hangar,
       Defenses (Shipyard), Fleet, Resources, Galaxy.
 - [ ] **Expedition calibration (X4)** — owner 2026-10-15: **combat ≈ 13.5 %** (not the
-      nerfed 10.2 %), add rare **stardust** find, rebalance to n=2062; **keep
-      ship/resource finds fleet-size-scaled** (live static behavior unwanted).
-- [ ] **Stardust rare currency** — find + balance/display first; debris→diameter/fields
-      sink deferred (`the private ops repo` §11e).
+      nerfed 10.2 %) + full n=2062 rebalance; keep ship/resource finds fleet-size-scaled.
+      Stardust find shipped (X3); the debris→diameter/fields sink stays deferred.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -41,6 +39,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Stardust find (X3)**: rare `stardust` expedition outcome (~1.9 %) + live flavours;
+      `users.stardust` (migration `0018`) credited/persisted, shown via `/auth/me` + resource state + web bar.
 - 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` — ship
       picker, `exp_time` 1–10 → 0.25–2.5 h (new `holding_minutes`, overrides `holding_hours`),
       `exp_speed` 1–10 → 10–100 %, "send N" (stops at slot limit), auto `[g:s:21]`, htmx-polled

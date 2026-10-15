@@ -95,6 +95,7 @@ type RealtimeResourceState struct {
 	EnergyMax         int       `json:"energy_max"`
 	DarkMatter        int64     `json:"dark_matter"`
 	Antimatter        int64     `json:"antimatter"`
+	Stardust          int64     `json:"stardust"`
 	LastCalculatedAt  time.Time `json:"last_calculated_at"`
 }
 

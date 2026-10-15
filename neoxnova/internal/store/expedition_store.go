@@ -32,6 +32,7 @@ type ExpeditionReport struct {
 	CargoCrystal     int64           `json:"cargo_crystal"`
 	CargoDeuterium   int64           `json:"cargo_deuterium"`
 	DarkMatter       int64           `json:"dark_matter"`
+	Stardust         int64           `json:"stardust"`
 	Ships            json.RawMessage `json:"ships"`
 	UpgradeCode      int             `json:"upgrade_code"`
 	ReturnAdjustSecs int64           `json:"return_adjust_secs"`
@@ -43,15 +44,15 @@ type ExpeditionReport struct {
 
 const expeditionReportColumns = `id, fleet_id, user_id, target_galaxy, target_system,
 	target_position, outcome, npc, combat_report_id, cargo_metal, cargo_crystal,
-	cargo_deuterium, dark_matter, ships, upgrade_code, return_adjust_secs, title,
-	message, detail, created_at`
+	cargo_deuterium, dark_matter, stardust, ships, upgrade_code, return_adjust_secs,
+	title, message, detail, created_at`
 
 func scanExpeditionReport(row interface{ Scan(...any) error }) (ExpeditionReport, error) {
 	var r ExpeditionReport
 	err := row.Scan(
 		&r.ID, &r.FleetID, &r.UserID, &r.Galaxy, &r.System, &r.Position,
 		&r.Outcome, &r.NPC, &r.CombatReportID, &r.CargoMetal, &r.CargoCrystal,
-		&r.CargoDeuterium, &r.DarkMatter, &r.Ships, &r.UpgradeCode,
+		&r.CargoDeuterium, &r.DarkMatter, &r.Stardust, &r.Ships, &r.UpgradeCode,
 		&r.ReturnAdjustSecs, &r.Title, &r.Message, &r.Detail, &r.CreatedAt,
 	)
 	return r, err
