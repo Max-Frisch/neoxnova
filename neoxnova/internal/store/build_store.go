@@ -369,6 +369,121 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost}, nil
 }
 
+// CancelScope selects which build queue a cancel applies to.
+type CancelScope string
+
+const (
+	CancelConstruction CancelScope = "construction"
+	CancelShipyard     CancelScope = "shipyard"
+	CancelResearch     CancelScope = "research"
+)
+
+// CancelQueue removes the single active queue entry for the given scope and
+// refunds its full cost to the celestial the work was charged against. It is
+// multi-instance safe: the row is locked with FOR UPDATE SKIP LOCKED and the
+// condition re-checked inside the transaction, so a scheduler resolving the
+// same queue concurrently wins the race and this call simply finds nothing to
+// cancel (ErrNotFound). An entry already due (end_time <= NOW()) is treated as
+// gone for the same reason.
+//
+// ownerID is the celestial id for CancelConstruction/CancelShipyard and the
+// user id for CancelResearch. The refund is credited to the celestial the work
+// drew from (research stores the planet it was started on).
+func (s *BuildStore) CancelQueue(ctx context.Context, scope CancelScope, ownerID int64) (game.Cost, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return game.Cost{}, err
+	}
+	defer tx.Rollback()
+
+	var (
+		table       string
+		queueID     int64
+		celestialID int64
+		cost        game.Cost
+	)
+
+	switch scope {
+	case CancelConstruction:
+		var code string
+		var targetLevel int
+		err = tx.QueryRowContext(ctx, `
+			SELECT id, structure_code, target_level
+			FROM construction_queues
+			WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE SKIP LOCKED
+		`, ownerID).Scan(&queueID, &code, &targetLevel)
+		if err != nil {
+			return game.Cost{}, cancelLookupErr(err)
+		}
+		table, celestialID = "construction_queues", ownerID
+		cost, _ = game.StructureCost(code, targetLevel)
+
+	case CancelShipyard:
+		var code string
+		var quantity int64
+		err = tx.QueryRowContext(ctx, `
+			SELECT id, unit_code, quantity_total
+			FROM shipyard_queues
+			WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE SKIP LOCKED
+		`, ownerID).Scan(&queueID, &code, &quantity)
+		if err != nil {
+			return game.Cost{}, cancelLookupErr(err)
+		}
+		table, celestialID = "shipyard_queues", ownerID
+		cost, _ = game.UnitCost(code, quantity)
+
+	case CancelResearch:
+		var code string
+		var targetLevel int
+		err = tx.QueryRowContext(ctx, `
+			SELECT id, celestial_id, tech_code, target_level
+			FROM research_queues
+			WHERE user_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE SKIP LOCKED
+		`, ownerID).Scan(&queueID, &celestialID, &code, &targetLevel)
+		if err != nil {
+			return game.Cost{}, cancelLookupErr(err)
+		}
+		table = "research_queues"
+		cost, _ = game.TechCost(code, targetLevel)
+
+	default:
+		return game.Cost{}, ErrNotFound
+	}
+
+	// Bank accrued output first, then refund. update_celestial_resources takes
+	// the celestial row lock, so this stays consistent with the scheduler.
+	if _, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, celestialID); err != nil {
+		return game.Cost{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET metal = metal + $1, crystal = crystal + $2, deuterium = deuterium + $3
+		WHERE id = $4
+	`, cost.Metal, cost.Crystal, cost.Deuterium, celestialID); err != nil {
+		return game.Cost{}, err
+	}
+	// table is one of the fixed literals selected above, never user input.
+	if _, err := tx.ExecContext(ctx, `UPDATE `+table+` SET status = 'CANCELLED' WHERE id = $1`, queueID); err != nil {
+		return game.Cost{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return game.Cost{}, err
+	}
+	return cost, nil
+}
+
+// cancelLookupErr maps a no-row lookup to ErrNotFound so callers can render
+// "nothing to cancel" without distinguishing a missing queue from a lost race.
+func cancelLookupErr(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
+}
+
 // RecomputeCelestial rewrites the cached production/energy/field columns from
 // the current structure levels. Callers should bank accrued resources first
 // (update_celestial_resources) so the new rate is not applied retroactively.

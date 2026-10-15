@@ -86,72 +86,79 @@ templ AuthPage(a AuthView) {
 // ---- Overview body -------------------------------------------------------
 
 templ OverviewBody(sh Shell, d OverviewData) {
+	<section class="panel overview">
+		<div class="overview-hero">
+			<div class="overview-activity">
+				@activityRow("Research:", activityLabel(d.ResQueue), "/research/"+pid(sh))
+				@activityRow("Buildings:", activityLabel(d.BuildQueue), "/buildings/"+pid(sh))
+				@activityRow("Hangar:", activityLabel(d.ShipQueue), "/shipyard/"+pid(sh))
+			</div>
+			<div class="overview-planet">
+				<span class="overview-planet-name">Planet "{ d.Overview.ActivePlanetName }"</span>
+			</div>
+		</div>
+		<div class="overview-stats">
+			<span>Diameter <b>{ fnum(int64(d.Overview.DiameterKm)) } km</b></span>
+			<span>Position <b>{ coordStr(d.Overview.Coordinates) }</b></span>
+			<span>Temperature <b>{ strconv.Itoa(d.Overview.TempRange[0]) }°C to { strconv.Itoa(d.Overview.TempRange[1]) }°C</b></span>
+			<span>Fields <b>{ strconv.Itoa(d.Overview.FieldsUsed) } / { strconv.Itoa(d.Overview.FieldsMax) }</b></span>
+			<span>Points <b>{ fnum(d.Overview.PlayerRank.Points) } (#{ strconv.Itoa(d.Overview.PlayerRank.Position) })</b></span>
+		</div>
+	</section>
+
+	<div class="overview-links">
+		<a href={ templ.URL("/buildings/" + pid(sh)) }>Buildings</a>
+		<a href={ templ.URL("/shipyard/" + pid(sh)) }>Shipyard</a>
+		<a href={ templ.URL("/research/" + pid(sh)) }>Research</a>
+		<a href={ templ.URL("/fleet/" + pid(sh)) }>Fleet</a>
+		<a href={ templ.URL("/expedition/" + pid(sh)) }>Expedition</a>
+		<a href="/galaxy">Galaxy</a>
+	</div>
+
 	<div class="grid gap-6 lg:grid-cols-3">
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 lg:col-span-2">
-			<h2 class="text-lg font-semibold text-cyan-300">{ d.Overview.ActivePlanetName }</h2>
-			<p class="mt-1 text-sm text-slate-400">
-				Coordinates { coordStr(d.Overview.Coordinates) } · Diameter { fnum(int64(d.Overview.DiameterKm)) } km ·
-				Temp { strconv.Itoa(d.Overview.TempRange[0]) }°C … { strconv.Itoa(d.Overview.TempRange[1]) }°C
-			</p>
-			<p class="text-sm text-slate-400">Fields { strconv.Itoa(d.Overview.FieldsUsed) } / { strconv.Itoa(d.Overview.FieldsMax) }</p>
-			if d.BuildQueue != nil {
-				<div class="mt-3 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
-					Building <span class="font-semibold">{ displayName(d.BuildQueue.Code) }</span> → level { strconv.Itoa(d.BuildQueue.TargetLevel) } · { dur(d.BuildQueue.RemainingSecs) }
+		<section class="panel lg:col-span-2">
+			<h3 class="panel-title">Active fleets</h3>
+			if len(d.Overview.ActiveFleets) == 0 {
+				<p class="text-sm text-slate-500">No fleets in flight.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="game-table">
+						<thead>
+							<tr><th>Mission</th><th>Phase</th><th>Route</th><th>Arrives in</th><th>Types</th></tr>
+						</thead>
+						<tbody>
+							for _, f := range d.Overview.ActiveFleets {
+								<tr>
+									<td>{ string(f.Mission) }</td>
+									<td>{ string(f.Phase) }</td>
+									<td>{ coordStr(f.Origin) } → { coordStr(f.Destination) }</td>
+									<td>{ dur(f.RemainingSecs) }</td>
+									<td>{ strconv.Itoa(len(f.ShipManifest)) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
 				</div>
 			}
-			<div class="mt-4 flex flex-wrap gap-2 text-sm">
-				<a href={ templ.URL("/buildings/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Buildings</a>
-				<a href={ templ.URL("/shipyard/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Shipyard</a>
-				<a href={ templ.URL("/research/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Research</a>
-				<a href={ templ.URL("/fleet/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Fleet</a>
-				<a href={ templ.URL("/expedition/" + pid(sh)) } class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Expedition</a>
-				<a href="/galaxy" class="rounded bg-slate-800 px-3 py-1 hover:text-cyan-300">Galaxy</a>
-			</div>
 		</section>
-		<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-			<h3 class="text-md font-semibold text-slate-200">Levels</h3>
-			<p class="mt-1 text-sm text-slate-400">Peaceful L{ strconv.Itoa(d.Overview.Levels.PeacefulLevel) } · Combat L{ strconv.Itoa(d.Overview.Levels.CombatLevel) } ({ fnum(d.Overview.Levels.CombatXP) } XP)</p>
+		<section class="panel">
+			<h3 class="panel-title">Levels &amp; Rank</h3>
+			<p class="text-sm text-slate-400">Peaceful L{ strconv.Itoa(d.Overview.Levels.PeacefulLevel) } · Combat L{ strconv.Itoa(d.Overview.Levels.CombatLevel) } ({ fnum(d.Overview.Levels.CombatXP) } XP)</p>
 			<p class="mt-2 text-sm text-slate-400">Rank #{ strconv.Itoa(d.Overview.PlayerRank.Position) } of { strconv.Itoa(d.Overview.PlayerRank.TotalPlayers) } · { fnum(d.Overview.PlayerRank.Points) } pts</p>
 		</section>
 	</div>
 
-	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-		<h3 class="mb-2 text-md font-semibold text-slate-200">Active fleets</h3>
-		if len(d.Overview.ActiveFleets) == 0 {
-			<p class="text-sm text-slate-500">No fleets in flight.</p>
-		} else {
-			<div class="overflow-x-auto">
-				<table class="w-full text-left text-sm">
-					<thead class="text-slate-500">
-						<tr><th class="py-1">Mission</th><th>Phase</th><th>Route</th><th>Arrives in</th><th>Types</th></tr>
-					</thead>
-					<tbody>
-						for _, f := range d.Overview.ActiveFleets {
-							<tr class="border-t border-slate-800">
-								<td class="py-1">{ string(f.Mission) }</td>
-								<td>{ string(f.Phase) }</td>
-								<td>{ coordStr(f.Origin) } → { coordStr(f.Destination) }</td>
-								<td>{ dur(f.RemainingSecs) }</td>
-								<td>{ strconv.Itoa(len(f.ShipManifest)) }</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
-		}
-	</section>
-
-	<section class="mt-6 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-		<h3 class="mb-2 text-md font-semibold text-slate-200">Incoming</h3>
+	<section class="panel mt-6">
+		<h3 class="panel-title">Incoming</h3>
 		if len(d.Incoming) == 0 {
 			<p class="text-sm text-slate-500">Nothing inbound.</p>
 		} else {
-			<table class="w-full text-left text-sm">
-				<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>From</th><th>Arrives in</th></tr></thead>
+			<table class="game-table">
+				<thead><tr><th>Mission</th><th>From</th><th>Arrives in</th></tr></thead>
 				<tbody>
 					for _, f := range d.Incoming {
-						<tr class="border-t border-slate-800">
-							<td class="py-1">{ f.MissionText }</td>
+						<tr>
+							<td>{ f.MissionText }</td>
 							<td>{ coordStr(f.Origin) }</td>
 							<td>{ dur(f.RemainingSecs) }</td>
 						</tr>
@@ -162,44 +169,155 @@ templ OverviewBody(sh Shell, d OverviewData) {
 	</section>
 }
 
+templ activityRow(label, value, href string) {
+	<div class="activity-row">
+		<span class="activity-label">{ label }</span>
+		<a class="activity-value" href={ templ.URL(href) }>{ value }</a>
+	</div>
+}
+
 // ---- Buildings body ------------------------------------------------------
 
 templ BuildingsBody(sh Shell, d BuildingsData) {
-	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-lg font-semibold text-cyan-300">Buildings</h2>
-		<span class="text-sm text-slate-400">Fields { strconv.Itoa(d.FieldsUsed) } / { strconv.Itoa(d.FieldsMax) }</span>
-	</div>
-	if d.Queue != nil {
-		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
-			Building <span class="font-semibold">{ displayName(d.Queue.Code) }</span> → level { strconv.Itoa(d.Queue.TargetLevel) } · { dur(d.Queue.RemainingSecs) }
+	<section class="panel">
+		<div class="fields-bar">
+			<span class="help" title="Fields used by structures on this planet">?</span>
+			<span>Fields occupied: <b>{ strconv.Itoa(d.FieldsUsed) }</b> from { strconv.Itoa(d.FieldsMax) }</span>
+			<span class="fields-free">Free: { strconv.Itoa(d.FieldsMax - d.FieldsUsed) }</span>
+			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 		</div>
-	}
-	<div class="overflow-x-auto rounded-lg border border-slate-800">
-		<table class="w-full text-left text-sm">
-			<thead class="bg-slate-900/70 text-slate-400">
-				<tr><th class="px-3 py-2">Building</th><th>Level</th><th>Cost</th><th class="px-3">Action</th></tr>
-			</thead>
-			<tbody>
-				for _, it := range d.Items {
-					<tr class="border-t border-slate-800">
-						<td class="px-3 py-2">{ it.Name }</td>
-						<td>{ strconv.Itoa(it.Level) }</td>
-						<td>{ costStr(it.Cost) }</td>
-						<td class="px-3 py-2">
-							if it.Unlocked {
-								<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") }>
-									<input type="hidden" name="code" value={ it.Code }/>
-									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Build</button>
-								</form>
-							} else {
-								<span class="text-xs text-slate-500">{ it.Reason }</span>
-							}
-						</td>
-					</tr>
+		if d.Queue != nil {
+			@queueRow(1, displayName(d.Queue.Code)+" "+strconv.Itoa(d.Queue.TargetLevel), d.Queue, "/buildings/"+pid(sh)+"/cancel")
+		}
+		<div class="card-grid">
+			for _, it := range d.Items {
+				@buildCard(sh, it)
+			}
+		</div>
+	</section>
+}
+
+templ buildCard(sh Shell, it BuildItem) {
+	<div class={ cardClass(it.Busy) }>
+		<div class="gcard-head">
+			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
+			<span class="help" title={ it.Name }>?</span>
+		</div>
+		<div class="gcard-body">
+			if it.Image != "" {
+				<img class="gcard-img" src={ it.Image } alt={ it.Name }/>
+			}
+			if it.Unlocked {
+				<div class="gcard-info">
+					@costRows(it.Cost)
+					@energyNote(it.EnergyDelta)
+					if it.DurationSecs > 0 {
+						<span class="gcard-duration">Duration: { hms(it.DurationSecs) }</span>
+					}
+				</div>
+			} else {
+				@prereqBlock("Necessary for the construction:", it.Prereqs)
+			}
+		</div>
+		<div class="gcard-foot">
+			if it.Unlocked {
+				if it.Busy {
+					<span class="gcard-busy">Busy</span>
+				} else {
+					<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") } class="build-form">
+						<input type="hidden" name="code" value={ it.Code }/>
+						<button type="submit" class="build-next">Build to the next level</button>
+						<input class="build-level" type="text" inputmode="numeric" value={ strconv.Itoa(it.Level + 1) } readonly/>
+						<button type="submit" class="build-up" title="Build">▲</button>
+					</form>
 				}
-			</tbody>
-		</table>
+			}
+		</div>
 	</div>
+}
+
+// queueRow is one active-queue line with an htmx-free cancel form (the cancel X
+// posts to cancelURL and redirects back with a flash).
+templ queueRow(n int, label string, q *models.QueueEntrySummary, cancelURL string) {
+	<div class="queue-row">
+		<span class="queue-n">{ strconv.Itoa(n) }.</span>
+		<span class="queue-label">{ label }</span>
+		<span class="queue-end">Ending: { endTimeStr(q.EndTime) }</span>
+		<span class="queue-remain">{ hms(q.RemainingSecs) }</span>
+		<form method="post" action={ templ.URL(cancelURL) }>
+			<button type="submit" class="queue-cancel" title="Cancel">✕</button>
+		</form>
+	</div>
+}
+
+templ costRows(cost models.CargoManifest) {
+	<div class="cost">
+		if cost.Metal > 0 {
+			<span class="cost-row"><img src="/static/niburu/icons/metall_mini.gif" alt="Metal"/>{ fnum(cost.Metal) }</span>
+		}
+		if cost.Crystal > 0 {
+			<span class="cost-row"><img src="/static/niburu/icons/kristall_mini.gif" alt="Crystal"/>{ fnum(cost.Crystal) }</span>
+		}
+		if cost.Deuterium > 0 {
+			<span class="cost-row"><img src="/static/niburu/icons/deuterium_mini.gif" alt="Deuterium"/>{ fnum(cost.Deuterium) }</span>
+		}
+	</div>
+}
+
+templ energyNote(delta float64) {
+	if delta < 0 {
+		<span class="energy need">Need more { fnumF(-delta) } energy</span>
+	} else if delta > 0 {
+		<span class="energy gain">Produced { fnumF(delta) } energy</span>
+	}
+}
+
+templ prereqBlock(label string, prereqs []Prereq) {
+	<div class="prereq">
+		<span class="prereq-label">{ label }</span>
+		<div class="prereq-list">
+			for _, p := range prereqs {
+				<span class={ prereqClass(p) } title={ p.Name + " " + strconv.Itoa(p.Current) + "/" + strconv.Itoa(p.Required) }>
+					if p.Image != "" {
+						<img src={ p.Image } alt={ p.Name }/>
+					}
+					<span class="prereq-lvl">{ strconv.Itoa(p.Current) }/{ strconv.Itoa(p.Required) }</span>
+				</span>
+			}
+		</div>
+	</div>
+}
+
+func prereqClass(p Prereq) string {
+	if p.Current >= p.Required {
+		return "prereq-item is-met"
+	}
+	return "prereq-item"
+}
+
+func cardClass(busy bool) string {
+	if busy {
+		return "gcard is-busy"
+	}
+	return "gcard"
+}
+
+func itemTitle(name string, level int) string {
+	if level > 0 {
+		return name + " " + strconv.Itoa(level) + " Level"
+	}
+	return name
+}
+
+// activityLabel summarises an active queue entry for the overview hero.
+func activityLabel(q *models.QueueEntrySummary) string {
+	if q == nil {
+		return "Nothing in progress"
+	}
+	if q.Quantity > 0 {
+		return displayName(q.Code) + " × " + fnum(q.Quantity)
+	}
+	return displayName(q.Code) + " " + strconv.Itoa(q.TargetLevel)
 }
 
 // ---- Shipyard body -------------------------------------------------------
@@ -243,37 +361,54 @@ templ ShipyardBody(sh Shell, d ShipyardData) {
 // ---- Research body -------------------------------------------------------
 
 templ ResearchBody(sh Shell, d ResearchData) {
-	<h2 class="mb-4 text-lg font-semibold text-cyan-300">Research</h2>
-	if d.Queue != nil {
-		<div class="mb-4 rounded border border-sky-800 bg-sky-950/40 px-3 py-2 text-sm text-sky-200">
-			Researching <span class="font-semibold">{ displayName(d.Queue.Code) }</span> → level { strconv.Itoa(d.Queue.TargetLevel) } · { dur(d.Queue.RemainingSecs) }
+	<section class="panel">
+		<div class="fields-bar">
+			<span class="help" title="Technologies researched account-wide">?</span>
+			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 		</div>
-	}
-	<div class="overflow-x-auto rounded-lg border border-slate-800">
-		<table class="w-full text-left text-sm">
-			<thead class="bg-slate-900/70 text-slate-400">
-				<tr><th class="px-3 py-2">Technology</th><th>Level</th><th>Cost</th><th class="px-3">Action</th></tr>
-			</thead>
-			<tbody>
-				for _, it := range d.Items {
-					<tr class="border-t border-slate-800">
-						<td class="px-3 py-2">{ it.Name }</td>
-						<td>{ strconv.Itoa(it.Level) }</td>
-						<td>{ costStr(it.Cost) }</td>
-						<td class="px-3 py-2">
-							if it.Unlocked {
-								<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") }>
-									<input type="hidden" name="code" value={ it.Code }/>
-									<button class="rounded bg-cyan-700 px-3 py-1 text-xs font-semibold hover:bg-cyan-600">Research</button>
-								</form>
-							} else {
-								<span class="text-xs text-slate-500">{ it.Reason }</span>
-							}
-						</td>
-					</tr>
+		if d.Queue != nil {
+			@queueRow(1, displayName(d.Queue.Code)+" "+strconv.Itoa(d.Queue.TargetLevel), d.Queue, "/research/"+pid(sh)+"/cancel")
+		}
+		<div class="card-grid">
+			for _, it := range d.Items {
+				@researchCard(sh, it)
+			}
+		</div>
+	</section>
+}
+
+templ researchCard(sh Shell, it ResearchItem) {
+	<div class={ cardClass(it.Busy) }>
+		<div class="gcard-head">
+			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
+			<span class="help" title={ it.Name }>?</span>
+		</div>
+		<div class="gcard-body">
+			if it.Image != "" {
+				<img class="gcard-img" src={ it.Image } alt={ it.Name }/>
+			}
+			if it.Unlocked {
+				<div class="gcard-info">
+					@costRows(it.Cost)
+				</div>
+			} else {
+				@prereqBlock("For research is needed:", it.Prereqs)
+			}
+		</div>
+		<div class="gcard-foot">
+			if it.Unlocked {
+				if it.Busy {
+					<span class="gcard-busy">Busy</span>
+				} else {
+					<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form">
+						<input type="hidden" name="code" value={ it.Code }/>
+						<button type="submit" class="build-next">Research to the next level</button>
+						<input class="build-level" type="text" inputmode="numeric" value={ strconv.Itoa(it.Level + 1) } readonly/>
+						<button type="submit" class="build-up" title="Research">▲</button>
+					</form>
 				}
-			</tbody>
-		</table>
+			}
+		</div>
 	</div>
 }
 

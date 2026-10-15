@@ -132,6 +132,48 @@ func TestWebEndToEnd(t *testing.T) {
 		})
 	})
 
+	t.Run("building cancel refunds the active construction", func(t *testing.T) {
+		// Seed a far-future construction so the cranked sandbox scheduler cannot
+		// resolve it before the cancel, then cancel it via the real HTML form.
+		var qid int64
+		if err := db.QueryRowContext(ctx, `
+			INSERT INTO construction_queues (celestial_id, structure_code, target_level, start_time, end_time, status)
+			VALUES ($1, 'crystal_mine', 1, NOW(), NOW() + interval '1 day', 'IN_PROGRESS')
+			RETURNING id
+		`, a.HomeID).Scan(&qid); err != nil {
+			t.Fatalf("seed construction queue: %v", err)
+		}
+		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d/cancel", a.HomeID), url.Values{})
+		e2eWantContains(t, body, "refunded", "cancel flash")
+		var status string
+		if err := db.QueryRowContext(ctx, `SELECT status FROM construction_queues WHERE id = $1`, qid).Scan(&status); err != nil {
+			t.Fatalf("read queue status: %v", err)
+		}
+		if status != "CANCELLED" {
+			t.Fatalf("queue status = %q, want CANCELLED", status)
+		}
+	})
+
+	t.Run("research cancel refunds the active research", func(t *testing.T) {
+		var qid int64
+		if err := db.QueryRowContext(ctx, `
+			INSERT INTO research_queues (user_id, celestial_id, tech_code, target_level, start_time, end_time, status)
+			VALUES ($1, $2, 'laser_tech', 1, NOW(), NOW() + interval '1 day', 'IN_PROGRESS')
+			RETURNING id
+		`, a.UserID, a.HomeID).Scan(&qid); err != nil {
+			t.Fatalf("seed research queue: %v", err)
+		}
+		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/research/%d/cancel", a.HomeID), url.Values{})
+		e2eWantContains(t, body, "refunded", "cancel flash")
+		var status string
+		if err := db.QueryRowContext(ctx, `SELECT status FROM research_queues WHERE id = $1`, qid).Scan(&status); err != nil {
+			t.Fatalf("read research status: %v", err)
+		}
+		if status != "CANCELLED" {
+			t.Fatalf("research status = %q, want CANCELLED", status)
+		}
+	})
+
 	t.Run("shipyard builds ships", func(t *testing.T) {
 		before := e2eScalarInt64(t, db,
 			`SELECT COALESCE(quantity, 0) FROM planet_ships WHERE celestial_id = $1 AND ship_code = '204'`,

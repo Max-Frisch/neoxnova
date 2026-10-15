@@ -21,10 +21,10 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Web UI reskin (I2–I5)** — I0 artwork + I1 shell/skin done (below). Mirror the live
-      Niburuspace OGame-Redesign UI; plan + phases in `docs/WEB_UI_RESKIN_PLAN.md` (I2
-      build/research/cancel → I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/messages).
-      Supersedes the old "Web UI menu coverage" item.
+- [ ] **Web UI reskin (I3–I5)** — I0 artwork + I1 shell/skin + I2 build/research/cancel done
+      (below). Mirror the live Niburuspace OGame-Redesign UI; plan + phases in
+      `docs/WEB_UI_RESKIN_PLAN.md` (I3 hangar/fleet → I4 galaxy/tech/resources → I5 account/
+      messages). Supersedes the old "Web UI menu coverage" item.
 - [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
       (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
@@ -35,6 +35,11 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
 
 ## Done (recent only)
+- 2026-10-15 — **Web UI reskin I2 (buildings/research card grids + queue cancel)**: `BuildingsBody`/
+      `ResearchBody` rewritten to sprite card grids (cost rows, energy note, duration, prereq
+      "Necessary for the construction", Busy, disabled "Buy with Dark matter.") + an active-queue
+      row with cancel X; `store.CancelQueue` (multi-instance safe, refunds construction/shipyard/
+      research) + `POST /buildings/{id}/cancel`, `/research/{id}/cancel`; Overview restyled; store + web + e2e tests.
 - 2026-10-15 — **Web UI reskin I1 (skin foundation + game shell)**: hand-authored `static/skin.css`
       (starfield/topbar/panels/menu/progress/buttons) + `static/app.js` (server clock, planet-select
       nav, CSP-safe `data-pct` bar widths); `layout.templ` rewritten to the live shell — black top
@@ -59,18 +64,13 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 - 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe `expedition_slots_bonus`
   (optional `_cap`; migration `0017`), enforced in `FleetStore.Dispatch`; expeditions pinned to
   `[g:s:21]`; pure + store integration tests.
-- 2026-10-12 — 2 more acc1 colonies (cp1917 `3:137:9`, cp1918 `3:139:9`); bootstrap + `gradual`
-  bumps (mines 48/47/44, Robot 22 / Nanite 11, conveyors 9/8/7); deep-scan expedicion analysis
-  (n=652; fatal-BH 2.30 % window / 1.95 % since relaunch; no code changed).
-- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store;
-  Technologies tech-tree page + battle Simulator (page + `POST /api/v1/sim`); nav + tests.
+- 2026-10-12 — 2 more acc1 colonies (cp1917 `3:137:9`, cp1918 `3:139:9`); bootstrap + `gradual` bumps; deep-scan expedicion analysis (n=652; fatal-BH 2.30 % window / 1.95 % since relaunch; no code changed).
+- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; Technologies tech-tree page + battle Simulator (page + `POST /api/v1/sim`); nav + tests.
 - 2026-10-11 — frontend balance: dropped the research-lab level cap; techtree re-verified (114 items,
-  0 diffs); Mineral/Semi-Crystals/Fuel +5 %/level; storage capacity drives limits
-  (`5000·floor(2.5·e^(20L/33))·resource_speed`).
+  0 diffs); Mineral/Semi-Crystals/Fuel +5 %/level; storage drives limits (`5000·floor(2.5·e^(20L/33))·resource_speed`).
 - 2026-10-11 — drain per-fleet sizing fix (`bwlean-split-v7`) + BH instrumentation; local dev
   bootstrap scripts (`dev-up.sh`/`.ps1`); acc1 colony metal-50 round.
-- 2026-10-08/10 — lean BW 228; moonshot rounds; 7 colonies; expo dashboard + calibration + positive
-  BH; expedition resolver; auto-builder Phase 2; acc1 migrated to the VM.
+- 2026-10-08/10 — lean BW 228; moonshot rounds; 7 colonies; expo dashboard + calibration + positive BH; expedition resolver; auto-builder Phase 2; acc1 migrated to the VM.
 - 2026-10-07 and earlier — see `docs/BACKLOG_ARCHIVE.md`.
 
 ## Deep dives (read on demand)

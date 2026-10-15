@@ -70,6 +70,8 @@ func (h *Handler) shell(r *http.Request, userID, activeID int64) Shell {
 type OverviewData struct {
 	Overview   models.PlanetOverviewResponse
 	BuildQueue *models.QueueEntrySummary
+	ResQueue   *models.QueueEntrySummary
+	ShipQueue  *models.QueueEntrySummary
 	Incoming   []models.IncomingFleet
 }
 
@@ -95,6 +97,10 @@ func (h *Handler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
 		data.BuildQueue = b.Queue
 	}
+	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
+		data.ResQueue = rr.Queue
+	}
+	data.ShipQueue = h.shipyardQueue(r, idStr)
 	if in, err := h.fleets.IncomingFleets(r.Context(), id, userID); err == nil {
 		data.Incoming = in
 	}
@@ -115,14 +121,29 @@ func (h *Handler) ResourcesPartial(w http.ResponseWriter, r *http.Request) {
 
 // ---- Buildings -----------------------------------------------------------
 
-type BuildItem struct {
+// Prereq is one unmet requirement shown in a locked card's "Necessary for the
+// construction" block.
+type Prereq struct {
 	Code     string
-	ID       int
 	Name     string
-	Level    int
-	Cost     models.CargoManifest
-	Unlocked bool
-	Reason   string
+	Required int
+	Current  int
+	Image    string
+}
+
+type BuildItem struct {
+	Code         string
+	ID           int
+	Name         string
+	Level        int
+	Cost         models.CargoManifest
+	Unlocked     bool
+	Reason       string
+	Image        string
+	EnergyDelta  float64
+	DurationSecs int64
+	Prereqs      []Prereq
+	Busy         bool
 }
 
 type BuildingsData struct {
@@ -152,15 +173,42 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.FieldsUsed, data.FieldsMax = ov.FieldsUsed, ov.FieldsMax
 	}
+	speed := h.gameSpeed(r)
+	robot, nanite := levels["robotics_factory"], levels["nanite_factory"]
 	for _, def := range sortedStructures() {
-		item := BuildItem{Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code]}
+		item := BuildItem{
+			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
+			Image:   assetURL(def.Code),
+			Prereqs: prereqList(def.Requires, levels),
+		}
 		if c, ok := game.StructureCost(def.Code, item.Level+1); ok {
 			item.Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, levels)
+		item.EnergyDelta = game.StructureEnergyDelta(def.Code, item.Level+1)
+		item.DurationSecs = int64(game.StructureDuration(def.Code, item.Level+1, robot, nanite, speed).Seconds())
+		item.Busy = data.Queue != nil && data.Queue.Code == def.Code
 		data.Items = append(data.Items, item)
 	}
 	h.render(w, r, http.StatusOK, Page(sh, BuildingsBody(sh, data)))
+}
+
+// BuildCancelSubmit cancels the active construction on a celestial and refunds
+// its cost (reskin I2).
+func (h *Handler) BuildCancelSubmit(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	back := "/buildings/" + r.PathValue("id")
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelConstruction, id); err != nil {
+		h.redirect(w, r, back, "", err.Error())
+		return
+	}
+	h.nudge()
+	h.redirect(w, r, back, "Construction cancelled, resources refunded", "")
 }
 
 func (h *Handler) BuildSubmit(w http.ResponseWriter, r *http.Request) {
@@ -261,6 +309,9 @@ type ResearchItem struct {
 	Cost     models.CargoManifest
 	Unlocked bool
 	Reason   string
+	Image    string
+	Prereqs  []Prereq
+	Busy     bool
 }
 
 type ResearchData struct {
@@ -292,14 +343,37 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 	}
 	all := mergeLevels(structLevels, levels)
 	for _, def := range sortedTechs() {
-		item := ResearchItem{Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code]}
+		item := ResearchItem{
+			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
+			Image:   assetURL(def.Code),
+			Prereqs: prereqList(def.Requires, all),
+		}
 		if c, ok := game.TechCost(def.Code, item.Level+1); ok {
 			item.Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
+		item.Busy = data.Queue != nil && data.Queue.Code == def.Code
 		data.Items = append(data.Items, item)
 	}
 	h.render(w, r, http.StatusOK, Page(sh, ResearchBody(sh, data)))
+}
+
+// ResearchCancelSubmit cancels the active empire-wide research and refunds its
+// cost to the planet it was started from (reskin I2).
+func (h *Handler) ResearchCancelSubmit(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	back := "/research/" + r.PathValue("id")
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelResearch, userID); err != nil {
+		h.redirect(w, r, back, "", err.Error())
+		return
+	}
+	h.nudge()
+	h.redirect(w, r, back, "Research cancelled, resources refunded", "")
 }
 
 func (h *Handler) ResearchSubmit(w http.ResponseWriter, r *http.Request) {
@@ -637,6 +711,49 @@ func displayName(code string) string {
 	return code
 }
 
+// assetURL resolves a catalog code to its captured Niburu sprite, mirroring the
+// grouping used by static/niburu/README.md.
+func assetURL(code string) string {
+	switch {
+	case isStructure(code):
+		return "/static/niburu/buildings/" + code + ".gif"
+	case isTech(code):
+		return "/static/niburu/research/" + code + ".gif"
+	case isShip(code):
+		return "/static/niburu/ships/" + code + ".gif"
+	case isDefense(code):
+		return "/static/niburu/defenses/" + code + ".gif"
+	default:
+		return ""
+	}
+}
+
+func isStructure(code string) bool { _, ok := game.Structures[code]; return ok }
+func isTech(code string) bool      { _, ok := game.Techs[code]; return ok }
+func isShip(code string) bool      { _, ok := game.Ships[code]; return ok }
+func isDefense(code string) bool   { _, ok := game.Defenses[code]; return ok }
+
+// prereqList renders the unmet requirements of a locked card, sorted by code so
+// the icons stay stable between renders.
+func prereqList(requires, levels map[string]int) []Prereq {
+	out := make([]Prereq, 0, len(requires))
+	for code, need := range requires {
+		out = append(out, Prereq{Code: code, Name: displayName(code), Required: need, Current: levels[code], Image: assetURL(code)})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
+	return out
+}
+
+// gameSpeed reads the universe's build-speed multiplier; it degrades to 1.0 if
+// the universe row is missing so pages still render.
+func (h *Handler) gameSpeed(r *http.Request) float64 {
+	var speed float64
+	if err := h.db.QueryRowContext(r.Context(), `SELECT game_speed FROM universes WHERE code_name = $1`, h.universeID).Scan(&speed); err != nil || speed <= 0 {
+		return 1.0
+	}
+	return speed
+}
+
 func mergeLevels(maps ...map[string]int) map[string]int {
 	out := map[string]int{}
 	for _, m := range maps {
@@ -692,6 +809,23 @@ func fnum(n int64) string {
 
 func fnumF(f float64) string {
 	return fnum(int64(f))
+}
+
+// endTimeStr renders a queue entry's completion wall-clock time the way the
+// live client shows it under the queue list.
+func endTimeStr(t time.Time) string {
+	return t.Format("02 Jan 2006, 15:04:05")
+}
+
+// hms renders a count of seconds as a fixed HH:MM:SS clock (queue counters).
+func hms(secs int64) string {
+	if secs < 0 {
+		secs = 0
+	}
+	h := secs / 3600
+	m := (secs % 3600) / 60
+	s := secs % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 }
 
 // dur renders a count of seconds as Hh Mm Ss.

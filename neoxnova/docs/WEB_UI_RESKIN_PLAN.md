@@ -77,6 +77,13 @@ id→file mapping (so templates can reference assets by catalog code).
 - **Exit:** every existing page wears the new shell; menu matches the screenshots.
 
 ## I2 — Overview + Buildings + Research (+ queue cancel)
+> **Status: ✅ done (2026-10-15).** `BuildingsBody`/`ResearchBody` are sprite card grids
+> (cost rows, energy note, duration, "Necessary for the construction" prereqs, "Busy",
+> disabled "Buy with Dark matter.") with an active-queue row + cancel X; `store.CancelQueue`
+> (multi-instance safe, refunds construction/shipyard/research) and
+> `POST /buildings/{id}/cancel`, `POST /research/{id}/cancel`; Overview restyled onto the
+> panel/sprite shell.
+
 - Card grids with `niburu/` icons, cost rows, prereq "Necessary for the construction",
   energy deficit note, level input + "Build/Research to the next level", "Busy",
   "Buy with Dark matter" (disabled placeholder), and a queue list with **cancel X**.

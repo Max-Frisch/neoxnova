@@ -128,6 +128,28 @@ func IsProductionResearch(code string) bool {
 	}
 }
 
+// StructureEnergyDelta is the net energy change of taking a structure to
+// targetLevel: positive for producers (solar plant), negative for consumers
+// (mines and the deuterium synthesizer), using the same curves as
+// RecomputeProduction. Structures whose energy is not modelled by the engine
+// (e.g. deuterium_power_plant) return 0.
+func StructureEnergyDelta(code string, targetLevel int) float64 {
+	if targetLevel < 1 {
+		return 0
+	}
+	lvl, prev := float64(targetLevel), float64(targetLevel-1)
+	switch code {
+	case "metal_mine", "crystal_mine":
+		return -(incomeForLevel(10, lvl) - incomeForLevel(10, prev))
+	case "deuterium_synthesizer":
+		return -(incomeForLevel(20, lvl) - incomeForLevel(20, prev))
+	case "solar_plant":
+		return incomeForLevel(20, lvl) - incomeForLevel(20, prev)
+	default:
+		return 0
+	}
+}
+
 // RecomputeProduction derives hourly production, energy draw and energy output
 // from a celestial's structure levels. resourceSpeed is the universe's resource
 // production multiplier (e.g. 10000 on reference-server). bonus is the owner's
