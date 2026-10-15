@@ -12,3 +12,6 @@ neoxnova/.env
 
 # Local SSH key/config for the acc1 VM (never commit)
 neoxnova/secrets/
+
+# Local reference material for agent sessions (screenshots, notes)
+neoxnova/info/
