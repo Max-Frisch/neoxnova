@@ -44,6 +44,7 @@ func TestBuildingsBodyReskin(t *testing.T) {
 		"Produced 430 energy",
 		"Necessary for the construction:",
 		`/buildings/7/cancel`,
+		`name="queue_id"`,
 		"queue-cancel",
 		"Busy",
 		"Nanite Factory 6",
@@ -74,6 +75,7 @@ func TestResearchBodyReskin(t *testing.T) {
 		"Research to the next level",
 		`/research/7/start`,
 		`/research/7/cancel`,
+		`name="queue_id"`,
 		"For research is needed:",
 		"Energy Technology 12 Level",
 	} {

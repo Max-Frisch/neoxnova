@@ -350,7 +350,12 @@ func (h *Handler) BuildCancelSubmit(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if _, err := h.builds.CancelQueue(r.Context(), store.CancelConstruction, id); err != nil {
+	queueID, qerr := strconv.ParseInt(r.FormValue("queue_id"), 10, 64)
+	if qerr != nil {
+		h.redirect(w, r, back, "", "Invalid queue")
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelConstruction, queueID, id); err != nil {
 		h.redirect(w, r, back, "", err.Error())
 		return
 	}
@@ -617,7 +622,12 @@ func (h *Handler) unitCancel(w http.ResponseWriter, r *http.Request, back string
 		http.NotFound(w, r)
 		return
 	}
-	if _, err := h.builds.CancelQueue(r.Context(), store.CancelShipyard, id); err != nil {
+	queueID, qerr := strconv.ParseInt(r.FormValue("queue_id"), 10, 64)
+	if qerr != nil {
+		h.redirect(w, r, back, "", "Invalid queue")
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelShipyard, queueID, id); err != nil {
 		h.redirect(w, r, back, "", err.Error())
 		return
 	}
@@ -694,7 +704,12 @@ func (h *Handler) ResearchCancelSubmit(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if _, err := h.builds.CancelQueue(r.Context(), store.CancelResearch, userID); err != nil {
+	queueID, qerr := strconv.ParseInt(r.FormValue("queue_id"), 10, 64)
+	if qerr != nil {
+		h.redirect(w, r, back, "", "Invalid queue")
+		return
+	}
+	if _, err := h.builds.CancelQueue(r.Context(), store.CancelResearch, queueID, userID); err != nil {
 		h.redirect(w, r, back, "", err.Error())
 		return
 	}

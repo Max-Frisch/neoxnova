@@ -603,18 +603,21 @@ const (
 	CancelResearch     CancelScope = "research"
 )
 
-// CancelQueue removes the single active queue entry for the given scope and
-// refunds its full cost to the celestial the work was charged against. It is
-// multi-instance safe: the row is locked with FOR UPDATE SKIP LOCKED and the
-// condition re-checked inside the transaction, so a scheduler resolving the
-// same queue concurrently wins the race and this call simply finds nothing to
-// cancel (ErrNotFound). An entry already due (end_time <= NOW()) is treated as
-// gone for the same reason.
+// CancelQueue cancels a single queued order identified by its row id and
+// refunds its frozen cost to the celestial the work was charged against. It is
+// multi-instance safe: the row is locked with FOR UPDATE and its status
+// re-checked, so a scheduler resolving the same order concurrently wins the race
+// and this call finds status != IN_PROGRESS or an already-due row (ErrNotFound).
 //
 // ownerID is the celestial id for CancelConstruction/CancelShipyard and the
-// user id for CancelResearch. The refund is credited to the celestial the work
-// drew from (research stores the planet it was started on).
-func (s *BuildStore) CancelQueue(ctx context.Context, scope CancelScope, ownerID int64) (game.Cost, error) {
+// user id for CancelResearch; the row must belong to it or nothing is cancelled.
+// The refund is credited to the celestial the work drew from (research stores
+// the planet it was started on).
+//
+// Cancelling an order closes the gap in its chain: every later order is pulled
+// forward, and later orders *of the same code* shift down one level, the
+// level-cost difference being refunded.
+func (s *BuildStore) CancelQueue(ctx context.Context, scope CancelScope, queueID, ownerID int64) (game.Cost, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return game.Cost{}, err
@@ -622,56 +625,49 @@ func (s *BuildStore) CancelQueue(ctx context.Context, scope CancelScope, ownerID
 	defer tx.Rollback()
 
 	var (
-		table       string
-		queueID     int64
 		celestialID int64
+		code        string
+		targetLevel int
+		quantity    int64
+		start       time.Time
 		cost        game.Cost
 	)
 
 	switch scope {
 	case CancelConstruction:
-		var code string
-		var targetLevel int
 		err = tx.QueryRowContext(ctx, `
-			SELECT id, structure_code, target_level
+			SELECT celestial_id, structure_code, target_level, start_time
 			FROM construction_queues
-			WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
-			FOR UPDATE SKIP LOCKED
-		`, ownerID).Scan(&queueID, &code, &targetLevel)
+			WHERE id = $1 AND celestial_id = $2 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE
+		`, queueID, ownerID).Scan(&celestialID, &code, &targetLevel, &start)
 		if err != nil {
 			return game.Cost{}, cancelLookupErr(err)
 		}
-		table, celestialID = "construction_queues", ownerID
 		cost, _ = game.StructureCost(code, targetLevel)
 
 	case CancelShipyard:
-		var code string
-		var quantity int64
 		err = tx.QueryRowContext(ctx, `
-			SELECT id, unit_code, quantity_total
+			SELECT celestial_id, unit_code, quantity_total, start_time
 			FROM shipyard_queues
-			WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
-			FOR UPDATE SKIP LOCKED
-		`, ownerID).Scan(&queueID, &code, &quantity)
+			WHERE id = $1 AND celestial_id = $2 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE
+		`, queueID, ownerID).Scan(&celestialID, &code, &quantity, &start)
 		if err != nil {
 			return game.Cost{}, cancelLookupErr(err)
 		}
-		table, celestialID = "shipyard_queues", ownerID
 		cost, _ = game.UnitCost(code, quantity)
 
 	case CancelResearch:
-		var code string
-		var targetLevel int
 		err = tx.QueryRowContext(ctx, `
-			SELECT id, celestial_id, tech_code, target_level
+			SELECT celestial_id, tech_code, target_level, start_time
 			FROM research_queues
-			WHERE user_id = $1 AND status = 'IN_PROGRESS' AND end_time > NOW()
-			FOR UPDATE SKIP LOCKED
-		`, ownerID).Scan(&queueID, &celestialID, &code, &targetLevel)
+			WHERE id = $1 AND user_id = $2 AND status = 'IN_PROGRESS' AND end_time > NOW()
+			FOR UPDATE
+		`, queueID, ownerID).Scan(&celestialID, &code, &targetLevel, &start)
 		if err != nil {
 			return game.Cost{}, cancelLookupErr(err)
 		}
-		table = "research_queues"
 		cost, _ = game.TechCost(code, targetLevel)
 
 	default:
@@ -680,24 +676,339 @@ func (s *BuildStore) CancelQueue(ctx context.Context, scope CancelScope, ownerID
 
 	// Bank accrued output first, then refund. update_celestial_resources takes
 	// the celestial row lock, so this stays consistent with the scheduler.
-	if _, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, celestialID); err != nil {
+	if err := s.creditCelestial(ctx, tx, celestialID, cost); err != nil {
 		return game.Cost{}, err
 	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE celestial_objects
-		SET metal = metal + $1, crystal = crystal + $2, deuterium = deuterium + $3
-		WHERE id = $4
-	`, cost.Metal, cost.Crystal, cost.Deuterium, celestialID); err != nil {
+	switch scope {
+	case CancelConstruction:
+		_, err = tx.ExecContext(ctx, `UPDATE construction_queues SET status = 'CANCELLED' WHERE id = $1`, queueID)
+	case CancelShipyard:
+		_, err = tx.ExecContext(ctx, `UPDATE shipyard_queues SET status = 'CANCELLED' WHERE id = $1`, queueID)
+	case CancelResearch:
+		_, err = tx.ExecContext(ctx, `UPDATE research_queues SET status = 'CANCELLED' WHERE id = $1`, queueID)
+	}
+	if err != nil {
 		return game.Cost{}, err
 	}
-	// table is one of the fixed literals selected above, never user input.
-	if _, err := tx.ExecContext(ctx, `UPDATE `+table+` SET status = 'CANCELLED' WHERE id = $1`, queueID); err != nil {
-		return game.Cost{}, err
+
+	switch scope {
+	case CancelConstruction:
+		if err := s.renumberConstructionTx(ctx, tx, celestialID, queueID, code, start); err != nil {
+			return game.Cost{}, err
+		}
+	case CancelShipyard:
+		kindCodes := defenseCodes()
+		if _, isShip := game.Ships[code]; isShip {
+			kindCodes = shipCodes()
+		}
+		if err := s.renumberShipyardTx(ctx, tx, celestialID, queueID, kindCodes, start); err != nil {
+			return game.Cost{}, err
+		}
+	case CancelResearch:
+		if err := s.renumberResearchTx(ctx, tx, ownerID, queueID, code, start); err != nil {
+			return game.Cost{}, err
+		}
 	}
+
 	if err := tx.Commit(); err != nil {
 		return game.Cost{}, err
 	}
 	return cost, nil
+}
+
+// creditCelestial banks accrued resources and credits cost to a celestial.
+func (s *BuildStore) creditCelestial(ctx context.Context, tx *sql.Tx, celestialID int64, cost game.Cost) error {
+	if _, err := tx.ExecContext(ctx, `SELECT * FROM update_celestial_resources($1)`, celestialID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET metal = metal + $1, crystal = crystal + $2, deuterium = deuterium + $3
+		WHERE id = $4
+	`, cost.Metal, cost.Crystal, cost.Deuterium, celestialID)
+	return err
+}
+
+// renumberConstructionTx repairs a celestial's construction chain after one
+// order is cancelled: every later order is pulled forward to start right after
+// the (now shorter) chain, and later orders of the cancelled building shift down
+// one level, the price difference being refunded. Each order's duration is
+// recomputed with the projected robotics/nanite factory (the planet's completed
+// level plus every queued upgrade ahead of that order), matching enqueue.
+func (s *BuildStore) renumberConstructionTx(ctx context.Context, tx *sql.Tx, celestialID, cancelledID int64, code string, cancelledStart time.Time) error {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, structure_code, target_level
+		FROM construction_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS'
+		ORDER BY id
+	`, celestialID)
+	if err != nil {
+		return err
+	}
+	type order struct {
+		id     int64
+		code   string
+		target int
+	}
+	var all []order
+	for rows.Next() {
+		var o order
+		if err := rows.Scan(&o.id, &o.code, &o.target); err != nil {
+			rows.Close()
+			return err
+		}
+		all = append(all, o)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	if len(all) == 0 {
+		return nil
+	}
+
+	var gameSpeed float64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT u.game_speed FROM celestial_objects c
+		JOIN universes u ON u.id = c.universe_id WHERE c.id = $1
+	`, celestialID).Scan(&gameSpeed); err != nil {
+		return err
+	}
+	levels, err := s.structureLevels(ctx, tx, celestialID)
+	if err != nil {
+		return err
+	}
+	baseRobotics := levels["robotics_factory"]
+	baseNanite := levels["nanite_factory"]
+
+	cursor := cancelledStart
+	if cursor.Before(time.Now()) {
+		cursor = time.Now()
+	}
+	var seenRobotics, seenNanite int
+	for i := range all {
+		o := all[i]
+		projRobotics := baseRobotics + seenRobotics
+		projNanite := baseNanite + seenNanite
+		if o.code == "robotics_factory" {
+			seenRobotics++
+		}
+		if o.code == "nanite_factory" {
+			seenNanite++
+		}
+		// Orders before the cancelled one are already scheduled correctly.
+		if o.id <= cancelledID {
+			continue
+		}
+		if o.code == code {
+			next := o.target - 1
+			if next < 1 {
+				next = 1
+			}
+			if next != o.target {
+				oldCost, _ := game.StructureCost(o.code, o.target)
+				newCost, _ := game.StructureCost(o.code, next)
+				if err := s.creditCelestial(ctx, tx, celestialID, game.Cost{
+					Metal:     oldCost.Metal - newCost.Metal,
+					Crystal:   oldCost.Crystal - newCost.Crystal,
+					Deuterium: oldCost.Deuterium - newCost.Deuterium,
+				}); err != nil {
+					return err
+				}
+				o.target = next
+			}
+		}
+		dur := game.StructureDuration(o.code, o.target, projRobotics, projNanite, gameSpeed)
+		start := cursor
+		end := start.Add(dur)
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE construction_queues SET target_level = $2, start_time = $3, end_time = $4 WHERE id = $1
+		`, o.id, o.target, start, end); err != nil {
+			return err
+		}
+		cursor = end
+	}
+	return nil
+}
+
+// renumberResearchTx repairs an account's research chain after one order is
+// cancelled: every later order is pulled forward to start right after the (now
+// shorter) chain, and later orders of the cancelled tech shift down one level,
+// the price difference being refunded to the planet that paid for it.
+func (s *BuildStore) renumberResearchTx(ctx context.Context, tx *sql.Tx, userID, cancelledID int64, code string, cancelledStart time.Time) error {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, celestial_id, tech_code, target_level, start_time, end_time
+		FROM research_queues
+		WHERE user_id = $1 AND status = 'IN_PROGRESS' AND id > $2
+		ORDER BY id
+	`, userID, cancelledID)
+	if err != nil {
+		return err
+	}
+	type order struct {
+		id          int64
+		celestialID int64
+		code        string
+		target      int
+		start       time.Time
+		end         time.Time
+	}
+	var tail []order
+	for rows.Next() {
+		var o order
+		if err := rows.Scan(&o.id, &o.celestialID, &o.code, &o.target, &o.start, &o.end); err != nil {
+			rows.Close()
+			return err
+		}
+		tail = append(tail, o)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	if len(tail) == 0 {
+		return nil
+	}
+
+	var gameSpeed float64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT u.game_speed FROM celestial_objects c
+		JOIN universes u ON u.id = c.universe_id WHERE c.id = $1
+	`, tail[0].celestialID).Scan(&gameSpeed); err != nil {
+		return err
+	}
+	type lab struct{ level, university int }
+	labCache := map[int64]lab{}
+	effectiveLab := func(celestialID int64) (lab, error) {
+		if l, ok := labCache[celestialID]; ok {
+			return l, nil
+		}
+		lvl, uni, err := s.effectiveResearchLab(ctx, tx, celestialID)
+		if err != nil {
+			return lab{}, err
+		}
+		l := lab{level: lvl, university: uni}
+		labCache[celestialID] = l
+		return l, nil
+	}
+
+	cursor := cancelledStart
+	if cursor.Before(time.Now()) {
+		cursor = time.Now()
+	}
+	for i := range tail {
+		o := tail[i]
+		dur := o.end.Sub(o.start)
+		if o.code == code {
+			next := o.target - 1
+			if next < 1 {
+				next = 1
+			}
+			if next != o.target {
+				oldCost, _ := game.TechCost(o.code, o.target)
+				newCost, _ := game.TechCost(o.code, next)
+				if err := s.creditCelestial(ctx, tx, o.celestialID, game.Cost{
+					Metal:     oldCost.Metal - newCost.Metal,
+					Crystal:   oldCost.Crystal - newCost.Crystal,
+					Deuterium: oldCost.Deuterium - newCost.Deuterium,
+				}); err != nil {
+					return err
+				}
+				o.target = next
+				l, err := effectiveLab(o.celestialID)
+				if err != nil {
+					return err
+				}
+				dur = game.TechDuration(o.code, next, l.level, l.university, gameSpeed)
+			}
+		}
+		start := cursor
+		end := start.Add(dur)
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE research_queues SET target_level = $2, start_time = $3, end_time = $4 WHERE id = $1
+		`, o.id, o.target, start, end); err != nil {
+			return err
+		}
+		cursor = end
+	}
+	return nil
+}
+
+// renumberShipyardTx pulls a celestial's later ship or defense batches forward
+// after one is cancelled, keeping each batch's own duration.
+func (s *BuildStore) renumberShipyardTx(ctx context.Context, tx *sql.Tx, celestialID, cancelledID int64, kindCodes []string, cancelledStart time.Time) error {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, start_time, end_time
+		FROM shipyard_queues
+		WHERE celestial_id = $1 AND status = 'IN_PROGRESS' AND unit_code = ANY($2) AND id > $3
+		ORDER BY id
+	`, celestialID, pq.Array(kindCodes), cancelledID)
+	if err != nil {
+		return err
+	}
+	type order struct {
+		id    int64
+		start time.Time
+		end   time.Time
+	}
+	var tail []order
+	for rows.Next() {
+		var o order
+		if err := rows.Scan(&o.id, &o.start, &o.end); err != nil {
+			rows.Close()
+			return err
+		}
+		tail = append(tail, o)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	cursor := cancelledStart
+	if cursor.Before(time.Now()) {
+		cursor = time.Now()
+	}
+	for i := range tail {
+		o := tail[i]
+		dur := o.end.Sub(o.start)
+		start := cursor
+		end := start.Add(dur)
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE shipyard_queues SET start_time = $2, end_time = $3 WHERE id = $1
+		`, o.id, start, end); err != nil {
+			return err
+		}
+		cursor = end
+	}
+	return nil
+}
+
+// effectiveResearchLab returns the research-lab level (its own lab plus
+// IRN-connected colony labs) and the local University level of a celestial,
+// used to recompute a shifted research order's duration.
+func (s *BuildStore) effectiveResearchLab(ctx context.Context, tx *sql.Tx, celestialID int64) (int, int, error) {
+	var userID int64
+	if err := tx.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, celestialID).Scan(&userID); err != nil {
+		return 0, 0, err
+	}
+	structLevels, err := s.structureLevels(ctx, tx, celestialID)
+	if err != nil {
+		return 0, 0, err
+	}
+	techs, err := s.techLevels(ctx, tx, userID)
+	if err != nil {
+		return 0, 0, err
+	}
+	colonyLabs, err := s.researchLabLevels(ctx, tx, userID, celestialID)
+	if err != nil {
+		return 0, 0, err
+	}
+	lvl := game.EffectiveResearchLabLevel(structLevels["research_lab"], techs["intergalactic_research_network"], colonyLabs)
+	return lvl, structLevels["university"], nil
 }
 
 // cancelLookupErr maps a no-row lookup to ErrNotFound so callers can render

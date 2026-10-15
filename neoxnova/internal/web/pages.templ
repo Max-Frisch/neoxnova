@@ -259,6 +259,7 @@ templ queueRow(n int, label string, q *models.QueueEntrySummary, cancelURL strin
 		<span class="queue-end">Ending: { endTimeStr(q.EndTime) }</span>
 		<span class="queue-remain">{ hms(q.RemainingSecs) }</span>
 		<form method="post" action={ templ.URL(cancelURL) }>
+			<input type="hidden" name="queue_id" value={ strconv.FormatInt(q.ID, 10) }/>
 			<button type="submit" class="queue-cancel" title="Cancel">✕</button>
 		</form>
 	</div>

@@ -58,6 +58,7 @@ func TestShipyardBodyReskin(t *testing.T) {
 		"Duration: 00:00:01",
 		`/shipyard/7/build`,
 		`/shipyard/7/cancel`,
+		`name="queue_id"`,
 		"queue-cancel",
 		`class="unit-max" data-target="q_202" data-max="100"`,
 		"Necessary for the construction:",
@@ -99,6 +100,7 @@ func TestDefensesBodyReskin(t *testing.T) {
 		`/static/niburu/defenses/407.gif`,
 		`/defenses/7/build`,
 		`/defenses/7/cancel`,
+		`name="queue_id"`,
 		"Missile Launcher (25)",
 		`class="unit-max" data-target="q_401" data-max="9"`,
 	} {

@@ -162,6 +162,13 @@ engine resolves N rows in order; update `build_research_integration_test.go`.
 **Exit:** target N queues the affordable, in-cap levels for all three scopes; scheduler builds in order.
 
 ## Q3 — Cancel by id + renumber + refund
+> **Status: ✅ done (2026-10-15).** `CancelQueue(ctx, scope, queueID, ownerID)` cancels one queued
+> order by id (owner-checked, `FOR UPDATE`, scheduler-race safe via status re-check) and refunds its
+> frozen cost; `renumberConstructionTx`/`renumberResearchTx`/`renumberShipyardTx` pull the tail
+> forward and shift later same-code orders down one level, refunding the level-cost difference.
+> Handlers parse a hidden `queue_id` field rendered by `queueRow` (routes unchanged). Tests:
+> `TestCancelQueueRefundsConstructionByID` (middle-order renumber), `…ShipyardByID`, `…ResearchByID`;
+> e2e cancel subtests pass a `queue_id`. Next: Q4.
 Work:
 1. Replace scope-based `CancelQueue` (`build_store.go:405-489`) with **cancel by queue id**
    (verify owner/scope). Refund that row's frozen cost, mark `CANCELLED`.

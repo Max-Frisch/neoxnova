@@ -143,7 +143,8 @@ func TestWebEndToEnd(t *testing.T) {
 		`, a.HomeID).Scan(&qid); err != nil {
 			t.Fatalf("seed construction queue: %v", err)
 		}
-		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d/cancel", a.HomeID), url.Values{})
+		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d/cancel", a.HomeID),
+			url.Values{"queue_id": {strconv.FormatInt(qid, 10)}})
 		e2eWantContains(t, body, "refunded", "cancel flash")
 		var status string
 		if err := db.QueryRowContext(ctx, `SELECT status FROM construction_queues WHERE id = $1`, qid).Scan(&status); err != nil {
@@ -163,7 +164,8 @@ func TestWebEndToEnd(t *testing.T) {
 		`, a.UserID, a.HomeID).Scan(&qid); err != nil {
 			t.Fatalf("seed research queue: %v", err)
 		}
-		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/research/%d/cancel", a.HomeID), url.Values{})
+		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/research/%d/cancel", a.HomeID),
+			url.Values{"queue_id": {strconv.FormatInt(qid, 10)}})
 		e2eWantContains(t, body, "refunded", "cancel flash")
 		var status string
 		if err := db.QueryRowContext(ctx, `SELECT status FROM research_queues WHERE id = $1`, qid).Scan(&status); err != nil {
