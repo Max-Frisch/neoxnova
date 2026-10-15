@@ -1,0 +1,63 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/game"
+)
+
+// TraderBody is the Resource Trader page: sell one resource to buy another at
+// the live 4/2/1 rate for a fixed Dark Matter fee.
+templ TraderBody(sh Shell, d TraderData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Resource Trader</h2>
+		<p class="resource-sub">Sell one resource to buy another at the live 4/2/1 metal:crystal:deuterium rate. The merchant charges { fnum(d.Fee) } Dark Matter per trade.</p>
+		<div class="trader-balances">
+			for _, res := range d.Resources {
+				<span class="trader-balance"><b>{ res.Name }</b> { fnum(int64(res.Current)) }</span>
+			}
+			<span class="trader-balance"><b>Dark Matter</b> { fnum(d.DarkMatter) }</span>
+		</div>
+		<form method="post" action="/blackmarket/trader" class="space-y-3 text-sm">
+			<input type="hidden" name="return" value="/blackmarket/trader"/>
+			<div class="grid gap-3 sm:grid-cols-3">
+				<label class="block text-slate-300">Sell
+					<select name="sell" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+						for _, res := range d.Resources {
+							<option value={ strconv.Itoa(res.Code) } selected?={ res.Code == game.ResourceMetal }>{ res.Name }</option>
+						}
+					</select>
+				</label>
+				<label class="block text-slate-300">Buy
+					<select name="buy" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1">
+						for _, res := range d.Resources {
+							<option value={ strconv.Itoa(res.Code) } selected?={ res.Code == game.ResourceCrystal }>{ res.Name }</option>
+						}
+					</select>
+				</label>
+				<label class="block text-slate-300">Amount
+					<input name="amount" type="number" min="1" value="1000000" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+				</label>
+			</div>
+			<div class="flex gap-2">
+				<button type="button" class="btn" hx-post="/blackmarket/trader/preview" hx-include="closest form" hx-target="#trader-quote" hx-swap="innerHTML">Preview</button>
+				<button type="submit" class="btn">Trade</button>
+			</div>
+		</form>
+		<div id="trader-quote"></div>
+		<p class="resource-sub mt-4"><a href="/blackmarket">Back to Black market</a></p>
+	</div>
+}
+
+// TraderQuotePartial is the htmx preview fragment shown under the form.
+templ TraderQuotePartial(q *game.TradeOffer, errMsg string) {
+	if errMsg != "" {
+		<div class="trader-quote trader-quote--err">{ errMsg }</div>
+	} else if q != nil {
+		<div class="trader-quote">
+			Cost <b>{ fnum(q.SellCost) } { game.TradeResourceName(q.SellCode) }</b>
+			+ <b>{ fnum(q.DarkMatter) } Dark Matter</b>
+			→ receive <b>{ fnum(q.BuyAmount) } { game.TradeResourceName(q.BuyCode) }</b>
+		</div>
+	}
+}

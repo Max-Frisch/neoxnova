@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **B2** Resource Trader (250 DM; 4/2/1 + fees) — capture rules from ops HAR.
 - [ ] **B3** Planetarium page (fields/diameter/teleport UI over existing JSON endpoints).
 - [ ] **B4 future** Merchant of Fleets / Buildings & Technology Market / Voucher.
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
@@ -32,6 +31,16 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **B2 Resource Trader**: rules verified from the ops HAR (`Resource_Trader_Crys_
+  for_Deut_example.har`): selling 100 B deuterium-dealing crystal for deuterium debited exactly
+  200 B crystal / credited 100 B deut, so value M:C:D = **1:2:4** (live 4/2/1), and every trade
+  costs **250 DM**. `game.TradeQuote(sell,buy,amount,dm)` is pure (ratio + ceil + DM fee); the two
+  ids `901/902/903` map to live resource codes. `store.TradeStore.ExecuteTrade` accrues + row-locks
+  the celestial, debits the sold resource and DM, and credits the bought resource clamped to
+  `LEAST(cap,…)`. Web: `/blackmarket/trader` page with sell/buy/amount + htmx Preview
+  (`POST /blackmarket/trader/preview`) and `POST /blackmarket/trader`. Tests: `TestTradeQuote*`
+  (game), `TestExecuteTrade` (store), `TestTraderBodyRenders`/`TestTraderQuotePartial` (web),
+  e2e trader subtest. Next: B3.
 - 2026-10-15 — **B1 standalone `/blackmarket` hub**: `GET /blackmarket` renders the six-tile hub
   (Resource Trader / Merchant of Fleets / Planetarium / Buildings Market / Technology Market /
   Voucher System); the two backed sub-routes (`/blackmarket/trader`, `/blackmarket/planetarium`)

@@ -384,6 +384,49 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, "Lot withdrawn", "withdraw flash")
 	})
 
+	t.Run("resource trader sells crystal for deuterium", func(t *testing.T) {
+		// Freeze production so the balances move only by the trade.
+		if _, err := db.ExecContext(ctx, `
+			UPDATE celestial_objects
+			SET crystal = 1000000000, deuterium = 0,
+			    crystal_capacity = 2000000000, deuterium_capacity = 2000000000,
+			    metal_prod_hourly = 0, crystal_prod_hourly = 0, deuterium_prod_hourly = 0,
+			    last_resource_calc_at = NOW()
+			WHERE id = $1`, a.HomeID); err != nil {
+			t.Fatalf("seed trader state: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 1000 WHERE id = $1`, a.UserID); err != nil {
+			t.Fatalf("seed dm: %v", err)
+		}
+
+		body := e2eGet(t, clientA, srv.URL, "/blackmarket/trader")
+		e2eWantContains(t, body, "Resource Trader", "trader page")
+		e2eWantContains(t, body, "4/2/1", "live rate copy")
+
+		// Preview prices 1000 deuterium at 2000 crystal + 250 DM.
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/trader/preview", url.Values{
+			"sell": {"902"}, "buy": {"903"}, "amount": {"1000"},
+		})
+		e2eWantContains(t, body, "2,000", "preview crystal cost")
+
+		body = e2ePost(t, clientA, srv.URL, "/blackmarket/trader", url.Values{
+			"sell": {"902"}, "buy": {"903"}, "amount": {"1000"},
+		})
+		e2eWantContains(t, body, "Traded", "trade flash")
+
+		var crystal, deut float64
+		if err := db.QueryRowContext(ctx,
+			`SELECT crystal, deuterium FROM celestial_objects WHERE id = $1`, a.HomeID).Scan(&crystal, &deut); err != nil {
+			t.Fatalf("read resources: %v", err)
+		}
+		if int64(crystal) != 1000000000-2000 || int64(deut) != 1000 {
+			t.Fatalf("after trade = C %d D %d, want 999998000/1000", int64(crystal), int64(deut))
+		}
+		if dm := e2eScalarInt64(t, db, `SELECT dark_matter FROM users WHERE id = $1`, a.UserID); dm != 750 {
+			t.Fatalf("dark matter = %d, want 750", dm)
+		}
+	})
+
 	t.Run("technologies renders the tech tree", func(t *testing.T) {
 		// The page is tabbed (I4); the full grouped tree lives on the
 		// "Requirements" tab, which carries research and ship nodes.

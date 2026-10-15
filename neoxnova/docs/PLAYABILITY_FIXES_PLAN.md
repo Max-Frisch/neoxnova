@@ -236,6 +236,11 @@ longer shows lot tables on its own.
 **Exit:** Black market is a standalone hub; Arsenal auctions live only under Arsenal.
 
 ## B2 — Resource Trader
+> **Status: ✅ done (2026-10-15).** Rules verified from the ops HAR: value M:C:D = 1:2:4 (the live
+> 4/2/1 amount ratio; the page's per-resource fee is the bought resource's value / sold value) and
+> a fixed 250 DM fee. `game.TradeQuote(sell,buy,amount,dm)` (`TradeOffer`), `store.TradeStore.
+> ExecuteTrade` (accrue + row-lock, debit sold + DM, credit bought clamped to `LEAST(cap,…)`);
+> `/blackmarket/trader` + htmx `…/preview` + submit. Next: B3.
 Work:
 1. Capture the exact rules from ops `captures/Resource_Trader_Crys_for_Deut_example.har` + the
    screenshots: each call costs **250 Dark Matter**; pick one resource to **sell**; buy the other(s)

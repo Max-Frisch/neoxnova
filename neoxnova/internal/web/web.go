@@ -46,6 +46,7 @@ type Handler struct {
 	auth       *store.AuthStore
 	arsenal    *store.ArsenalStore
 	moons      *store.MoonStore
+	trades     *store.TradeStore
 	notify     func()
 }
 
@@ -64,6 +65,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		auth:       store.NewAuthStore(db),
 		arsenal:    store.NewArsenalStore(db),
 		moons:      store.NewMoonStore(db),
+		trades:     store.NewTradeStore(db),
 		notify:     notify,
 	}
 }
@@ -126,7 +128,9 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /arsenal/activate", h.page(h.requireUser(h.ArsenalActivateSubmit)))
 	// Black market is its own hub; /market is only the Arsenal Market alias.
 	mux.HandleFunc("GET /blackmarket", h.page(h.requireUser(h.BlackMarketPage)))
-	mux.HandleFunc("GET /blackmarket/trader", h.page(h.requireUser(h.BlackMarketComingSoon("Resource Trader"))))
+	mux.HandleFunc("GET /blackmarket/trader", h.page(h.requireUser(h.TraderPage)))
+	mux.HandleFunc("POST /blackmarket/trader", h.page(h.requireUser(h.TraderSubmit)))
+	mux.HandleFunc("POST /blackmarket/trader/preview", h.page(h.requireUser(h.TraderPreview)))
 	mux.HandleFunc("GET /blackmarket/planetarium", h.page(h.requireUser(h.BlackMarketComingSoon("Planetarium"))))
 	mux.HandleFunc("GET /market", h.page(h.requireUser(h.MarketRedirect)))
 	mux.HandleFunc("POST /market/list", h.page(h.requireUser(h.MarketListSubmit)))

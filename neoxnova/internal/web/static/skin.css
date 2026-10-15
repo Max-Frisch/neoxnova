@@ -1311,6 +1311,40 @@ a.bm-tile:hover {
   cursor: not-allowed;
 }
 
+/* ---- Resource Trader --------------------------------------------------- */
+
+.trader-balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 10px 0 16px;
+  color: #dce8f8;
+  font-size: 12px;
+}
+
+.trader-balance b {
+  color: #eaf2ff;
+}
+
+.trader-quote {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(10, 20, 34, 0.72);
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  color: #dce8f8;
+  font-size: 13px;
+}
+
+.trader-quote b {
+  color: #eaf2ff;
+}
+
+.trader-quote--err {
+  border-color: #7a2020;
+  color: #ffb4b4;
+}
+
 /* ---- Messages category grid ------------------------------------------- */
 
 .msg-grid {
