@@ -22,7 +22,6 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — each row = one session.
-- [ ] **Q1** queue schema: drop all 3 partial unique indexes; add build(10)/research(4) slots.
 - [ ] **C1** `config/game.json`: game/resource/fleet speed + queue limits → upsert `universes` on boot.
 - [ ] **Q2** chained multi-order enqueue (buildings/research/ships/defs) + read-model queue lists.
 - [ ] **Q3** cancel-by-id + tail renumber/refund (all scopes).
@@ -38,6 +37,11 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **Q1 queue schema**: migration `0020_queue_slots.sql` adds
+  `universes.build_queue_slots` (10)/`research_queue_slots` (4) and drops the three
+  single-active partial unique indexes (`uq_active_construction/_research/_shipyard`) so all
+  three scopes take multi-row chains. Tests: `TestQueueSlotsMigrationIdempotent`,
+  `TestQueueAllowsMultipleActive`. Next: C1.
 - 2026-10-15 — **P2 perf**: session + owned celestials resolved once per request via a
   `page`-middleware `userPrincipal` in context (was 2–3 `SessionUser`/ownership queries per
   request); `shell()` reuses the principal (drops `GetCoordinates`/`HomeworldID`/`ownsCelestial`

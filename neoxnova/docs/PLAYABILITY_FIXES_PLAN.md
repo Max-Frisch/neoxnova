@@ -98,6 +98,10 @@ Reference behaviour (`gwx`): orders chain back-to-back (`start = MAX(finish)`), 
 slots on `universes`, all rows `IN_PROGRESS` (no engine promotion needed). Cancel renumbers the tail.
 
 ## Q1 — Schema + slot columns
+> **Status: ✅ done (2026-10-15).** `migrations/0020_queue_slots.sql` adds
+> `universes.build_queue_slots` (10) / `research_queue_slots` (4) and drops the three
+> single-active partial unique indexes. Tests: `TestQueueSlotsMigrationIdempotent`,
+> `TestQueueAllowsMultipleActive` (`internal/store/queue_slots_integration_test.go`).
 Work:
 1. New `migrations/0020_queue_slots.sql`:
    - `ALTER TABLE universes ADD COLUMN IF NOT EXISTS build_queue_slots SMALLINT NOT NULL DEFAULT 10;`
