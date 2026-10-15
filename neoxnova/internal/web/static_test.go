@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"neoxnova/internal/game"
@@ -31,6 +32,57 @@ func TestNiburuArtworkServed(t *testing.T) {
 		if got := rec.Header().Get("Content-Type"); got != tc.ctype {
 			t.Errorf("GET %s content-type = %q, want %q", tc.path, got, tc.ctype)
 		}
+	}
+}
+
+// TestStaticAssetsCacheable verifies the P1 caching contract: text assets carry
+// ETag + Cache-Control and are gzipped, revalidation returns 304, and images are
+// never gzip-encoded.
+func TestStaticAssetsCacheable(t *testing.T) {
+	mux := http.NewServeMux()
+	(&Handler{}).Mount(mux)
+
+	// CSS: ETag + Cache-Control + gzip.
+	req := httptest.NewRequest(http.MethodGet, "/static/skin.css", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET skin.css = %d, want 200", rec.Code)
+	}
+	etag := rec.Header().Get("ETag")
+	if etag == "" {
+		t.Errorf("skin.css missing ETag")
+	}
+	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "public") || !strings.Contains(cc, "max-age") {
+		t.Errorf("skin.css Cache-Control = %q, want public + max-age", cc)
+	}
+	if enc := rec.Header().Get("Content-Encoding"); enc != "gzip" {
+		t.Errorf("skin.css Content-Encoding = %q, want gzip", enc)
+	}
+
+	// Conditional request revalidates to 304 without a body.
+	req2 := httptest.NewRequest(http.MethodGet, "/static/skin.css", nil)
+	req2.Header.Set("If-None-Match", etag)
+	rec2 := httptest.NewRecorder()
+	mux.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusNotModified {
+		t.Fatalf("conditional skin.css = %d, want 304", rec2.Code)
+	}
+
+	// Images are already compressed: never gzip them.
+	req3 := httptest.NewRequest(http.MethodGet, "/static/niburu/buildings/metal_mine.gif", nil)
+	req3.Header.Set("Accept-Encoding", "gzip")
+	rec3 := httptest.NewRecorder()
+	mux.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusOK {
+		t.Fatalf("GET metal_mine.gif = %d, want 200", rec3.Code)
+	}
+	if enc := rec3.Header().Get("Content-Encoding"); enc != "" {
+		t.Errorf("gif Content-Encoding = %q, want none", enc)
+	}
+	if rec3.Header().Get("ETag") == "" {
+		t.Errorf("gif missing ETag")
 	}
 }
 

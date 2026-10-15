@@ -71,8 +71,18 @@ func NewRouter(db *sql.DB, rdb *redis.Client, universeID string) http.Handler {
 	mux.HandleFunc("GET /dashboard/{id}", h.RequireAuth(h.Dashboard))
 
 	// Server-rendered UI (Templ + htmx + Tailwind). Mutations nudge the scheduler.
-	web.New(db, universeID, func() { h.NotifyScheduler(context.Background()) }).Mount(mux)
+	webHandler := web.New(db, universeID, func() { h.NotifyScheduler(context.Background()) })
+	webHandler.Mount(mux)
 
 	secure := os.Getenv("APP_ENV") != "development"
-	return Logging(Recovery(SecurityHeaders(secure, globalLimit.Middleware(mux))))
+
+	// Static assets are served on a dedicated path that skips the per-IP rate
+	// limiter: a skin-heavy page pulls hundreds of sprites, and counting them
+	// against the abuse bucket throttled normal page loads (the "56k" feel).
+	// The limiter stays on every game/API route.
+	root := http.NewServeMux()
+	root.Handle("/static/", webHandler.Static())
+	root.Handle("/", globalLimit.Middleware(mux))
+
+	return Logging(Recovery(SecurityHeaders(secure, root)))
 }

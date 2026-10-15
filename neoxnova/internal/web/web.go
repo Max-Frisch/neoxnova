@@ -69,11 +69,10 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 // Mount registers every UI route on mux. Page routes never collide with the
 // JSON API prefixes.
 func (h *Handler) Mount(mux *http.ServeMux) {
-	staticSub, err := fs.Sub(staticFiles, "static")
-	if err != nil {
+	if _, err := fs.Sub(staticFiles, "static"); err != nil {
 		log.Fatalf("[WEB] static embed: %v", err)
 	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	mux.Handle("GET /static/", h.Static())
 
 	mux.HandleFunc("GET /{$}", h.page(h.Home))
 	mux.HandleFunc("GET /login", h.page(h.LoginPage))
