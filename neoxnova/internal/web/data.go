@@ -228,6 +228,7 @@ type BuildingsData struct {
 	Queue      *models.QueueEntrySummary
 	FieldsUsed int
 	FieldsMax  int
+	IsMoon     bool
 }
 
 func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
@@ -250,9 +251,15 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.FieldsUsed, data.FieldsMax = ov.FieldsUsed, ov.FieldsMax
 	}
+	ctype, _ := h.planets.CelestialType(r.Context(), idStr)
+	data.IsMoon = ctype == models.TypeMoon
 	speed := h.gameSpeed(r)
 	robot, nanite := levels["robotics_factory"], levels["nanite_factory"]
-	for _, def := range sortedStructures() {
+	defs := sortedStructures()
+	if data.IsMoon {
+		defs = game.MoonStructureDefs()
+	}
+	for _, def := range defs {
 		item := BuildItem{
 			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
 			Image:   assetURL(def.Code),
@@ -1078,6 +1085,9 @@ func reasonFor(requires, levels map[string]int) string {
 
 func displayName(code string) string {
 	if d, ok := game.Structures[code]; ok {
+		return d.Name
+	}
+	if d, ok := game.MoonOnlyStructures[code]; ok {
 		return d.Name
 	}
 	if d, ok := game.Techs[code]; ok {

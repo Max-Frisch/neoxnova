@@ -48,7 +48,7 @@ func scanLevels(rows *sql.Rows) (map[string]int, error) {
 	return levels, rows.Err()
 }
 
-func (s *BuildStore) planetContext(ctx context.Context, tx *sql.Tx, planetID int64) (userID int64, tempMax, fieldsUsed, fieldsMax int, gameSpeed float64, metal, crystal, deuterium float64, err error) {
+func (s *BuildStore) planetContext(ctx context.Context, tx *sql.Tx, planetID int64) (userID int64, objectType string, tempMax, fieldsUsed, fieldsMax int, gameSpeed float64, metal, crystal, deuterium float64, err error) {
 	var lastCalc time.Time
 	err = tx.QueryRowContext(ctx, `SELECT * FROM update_celestial_resources($1)`, planetID).Scan(
 		&metal, &crystal, &deuterium, &lastCalc,
@@ -57,11 +57,11 @@ func (s *BuildStore) planetContext(ctx context.Context, tx *sql.Tx, planetID int
 		return
 	}
 	err = tx.QueryRowContext(ctx, `
-		SELECT c.user_id, c.temp_max, c.fields_used, c.fields_max, u.game_speed
+		SELECT c.user_id, c.object_type::text, c.temp_max, c.fields_used, c.fields_max, u.game_speed
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, planetID).Scan(&userID, &tempMax, &fieldsUsed, &fieldsMax, &gameSpeed)
+	`, planetID).Scan(&userID, &objectType, &tempMax, &fieldsUsed, &fieldsMax, &gameSpeed)
 	return
 }
 
@@ -130,7 +130,9 @@ func (s *BuildStore) researchLabLevels(ctx context.Context, tx *sql.Tx, userID, 
 // EnqueueStructure starts construction of the next level of a building.
 func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code string) (QueueResult, error) {
 	if _, ok := game.Structures[code]; !ok {
-		return QueueResult{}, ErrUnknownCode
+		if _, moonOK := game.MoonOnlyStructures[code]; !moonOK {
+			return QueueResult{}, ErrUnknownCode
+		}
 	}
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
@@ -139,11 +141,19 @@ func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code 
 	}
 	defer tx.Rollback()
 
-	userID, _, fieldsUsed, fieldsMax, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
+	userID, objectType, _, fieldsUsed, fieldsMax, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return QueueResult{}, ErrNotFound
 	} else if err != nil {
 		return QueueResult{}, err
+	}
+
+	// A moon may only build its moon-legal set (moon-only buildings plus the
+	// moon-legal planet buildings); a planet may not build moon-only buildings.
+	if objectType == "MOON" {
+		if _, ok := game.MoonStructure(code); !ok {
+			return QueueResult{}, ErrUnknownCode
+		}
 	}
 
 	levels, err := s.combinedLevels(ctx, tx, planetID, userID)
@@ -151,6 +161,9 @@ func (s *BuildStore) EnqueueStructure(ctx context.Context, planetID int64, code 
 		return QueueResult{}, err
 	}
 	def := game.Structures[code]
+	if objectType == "MOON" {
+		def, _ = game.MoonStructure(code)
+	}
 	if !game.RequiresMet(def.Requires, levels) {
 		return QueueResult{}, ErrPrerequisites
 	}
@@ -218,7 +231,7 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 	}
 	defer tx.Rollback()
 
-	userID, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
+	userID, _, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return QueueResult{}, ErrNotFound
 	} else if err != nil {
@@ -293,7 +306,7 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 	}
 	defer tx.Rollback()
 
-	userID, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
+	userID, _, _, _, _, gameSpeed, metal, crystal, deuterium, err := s.planetContext(ctx, tx, planetID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return QueueResult{}, ErrNotFound
 	} else if err != nil {
@@ -532,8 +545,12 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	for _, lvl := range levels {
 		fieldsUsed += lvl
 	}
-	// Terraformer adds 7 fields per level on top of the colonisation roll.
+	// A moon's capacity comes from its Moon base (1 + 3 per level); the
+	// colonisation roll + Terraformer only apply to planets.
 	fieldsMax := baseFields + 7*int64(levels["terraformer"])
+	if objectType == "MOON" {
+		fieldsMax = int64(game.MoonFieldsMax(levels["moon_base"]))
+	}
 
 	metalCap := game.StorageCapacity(levels["metal_storage"], resourceSpeed)
 	crystalCap := game.StorageCapacity(levels["crystal_storage"], resourceSpeed)
@@ -617,8 +634,21 @@ func (s *BuildStore) GetBuildings(ctx context.Context, planetID string) (models.
 		return models.BuildingsResponse{}, err
 	}
 
+	var objectType string
+	_ = s.db.QueryRowContext(ctx, `SELECT object_type FROM celestial_objects WHERE id = $1`, id).Scan(&objectType)
+
 	resp := models.BuildingsResponse{PlanetID: id, Levels: levels, NextCosts: map[string]models.CargoManifest{}}
-	for code := range game.Structures {
+	codes := make([]string, 0, len(game.Structures))
+	if objectType == "MOON" {
+		for _, d := range game.MoonStructureDefs() {
+			codes = append(codes, d.Code)
+		}
+	} else {
+		for code := range game.Structures {
+			codes = append(codes, code)
+		}
+	}
+	for _, code := range codes {
 		if c, ok := game.StructureCost(code, levels[code]+1); ok {
 			resp.NextCosts[code] = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}

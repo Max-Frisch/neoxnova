@@ -87,11 +87,22 @@ func TestPhalanxRange(t *testing.T) {
 }
 
 func TestJumpgateCooldown(t *testing.T) {
-	cases := map[int]time.Duration{0: time.Hour, 1: time.Hour, 2: 30 * time.Minute, 3: 15 * time.Minute}
+	// Fitted to the live captures: L2 = 30 min, L6 ≈ 9 min 30 s, L1 = 40 min.
+	cases := map[int]time.Duration{
+		0: 40 * time.Minute, // clamped to L1
+		1: 40 * time.Minute,
+		2: 30 * time.Minute,
+		3: 1350 * time.Second,
+		6: 570 * time.Second,
+	}
 	for level, want := range cases {
 		if got := JumpgateCooldown(level); got != want {
 			t.Fatalf("JumpgateCooldown(%d) = %v, want %v", level, got, want)
 		}
+	}
+	// The recharge must strictly shrink as the gate levels up.
+	if JumpgateCooldown(6) >= JumpgateCooldown(2) {
+		t.Fatalf("cooldown must shrink with level: L6=%v L2=%v", JumpgateCooldown(6), JumpgateCooldown(2))
 	}
 }
 
@@ -153,6 +164,53 @@ func TestMoonStructures(t *testing.T) {
 	}
 	if d, ok := MoonOnlyStructureByID(43); !ok || d.Code != "jumpgate" {
 		t.Fatalf("MoonOnlyStructureByID(43) = %+v ok=%v", d, ok)
+	}
+}
+
+// TestStructureCostMoonOnly locks that the shared cost/duration helpers resolve
+// moon-only codes (so the moon buildings page and queue can price them).
+func TestStructureCostMoonOnly(t *testing.T) {
+	c, ok := StructureCost("jumpgate", 1)
+	if !ok || c.Metal != 2000000 || c.Crystal != 4000000 || c.Deuterium != 2000000 {
+		t.Fatalf("jumpgate L1 cost = %+v ok=%v", c, ok)
+	}
+	c2, ok := StructureCost("moon_base", 2)
+	if !ok || c2.Metal != 40000 { // 20000 * 2
+		t.Fatalf("moon_base L2 cost = %+v ok=%v", c2, ok)
+	}
+	if d := StructureDuration("jumpgate", 1, 10, 0, 1); d <= 0 {
+		t.Fatalf("jumpgate duration = %v", d)
+	}
+}
+
+// TestMoonStructureDefs locks the moon buildable set: the three moon-only
+// buildings plus exactly the moon-legal planet buildings, sorted by id.
+func TestMoonStructureDefs(t *testing.T) {
+	defs := MoonStructureDefs()
+	seen := map[string]bool{}
+	for i, d := range defs {
+		seen[d.Code] = true
+		if i > 0 && defs[i-1].ID > d.ID {
+			t.Fatalf("MoonStructureDefs not sorted by id: %d after %d", d.ID, defs[i-1].ID)
+		}
+	}
+	want := []string{"robotics_factory", "nanite_factory", "shipyard", "alliance_depot", "moon_base", "phalanx_sensor", "jumpgate", "light_conveyor", "average_conveyor", "heavy_conveyor"}
+	if len(defs) != len(want) {
+		t.Fatalf("MoonStructureDefs len = %d, want %d (%+v)", len(defs), len(want), seen)
+	}
+	for _, code := range want {
+		if !seen[code] {
+			t.Fatalf("MoonStructureDefs missing %q", code)
+		}
+	}
+	if seen["metal_mine"] || seen["solar_plant"] || seen["missile_silo"] {
+		t.Fatalf("MoonStructureDefs contains a non-moon building: %+v", seen)
+	}
+}
+
+func TestPhalanxOfflineConstant(t *testing.T) {
+	if PhalanxOfflineAfterRelocation != 10*time.Minute {
+		t.Fatalf("PhalanxOfflineAfterRelocation = %v, want 10m", PhalanxOfflineAfterRelocation)
 	}
 }
 

@@ -386,6 +386,20 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 				return
 			}
 
+		case "DESTROY_MOON":
+			if !targetID.Valid {
+				log.Printf("[ERROR] Fleet #%d has no target moon for DESTROY_MOON; returning", id)
+				if _, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RETURNING', arrival_time = return_time WHERE id = $1`, id); err != nil {
+					log.Printf("[ERROR] Failed to return target-less fleet #%d: %v", id, err)
+					return
+				}
+				break
+			}
+			if err := e.resolveDestroyMoon(ctx, tx, id, userID, targetID.Int64); err != nil {
+				log.Printf("[ERROR] Failed to resolve DESTROY_MOON for fleet #%d: %v", id, err)
+				return
+			}
+
 		case "RECYCLE":
 			if !targetID.Valid {
 				log.Printf("[ERROR] Fleet #%d has no target debris field for RECYCLE; returning", id)
@@ -669,9 +683,16 @@ func (e *EventEngine) stationShips(ctx context.Context, tx *sql.Tx, celestialID,
 // keeping the result deterministic for a given battle seed.
 const moonRollSalt = int64(0x6d6f6f6e) // "moon"
 
+// resolveAttack resolves a plain ATTACK: it runs the battle and discards the
+// report (which is persisted to combat_reports inside the outcome resolver).
 func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, attackerID, targetID int64) error {
+	_, err := e.resolveAttackOutcome(ctx, tx, fleetID, attackerID, targetID)
+	return err
+}
+
+func (e *EventEngine) resolveAttackOutcome(ctx context.Context, tx *sql.Tx, fleetID, attackerID, targetID int64) (*game.CombatResult, error) {
 	if err := e.accrueResources(ctx, tx, targetID); err != nil {
-		return err
+		return nil, err
 	}
 
 	var (
@@ -688,45 +709,45 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 		FROM celestial_objects WHERE id = $1 FOR UPDATE
 	`, targetID).Scan(&defOwner, &universeID, &targetType, &galaxy, &system, &position,
 		&tempMin, &tempMax, &metal, &crystal, &deuterium); err != nil {
-		return err
+		return nil, err
 	}
 
 	atkShips, err := loadFleetShips(ctx, tx, fleetID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	atkTechs, err := loadCombatTechs(ctx, tx, attackerID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	atkAcademy, err := loadAcademy(ctx, tx, attackerID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	atkUpgrades, err := store.LoadAccountUpgrades(ctx, tx, attackerID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defShips, err := loadPlanetUnits(ctx, tx, "planet_ships", "ship_code", targetID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defDefs, err := loadPlanetUnits(ctx, tx, "planet_defenses", "defense_code", targetID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var defTechs game.CombatTechs
 	var defAcademy map[string]int
 	var defUpgrades map[int]float64
 	if defOwner.Valid {
 		if defTechs, err = loadCombatTechs(ctx, tx, defOwner.Int64); err != nil {
-			return err
+			return nil, err
 		}
 		if defAcademy, err = loadAcademy(ctx, tx, defOwner.Int64); err != nil {
-			return err
+			return nil, err
 		}
 		if defUpgrades, err = store.LoadAccountUpgrades(ctx, tx, defOwner.Int64); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -745,11 +766,11 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 			err := tx.QueryRowContext(ctx, `
 				INSERT INTO celestial_objects
 					(universe_id, user_id, name, object_type, galaxy, system, position,
-					 diameter_km, fields_used, fields_max, temp_min, temp_max,
+					 diameter_km, fields_used, fields_max, base_fields_max, temp_min, temp_max,
 					 metal, crystal, deuterium,
 					 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
 					 energy_used, energy_max)
-				VALUES ($1,$2,'Moon','MOON',$3,$4,$5,$6,0,0,$7,$8,
+				VALUES ($1,$2,'Moon','MOON',$3,$4,$5,$6,0,0,0,$7,$8,
 					0,0,0, 0,0,0, 0,0)
 				ON CONFLICT (universe_id, galaxy, system, position, object_type) DO NOTHING
 				RETURNING id
@@ -763,7 +784,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 			case errors.Is(err, sql.ErrNoRows):
 				// A moon already exists there; the battle spawns no second one.
 			default:
-				return err
+				return nil, err
 			}
 		}
 	}
@@ -779,7 +800,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 		`, universeID, fleetID, attackerID, defOwner, targetID,
 			galaxy, system, position, res.Winner, res.Rounds,
 			res.DebrisMetal, res.DebrisCrystal, res.MoonChance, reportJSON); err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		log.Printf("[WARN] Failed to marshal combat report for fleet #%d: %v", fleetID, mErr)
@@ -787,14 +808,14 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 
 	// Defender: ships are permanently lost, defenses repair ~61% (2026-10-05).
 	if err := applyRemaining(ctx, tx, "planet_ships", "ship_code", targetID, defShips, res.Defender.Remaining, 0); err != nil {
-		return err
+		return nil, err
 	}
 	if err := applyRemaining(ctx, tx, "planet_defenses", "defense_code", targetID, defDefs, res.Defender.Remaining, 61); err != nil {
-		return err
+		return nil, err
 	}
 	// Attacker survivors return home.
 	if err := overwriteFleetShips(ctx, tx, fleetID, res.Attacker.Remaining); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Debris field (ships only) accumulates at the target's coordinates.
@@ -806,7 +827,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 			DO UPDATE SET metal = celestial_objects.metal + EXCLUDED.metal,
 			              crystal = celestial_objects.crystal + EXCLUDED.crystal
 		`, universeID, galaxy, system, position, res.DebrisMetal, res.DebrisCrystal); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -822,7 +843,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 				SET metal = metal - $1, crystal = crystal - $2, deuterium = deuterium - $3
 				WHERE id = $4
 			`, loot.Metal, loot.Crystal, loot.Deuterium, targetID); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		_, err := tx.ExecContext(ctx, `
@@ -830,7 +851,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 			       cargo_metal = $1, cargo_crystal = $2, cargo_deuterium = $3
 			WHERE id = $4
 		`, loot.Metal, loot.Crystal, loot.Deuterium, fleetID)
-		return err
+		return &res, err
 	}
 
 	if survivors == 0 {
@@ -839,7 +860,7 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 			UPDATE fleets SET phase = 'RESOLVED', cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
 			WHERE id = $1
 		`, fleetID)
-		return err
+		return &res, err
 	}
 
 	// Lost or drew, but survivors limp home empty-handed.
@@ -848,7 +869,78 @@ func (e *EventEngine) resolveAttack(ctx context.Context, tx *sql.Tx, fleetID, at
 		       cargo_metal = 0, cargo_crystal = 0, cargo_deuterium = 0
 		WHERE id = $1
 	`, fleetID)
-	return err
+	return &res, err
+}
+
+// destroyMoonRoll is the pure destruction roll, overridable in tests so the
+// persistence layer can be exercised deterministically. It returns true when
+// the moon is destroyed. rips is the surviving Battle Fortress (214) count.
+var destroyMoonRoll = func(diameterKm, moonBaseLevel int, rips int64, seed int64) bool {
+	if rips <= 0 || diameterKm >= game.MoonIndestructibleKm {
+		return false
+	}
+	destroyPct, _ := game.MoonDestruction(diameterKm, int(rips))
+	destroyPct *= 1.0 - game.MoonBaseDestructionReduction(moonBaseLevel)
+	roll := rand.New(rand.NewSource(seed)).Float64() * 100.0
+	return roll < destroyPct
+}
+
+// resolveDestroyMoon runs a DESTROY_MOON mission. The fleet fights the moon's
+// stationed ships and defenses exactly like a normal attack (only a MOON spawns
+// no new moon; see resolveAttackOutcome), looting the moon's resources and
+// spilling the battle debris at its coordinates. If the attacker wins, the
+// surviving Battle Fortresses roll to destroy the moon.
+//
+// PROVISIONAL: the curve is the classic OGame/2Moons formula
+// (game.MoonDestruction) with the Moon base reduction (game.MoonBaseDestruction
+// Reduction). A moon at/above game.MoonIndestructibleKm is immune, and the roll
+// is seeded from the fleet so a retried event resolves identically.
+func (e *EventEngine) resolveDestroyMoon(ctx context.Context, tx *sql.Tx, fleetID, attackerID, targetID int64) error {
+	res, err := e.resolveAttackOutcome(ctx, tx, fleetID, attackerID, targetID)
+	if err != nil {
+		return err
+	}
+	if res == nil || res.Winner != "attacker" {
+		return nil
+	}
+
+	var targetType string
+	var diameter int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT object_type::text, diameter_km FROM celestial_objects WHERE id = $1
+	`, targetID).Scan(&targetType, &diameter); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil // already gone (concurrent destroy)
+		}
+		return err
+	}
+	if targetType != "MOON" {
+		return nil
+	}
+
+	var moonBase int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(level, 0) FROM planet_structures
+		WHERE celestial_id = $1 AND structure_code = 'moon_base'
+	`, targetID).Scan(&moonBase); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	rips := res.Attacker.Remaining["214"]
+	if !destroyMoonRoll(diameter, moonBase, rips, fleetID^moonRollSalt) {
+		return nil
+	}
+
+	// The moon is destroyed and everything on it is lost. fleets.target_id is
+	// ON DELETE RESTRICT, so clear references to it first.
+	if _, err := tx.ExecContext(ctx, `UPDATE fleets SET target_id = NULL WHERE target_id = $1`, targetID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id = $1`, targetID); err != nil {
+		return err
+	}
+	log.Printf("[MOON] Destroyed moon #%d (diameter %d km) by fleet #%d (%d BF)", targetID, diameter, fleetID, rips)
+	return nil
 }
 
 // resolveRecycle collects a debris field into the recyclers' cargo holds (metal

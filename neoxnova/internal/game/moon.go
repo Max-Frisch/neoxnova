@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"math/rand"
+	"sort"
 	"time"
 )
 
@@ -106,19 +107,23 @@ func PhalanxInRange(sensorGalaxy, sensorSystem, targetGalaxy, targetSystem, leve
 	return d <= PhalanxRange(level)
 }
 
-// JumpgateCooldown is the recharge between jumps. The live info card says the
-// base is at least one hour and "with increasing levels the time is reduced".
-// Observed live 2026-10-08: a jump between two L2 gates recharged in ~30 min
-// (remaining 00h29m39s right after the jump) => the base hour is the L1 value
-// and each further level halves it. PROVISIONAL (single L2 data point).
+// jumpgateBaseSecs is the L1 recharge of the Jumpgate, fitted from the live
+// captures below.
+const jumpgateBaseSecs = 2400.0
+
+// JumpgateCooldown is the recharge between jumps. Fitted to live acc1 captures:
+// L2 ≈ 30 min (00h29m39s right after a jump, 2026-10-08) and L6 ≈ 9 min 30 s
+// (2026-10-15). Both fit a geometric ×3/4 per level — 2400s · 0.75^(level-1) —
+// which also rules out the earlier halving guess (halving would be ~1m52s at
+// L6). L1 = 40 min, L2 = 30 min, L6 ≈ 9m30s. PROVISIONAL (two data points).
 func JumpgateCooldown(level int) time.Duration {
 	if level < 1 {
 		level = 1
 	}
-	if level > 12 {
-		level = 12
+	if level > 20 {
+		level = 20
 	}
-	return time.Duration(3600>>uint(level-1)) * time.Second
+	return secondsToDuration(jumpgateBaseSecs * pow(0.75, float64(level-1)))
 }
 
 // MoonDestruction returns the percent chance to destroy a moon of diameterKm
@@ -161,13 +166,18 @@ func MoonBaseDestructionReduction(moonBaseLevel int) float64 {
 	return r
 }
 
-// moonOnlyStructures are buildings that exist only on a moon (live `page=buildings`
-// capture). Costs are base values; the level-N cost is base * 2^(N-1).
-var moonOnlyStructures = map[string]StructureDef{
+// MoonOnlyStructures are buildings that exist only on a moon (live
+// `page=buildings` capture). Costs are base values; the level-N cost is
+// base * 2^(N-1).
+var MoonOnlyStructures = map[string]StructureDef{
 	"moon_base":      {Code: "moon_base", ID: 41, Name: "Moon base", BaseCost: Cost{Metal: 20000, Crystal: 40000, Deuterium: 20000}, CostFactor: 2.0},
-	"phalanx_sensor": {Code: "phalanx_sensor", ID: 42, Name: "Phalax Sensor", BaseCost: Cost{Metal: 20000, Crystal: 40000, Deuterium: 20000}, CostFactor: 2.0, Requires: map[string]int{"moon_base": 1}},
+	"phalanx_sensor": {Code: "phalanx_sensor", ID: 42, Name: "Phalanx Sensor", BaseCost: Cost{Metal: 20000, Crystal: 40000, Deuterium: 20000}, CostFactor: 2.0, Requires: map[string]int{"moon_base": 1}},
 	"jumpgate":       {Code: "jumpgate", ID: 43, Name: "Jumpgate", BaseCost: Cost{Metal: 2000000, Crystal: 4000000, Deuterium: 2000000}, CostFactor: 2.0, Requires: map[string]int{"moon_base": 1, "shipyard": 1}},
 }
+
+// PhalanxOfflineAfterRelocation is how long a Phalanx Sensor is offline after
+// its celestial is teleported (Planetarium/live rule; see docs/MOONS.md).
+const PhalanxOfflineAfterRelocation = 10 * time.Minute
 
 // moonLegalPlanetStructures are the planet buildings that are also buildable on
 // a moon (live capture). Mines, power plants, Terraformer and the Missile Silo
@@ -186,7 +196,7 @@ var moonLegalPlanetStructures = map[string]bool{
 // Moon-only buildings resolve from the moon catalog; moon-legal planet buildings
 // reuse their planet definition. Research is account-wide (not a moon building).
 func MoonStructure(code string) (StructureDef, bool) {
-	if d, ok := moonOnlyStructures[code]; ok {
+	if d, ok := MoonOnlyStructures[code]; ok {
 		return d, true
 	}
 	if moonLegalPlanetStructures[code] {
@@ -196,9 +206,26 @@ func MoonStructure(code string) (StructureDef, bool) {
 	return StructureDef{}, false
 }
 
+// MoonStructureDefs returns every building buildable on a moon (moon-only plus
+// the moon-legal planet buildings), sorted by numeric id so the moon buildings
+// page keeps a stable order.
+func MoonStructureDefs() []StructureDef {
+	out := make([]StructureDef, 0, len(MoonOnlyStructures)+len(moonLegalPlanetStructures))
+	for _, d := range MoonOnlyStructures {
+		out = append(out, d)
+	}
+	for code := range moonLegalPlanetStructures {
+		if d, ok := Structures[code]; ok {
+			out = append(out, d)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
 // MoonOnlyStructureByID resolves a live moon-building numeric id (41/42/43).
 func MoonOnlyStructureByID(id int) (StructureDef, bool) {
-	for _, d := range moonOnlyStructures {
+	for _, d := range MoonOnlyStructures {
 		if d.ID == id {
 			return d, true
 		}

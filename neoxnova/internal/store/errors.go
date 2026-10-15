@@ -38,6 +38,11 @@ var (
 	ErrInsufficientAntimatter  = errors.New("insufficient antimatter")
 	ErrInsufficientStardust    = errors.New("insufficient stardust")
 	ErrInsufficientDebris      = errors.New("insufficient debris field for the diameter expansion")
+	ErrNoJumpgate              = errors.New("at least two moons with a Jumpgate are required")
+	ErrJumpgateCooldown        = errors.New("the Jumpgate is still recharging")
+	ErrPhalanxOffline          = errors.New("the Phalanx Sensor is offline after relocation")
+	ErrPhalanxOutOfRange       = errors.New("target is out of Phalanx range")
+	ErrPhalanxNoSensor         = errors.New("no Phalanx Sensor on this moon")
 )
 
 // NoobProtectionRatio is the maximum allowed points ratio (in either direction)

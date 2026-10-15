@@ -43,6 +43,7 @@ type Handler struct {
 	expedition *store.ExpeditionReportStore
 	auth       *store.AuthStore
 	arsenal    *store.ArsenalStore
+	moons      *store.MoonStore
 	notify     func()
 }
 
@@ -60,6 +61,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		expedition: store.NewExpeditionReportStore(db),
 		auth:       store.NewAuthStore(db),
 		arsenal:    store.NewArsenalStore(db),
+		moons:      store.NewMoonStore(db),
 		notify:     notify,
 	}
 }
@@ -107,6 +109,11 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /expedition/{id}", h.page(h.requireUser(h.ExpeditionPage)))
 	mux.HandleFunc("GET /expedition/{id}/status", h.page(h.requireUser(h.ExpeditionStatus)))
 	mux.HandleFunc("POST /expedition/{id}/send", h.page(h.requireUser(h.ExpeditionSubmit)))
+
+	mux.HandleFunc("GET /jumpgate/{id}", h.page(h.requireUser(h.JumpgatePage)))
+	mux.HandleFunc("POST /jumpgate/{id}/jump", h.page(h.requireUser(h.JumpgateSubmit)))
+
+	mux.HandleFunc("GET /phalanx/{id}", h.page(h.requireUser(h.PhalanxPage)))
 
 	mux.HandleFunc("GET /galaxy", h.page(h.requireUser(h.GalaxyRedirect)))
 	mux.HandleFunc("GET /galaxy/{galaxy}/{system}", h.page(h.requireUser(h.GalaxyPage)))

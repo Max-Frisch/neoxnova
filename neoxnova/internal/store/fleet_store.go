@@ -25,6 +25,13 @@ type DispatchResult struct {
 	FuelBurn     int64
 }
 
+// isHostileMission reports whether a mission is bound by the attack rules
+// (post-teleport lockout and noob protection): plain attacks and moon
+// destruction, which is an attack against a moon.
+func isHostileMission(m models.MissionType) bool {
+	return m == models.MissionAttack || m == models.MissionDestroyMoon
+}
+
 // Dispatch atomically verifies ships, deducts fuel, and persists the new fleet mission.
 func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchRequest) (DispatchResult, error) {
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
@@ -55,7 +62,7 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 
 	// A planet recently teleported cannot launch attacks for a short window
 	// (Planetarium rule: 15 minutes).
-	if req.Mission == models.MissionAttack && attackLockedUntil.Valid && time.Now().Before(attackLockedUntil.Time) {
+	if isHostileMission(req.Mission) && attackLockedUntil.Valid && time.Now().Before(attackLockedUntil.Time) {
 		return DispatchResult{}, ErrAttackLocked
 	}
 
@@ -74,8 +81,8 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	// COLONIZE (and deliberate HOLD/EXPEDITION) may target empty space. Without
 	// this, the fleet would never resolve (see AGENTS "empty-space targets").
 	switch req.Mission {
-	case models.MissionAttack, models.MissionTransport, models.MissionDeploy,
-		models.MissionRecycle, models.MissionEspionage:
+	case models.MissionAttack, models.MissionDestroyMoon, models.MissionTransport,
+		models.MissionDeploy, models.MissionRecycle, models.MissionEspionage:
 		if !targetID.Valid {
 			return DispatchResult{}, ErrNoTarget
 		}
@@ -103,7 +110,7 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 
 	// Noob protection: attacks are only allowed within a ~4:1 points ratio in
 	// either direction (learned from the reference server).
-	if req.Mission == models.MissionAttack && targetID.Valid {
+	if isHostileMission(req.Mission) && targetID.Valid {
 		var defenderOwner sql.NullInt64
 		if err := tx.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, targetID.Int64).Scan(&defenderOwner); err != nil {
 			return DispatchResult{}, err

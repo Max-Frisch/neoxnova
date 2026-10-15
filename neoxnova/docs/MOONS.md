@@ -1,9 +1,11 @@
 # Moons — live findings + formulas (item 4)
 
-Status: **partial.** Formulas + the moon building catalog are captured; creation,
-destruction is not wired into the engine yet. acc1 now has **two** live moons
-(`3:125:12` + `2:188:9`); **Phalanx** (same-galaxy) and **Jumpgate** (cross-galaxy)
-are both confirmed working live and modelled.
+Status: **wired (dummy data where noted).** Creation, moon building, attack-on-
+moon, `DESTROY_MOON`, the Jumpgate and the Phalanx Sensor are all in the engine/
+API now. Formulas + the moon building catalog are captured from live; destruction
+and the exact jumpgate curve use classic OGame/2Moons values pending captures.
+acc1 has **two** live moons (`3:125:12` + `2:188:9`); **Phalanx** (same-galaxy)
+and **Jumpgate** (cross-galaxy) are both confirmed working live.
 
 ## Live facts (acc1)
 
@@ -95,17 +97,18 @@ building on a moon → panel *"Use the jump portal: number of ships"* with a
 **Moon jump** field (the gate's own moon), a **Destination Moon jump** dropdown
 (the other moon) and a per-ship list + **Jump** button. Does **not** require the
 two moons to share a galaxy: the owner jumped `2:188:9` → `3:125:12` (gal 2 → 3).
-Requires **>= 2 jumpgates**; **resources cannot be transported**; the live info
-card mentions deuterium ("to achieve the jump, deuterium is required") — whether
-it is actually consumed is unverified.
+Requires **>= 2 jumpgates**; **resources can never be transported** (owner
+confirmed 2026-10-15) — only ships travel, and **no deuterium is consumed**.
+Modelled by `store.MoonStore.JumpFleet`: ships move between two owned moons,
+and the source gate is put on `game.JumpgateCooldown(level)` (`jumpgate_next_at`).
 
-- **Cooldown (observed L2 → L2):** right after a successful jump the panel read
-  *"Next jump possible in: … (00h 29m 39s)"* → **~30 min at L2**. The card says
-  the base is *"at least an hour"* reduced with level, so base (L1) = 1 h and
-  each further level halves it → `JumpgateCooldown = 3600s >> (level-1)`.
-  PROVISIONAL (single data point). Screenshot evidence:
-  `the private ops repo_jumpgate/` (form with src `[2:188:9]` → dst `[3:125:12]`,
-  success dialog, 30 min cooldown).
+- **Cooldown:** captured at **L2 ≈ 30 min** (right after a jump the panel read
+  *"Next jump possible in: … (00h 29m 39s)"*, 2026-10-08) and **L6 ≈ 9 min 30 s**
+  (2026-10-15). Both fit a geometric **×3/4 per level**: `JumpgateCooldown =
+  2400s · 0.75^(level-1)` (L1 40 min, L2 30 min, L6 ≈ 9m30s). This rules out the
+  earlier halving guess (halving would be ~1m52s at L6). PROVISIONAL (two data
+  points). Screenshot evidence: `the private ops repo_jumpgate/` (form with src
+  `[2:188:9]` → dst `[3:125:12]`, success dialog, 30 min cooldown).
 - **Previous "blocked" result was a false negative.** `game.php?page=information&
   mode=sendFleet` answered *"You dont have another portal to make the jump!"* — but
   the **current planet is account-global and raced by the farm workers**, so the
@@ -115,9 +118,12 @@ it is actually consumed is unverified.
 
 ## Phalanx Sensor (`game/moon.go:PhalanxRange`) — WORKS, same-galaxy only
 
-Live info card range formula: **`level^2 - 1`** systems. Costs deuterium per scan;
-does not see recalled fleets. The documented *phalanx offline 10 min after
-teleport* (`docs/BALANCE_DATA_NEEDED.md`) is still unmodelled.
+Live info card range formula: **`level^2 - 1`** systems. Costs deuterium per scan
+(still unmodelled); does not see recalled fleets. The *phalanx offline 10 min
+after teleport* rule is **modelled** (`game.PhalanxOfflineAfterRelocation`,
+`celestial_objects.phalanx_offline_until`; a relocation sets it on the
+coordinates' moon) and enforced by `store.MoonStore.PhalanxScan` (also enforces
+`game.PhalanxInRange`). Server-side scan exposed at `GET /phalanx/{moon}`.
 
 **Live test 2026-10-08** (moon `cp=1772` 2:188:9, Phalanx L2). The scan is opened
 from the galaxy view as `page=phalanx&galaxy=&system=&planet=&planettype=`
@@ -146,23 +152,45 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
 `game.MoonBaseDestructionReduction(L)` (multiplicative, provisional); Moon base 20
 = −30 %.
 
+**Wired** as the `DESTROY_MOON` mission (`engine/event_engine.go:resolveDestroyMoon`):
+the fleet fights the moon exactly like an ATTACK; if the attacker wins, the
+surviving Battle Fortresses roll (`destroyMoonRoll`, seeded by the fleet). On a
+success the moon and everything on it are deleted. The attacker still loots the
+moon's resources from the battle (an ATTACK-style side effect).
+
+## Attacking a moon (implemented)
+
+A non-destruction `ATTACK` on a `MOON` target behaves exactly like one on a
+planet: the fleet flies against the moon's **stationed ships and defenses**, a
+debris field forms at the moon's coordinates and (on an attacker win) resources
+are looted. This needs no special code — the attack resolver loads the target's
+`planet_ships`/`planet_defenses` by id regardless of object type; only **moon
+creation** is restricted to `PLANET` targets (a battle at a moon never spawns a
+second moon). Locked by `TestAttackMoonEndToEnd`.
+
 ## Open questions
 
-1. **Destruction measurement**: Battle Fortress count vs diameter, additive vs
-   multiplicative Moon-base reduction, and the >= 10,000 km rule.
-2. **Jumpgate** exact cooldown curve (only L2 ≈ 30 min measured) + eligible ships
-   + whether deuterium is consumed. ~~same-galaxy restriction~~ **RESOLVED
-   2026-10-08**: works cross-galaxy (2:188:9 → 3:125:12); the earlier
-   *"no other portal"* was the current-planet race (gate moon not selected).
+1. **Destruction measurement**: we ship the classic OGame/2Moons curve for now
+   (owner direction 2026-10-15). Still to capture: Battle Fortress count vs
+   diameter, additive vs multiplicative Moon-base reduction, and the
+   >= 10,000 km rule.
+2. **Jumpgate**: exact curve (L2 = 30 min, L6 = 9m30s now fit ×3/4); eligible
+   ship list; deuterium consumption **RESOLVED** (none) and resources never
+   travel **RESOLVED**. ~~same-galaxy restriction~~ **RESOLVED 2026-10-08**:
+   works cross-galaxy (2:188:9 → 3:125:12); the earlier *"no other portal"* was
+   the current-planet race (gate moon not selected).
 3. ~~Whether the *accumulated* debris or only the creating battle's new debris
    drives chance + diameter.~~ **RESOLVED 2026-10-08** (moon #2): only the
    creating battle's new debris; a pre-existing field does not add to the chance
    (and diameter ignores recycler count once the 20 % cap is reached).
-4. Phalanx deuterium cost per scan and the post-teleport offline window.
-   Phalanx reach/parse **RESOLVED 2026-10-08** (same-galaxy, `level^2-1`, full
-   composition revealed, `game.PhalanxInRange` + `ops client phalanx`).
-5. Engine: resolve `ATTACK` on a `MOON` target, moon production safety, overview/
-   galaxy/dashboard, and the fleet wizard's moon targeting.
+4. Phalanx deuterium cost per scan (still unmodelled). Offline-after-teleport
+   **RESOLVED/implemented** (10 min); reach/parse **RESOLVED 2026-10-08**
+   (same-galaxy, `level^2-1`, full composition revealed, `game.PhalanxInRange` +
+   `ops client phalanx`).
+5. ~~Engine: resolve `ATTACK` on a `MOON` target, moon production safety, moon
+   build/overview.~~ **DONE**: attack-on-moon, `DESTROY_MOON`, moon buildings API
+   + page, Jumpgate + Phalanx pages. Remaining: missile/Interceptor sub-system
+   (backlog), fleet wizard polish.
 
 ## Implementation
 
@@ -181,6 +209,18 @@ adds *"each 2 [levels] reduce [destruction] by 3 %"* →
   production, cold/inherited temp) with `ON CONFLICT DO NOTHING` (one moon per
   planet). The result is recorded on `CombatResult.MoonCreated`/`MoonDiameterKm`
   (in the report JSON).
-- Remaining: `DESTROY_MOON` mission, `ops client` jump command (model
-  `JumpgateCooldown` exists and is measured at L2), moon build/overview API, and
-  `resolveAttack` against a `MOON` target. Tracked in `docs/BACKLOG.md` item 4.
+- **Moon buildings** (`store/build_store.go:EnqueueStructure` + `web.BuildingsPage`):
+  a `MOON` may queue only `game.MoonStructureDefs()` (moon-only 41/42/43 plus the
+  moon-legal planet buildings); a planet may not queue moon-only codes.
+  `RecomputeCelestial` derives a moon's field cap from `game.MoonFieldsMax`
+  (`1 + 3·Moon base`), not the planet colonisation roll. Shared
+  `StructureCost`/`StructureDuration` resolve moon-only codes.
+- **Attack-on-moon / DESTROY_MOON** (`engine/event_engine.go`): `resolveAttack`
+  now returns the `CombatResult`; `resolveDestroyMoon` reuses it and adds the
+  destruction roll (`destroyMoonRoll`, overridable in tests). `DESTROY_MOON`
+  requires a target and follows the attack lock/noob rules (`isHostileMission`).
+- **Jumpgate + Phalanx** (`store/moon_store.go`, `web/moon.go`, migration
+  `0019_moon_ops.sql`): `jumpgate_next_at` cooldown + `phalanx_offline_until`.
+  Routes `GET /jumpgate/{id}`, `POST /jumpgate/{id}/jump`, `GET /phalanx/{id}`.
+- Remaining: `ops client jump` command in the **private ops repo**; the
+  missile/Interceptor sub-system (deferred). Tracked in `docs/BACKLOG.md`.

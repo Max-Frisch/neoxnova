@@ -21,23 +21,28 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       daemons); optional `filter-repo` history purge. Full steps: private ops repo `docs/PLAYBOOK.md`.
 
 ## Todo (ordered; pick one per session)
-- [ ] **Moons (item 4)** — `ops client` jump command, moon build/overview API, `DESTROY_MOON`
-      (`docs/MOONS.md`).
 - [ ] **Auto-builder Phase 3/4** — UI (no client in repo), energy-gate decision, auto-colonize
       (`docs/AUTO_BUILD_DESIGN.md` §12/§15).
 - [ ] **TOTP 2FA** — second auth factor (`internal/auth`).
 - [ ] **Full game-loop integration test** — register → … → abandon.
 - [ ] **acc1 ops** — scrap the surplus BB/HC fleet via the ship trader for crystal; watch
       cargo/recycler sizing. Crystal remains the fleet bottleneck.
+- [ ] **(low) Missiles/Interceptors** — `503 Interplanetary Missiles` + `502 Interceptor`:
+      launch IPMs to knock down a target planet/moon's defenses; Interceptors shoot the IPMs
+      down. Old sub-system — deferred (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-15 — **Moons (item 4)**: moon buildings buildable (`EnqueueStructure` + field cap
+      `1+3·Moon base`) + page; attack-on-moon verified; `DESTROY_MOON` wired (classic curve, ≥10,000 km
+      immune); Jumpgate jump API+page (ships only, no deuterium, ×3/4 cooldown, L2/L6 fit); Phalanx
+      scan API+page with 10-min post-teleport offline (migration `0019`). game+store+engine+web tests.
+      Deferred: `ops client jump` (private repo), missiles/Interceptors (`docs/MOONS.md`).
 - 2026-10-15 — **Web UI reskin I5 (arsenal/market/simulator/messages)**: Arsenal is now tabbed
       (Arsenal / Market / Sell Upgrades) over the arsenal+market store — upgrade card boxes with
       live icons, buy/withdraw with `return`-aware redirects; Black market + Simulator restyled
       onto skin panels/tables; `/reports/{id}` became a categorized **Messages** grid
       (Spy/Combat/Expedition/All backed with real counts + `?category=` filter, the rest disabled);
-      favicon + responsive pass; `i5_test.go` render tests; fixed the stale I4 e2e tech-tree
-      assertion. Closes the I0–I5 reskin.
+      favicon + responsive pass; `i5_test.go`; fixed the stale I4 e2e tech-tree assertion. Closes I0–I5.
 - 2026-10-15 — **Web UI reskin I4 (galaxy/tech/resources)**: Galaxy restyled (galaxy+system
       steppers, Saved/View, slot table with moon/debris/player/action icons → fleet/spy/colonize/
       recycle dispatch links with mission preselect, footer stats + omission note); Technologies
@@ -57,25 +62,13 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
       menu) ; artwork captured from the live skin into `static/niburu/**` (+ `go:embed` + serving tests).
 - 2026-10-15 — **Stardust diameter sink**: Planetarium "increase in diameter" (`POST /planets/{id}/diameter`)
       spends a coords debris field (100B metal/50B crystal) + 1 Stardust → +276..414 km / +12..18 fields (planets & moons); store+API+tests.
-- 2026-10-15 — **Expedition mix recalibration (X4)**: combat 13.5 % (owner direction, vs the
-      suppressed live 10.2 %) + stardust 1.9 %, fatal BH 1.68 %/positive BH-loot 1.7 % pinned, six
-      unlocked buckets normalized to the measured n=2062 split; point/cargo-scaled finds kept (+test).
-- 2026-10-15 — **Stardust find (X3)**: rare `stardust` expedition outcome (~1.9 %) + live flavours;
-      `users.stardust` (migration `0018`) credited/persisted, shown via `/auth/me` + resource state + web bar.
-- 2026-10-15 — **Expedition command panel (X2)**: dedicated `/expedition/{planet}` — ship picker,
-      `exp_time` 1–10 → 0.25–2.5 h (new `holding_minutes`), `exp_speed` 1–10 → 10–100 %, "send N"
-      (stops at slot limit), auto `[g:s:21]`, htmx-polled slots + active expeditions + outcomes; `/fleet` untouched.
-- 2026-10-15 — **Expedition slots (X1)**: `floor(astro/2)` + universe `expedition_slots_bonus`
-  (optional `_cap`; migration `0017`), enforced in `FleetStore.Dispatch`; expeditions pinned to
-  `[g:s:21]`; pure + store integration tests.
-- 2026-10-12 — 2 more acc1 colonies (cp1917 `3:137:9`, cp1918 `3:139:9`); bootstrap + `gradual` bumps; deep-scan expedicion analysis (n=652; fatal-BH 2.30 % window / 1.95 % since relaunch; no code changed).
-- 2026-10-11 — Web UI clusters A+D: Arsenal + Black-market pages over the existing store; Technologies tech-tree page + battle Simulator (page + `POST /api/v1/sim`); nav + tests.
-- 2026-10-11 — frontend balance: dropped the research-lab level cap; techtree re-verified (114 items,
-  0 diffs); Mineral/Semi-Crystals/Fuel +5 %/level; storage drives limits (`5000·floor(2.5·e^(20L/33))·resource_speed`).
-- 2026-10-11 — drain per-fleet sizing fix (`bwlean-split-v7`) + BH instrumentation; local dev
-  bootstrap scripts (`dev-up.sh`/`.ps1`); acc1 colony metal-50 round.
-- 2026-10-08/10 — lean BW 228; moonshot rounds; 7 colonies; expo dashboard + calibration + positive BH; expedition resolver; auto-builder Phase 2; acc1 migrated to the VM.
-- 2026-10-07 and earlier — see `docs/BACKLOG_ARCHIVE.md`.
+- 2026-10-15 — **Expeditions X1–X4**: slots `floor(astro/2)` + universe bonus (`0017`), enforced in
+      `Dispatch`; `/expedition/{planet}` panel (`exp_time`→0.25–2.5 h / `holding_minutes`, `exp_speed`,
+      auto `[g:s:21]`, htmx status); rare `stardust` outcome + `users.stardust` (`0018`); mix
+      recalibrated (combat 13.5 %, stardust 1.9 %, fatal-BH 1.68 %, n=2062). Pure + store tests.
+- 2026-10-11 and earlier — Arsenal/Black-market pages, tech-tree + Simulator, frontend balance
+  (no lab cap, storage drives limits), drain `bwlean-split-v7`, 7+ acc1 colonies. See
+  `docs/BACKLOG_ARCHIVE.md`.
 
 ## Deep dives (read on demand)
 `ARSENAL_UPGRADES_IMPLEMENTATION.md` · `BALANCE_DATA_NEEDED.md` · `COMBAT_FINDINGS.md` /

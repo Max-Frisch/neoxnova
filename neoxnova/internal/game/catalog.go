@@ -221,9 +221,20 @@ func scaleCost(base Cost, factor float64, targetLevel int) Cost {
 	}
 }
 
-// StructureCost returns the cost to reach targetLevel of a structure.
+// structureDef resolves a building code to its definition: planet buildings
+// first, then the moon-only buildings (see MoonOnlyStructures).
+func structureDef(code string) (StructureDef, bool) {
+	if d, ok := Structures[code]; ok {
+		return d, true
+	}
+	d, ok := MoonOnlyStructures[code]
+	return d, ok
+}
+
+// StructureCost returns the cost to reach targetLevel of a structure (planet or
+// moon-only).
 func StructureCost(code string, targetLevel int) (Cost, bool) {
-	def, ok := Structures[code]
+	def, ok := structureDef(code)
 	if !ok {
 		return Cost{}, false
 	}
@@ -278,7 +289,7 @@ func RequiresMet(requires map[string]int, levels map[string]int) bool {
 // StructureDuration is the build time to reach targetLevel, shortened by the
 // planet's robotics factory and halved per nanite factory level.
 func StructureDuration(code string, targetLevel, roboticsFactory, naniteFactory int, gameSpeed float64) time.Duration {
-	if _, ok := Structures[code]; !ok {
+	if _, ok := structureDef(code); !ok {
 		return time.Second
 	}
 	cost, _ := StructureCost(code, targetLevel)

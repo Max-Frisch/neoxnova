@@ -1,0 +1,108 @@
+package web
+
+import (
+	"strconv"
+)
+
+// ---- Jumpgate ------------------------------------------------------------
+
+templ JumpgateBody(sh Shell, d JumpgateData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Jumpgate</h2>
+		<span class="text-sm text-slate-400">
+			Level <span class="font-semibold text-cyan-300">{ strconv.Itoa(d.Level) }</span>
+			if d.CooldownSecs > 0 {
+				· recharge <span class="text-amber-300">{ hms(d.CooldownSecs) }</span>
+			}
+		</span>
+	</div>
+	if d.Badge != "" {
+		<div class="mb-4 rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
+			{ d.Badge }
+		</div>
+	} else {
+		<form method="post" action={ templ.URL("/jumpgate/" + pid(sh) + "/jump") } class="grid gap-4 lg:grid-cols-2">
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Ships to jump</h3>
+				if len(d.Ships) == 0 {
+					<p class="text-sm text-slate-500">No ships docked on this moon.</p>
+				} else {
+					<div class="grid grid-cols-2 gap-1 text-sm">
+						for _, s := range d.Ships {
+							<label class="flex items-center justify-between gap-2 rounded bg-slate-950/60 px-2 py-1">
+								<span class="truncate text-xs text-slate-300">{ s.Name } ({ fnum(s.Count) })</span>
+								<input name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" class="w-20 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right"/>
+							</label>
+						}
+					</div>
+				}
+				<p class="mt-2 text-xs text-slate-500">Only ships travel — resources can never be transferred.</p>
+			</section>
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Destination moon</h3>
+				<select name="dst" class="mb-3 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm">
+					for _, m := range d.Destinations {
+						<option value={ strconv.FormatInt(m.MoonID, 10) }>
+							{ m.Name } [{ coord3(m.Galaxy, m.System, m.Position) }] · gate { strconv.Itoa(m.JumpgateLevel) }
+						</option>
+					}
+				</select>
+				<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Jump</button>
+			</section>
+		</form>
+	}
+}
+
+// ---- Phalanx -------------------------------------------------------------
+
+templ PhalanxBody(sh Shell, d PhalanxData) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Phalanx Sensor</h2>
+		<span class="text-sm text-slate-400">Scan range <span class="font-semibold text-cyan-300">{ strconv.Itoa(d.Level*d.Level - 1) }</span> systems (same galaxy)</span>
+	</div>
+	<form method="get" action={ templ.URL("/phalanx/" + pid(sh)) } class="mb-6 flex flex-wrap items-end gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-4 text-sm">
+		<label class="block text-slate-300">Galaxy
+			<input name="g" type="number" min="1" max="9" value="1" class="mt-1 w-16 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+		</label>
+		<label class="block text-slate-300">System
+			<input name="s" type="number" min="1" max="499" value="1" class="mt-1 w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+		</label>
+		<label class="block text-slate-300">Position
+			<input name="p" type="number" min="1" max="21" value="1" class="mt-1 w-16 rounded border border-slate-700 bg-slate-950 px-2 py-1"/>
+		</label>
+		<label class="block text-slate-300">Type
+			<select name="type" class="mt-1 rounded border border-slate-700 bg-slate-950 px-2 py-1">
+				<option value="PLANET">Planet</option>
+				<option value="MOON">Moon</option>
+			</select>
+		</label>
+		<button type="submit" class="rounded bg-cyan-600 px-3 py-1.5 font-semibold text-white hover:bg-cyan-500">Scan</button>
+	</form>
+	if d.Scanned {
+		if d.Error != "" {
+			<div class="rounded border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-200">{ d.Error }</div>
+		} else {
+			<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Fleets in movement at { d.Target }</h3>
+				if len(d.Fleets) == 0 {
+					<p class="text-sm text-slate-500">No fleets detected.</p>
+				} else {
+					<table class="w-full text-left text-sm">
+						<thead class="text-slate-500"><tr><th class="py-1">Mission</th><th>Phase</th><th>From</th><th>To</th><th>Arrives</th></tr></thead>
+						<tbody>
+							for _, f := range d.Fleets {
+								<tr class="border-t border-slate-800">
+									<td class="py-1">{ f.Mission }</td>
+									<td>{ f.Phase }</td>
+									<td>{ f.Origin }</td>
+									<td>{ f.Dest }</td>
+									<td>{ f.ETA }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</section>
+		}
+	}
+}

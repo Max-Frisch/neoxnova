@@ -218,6 +218,16 @@ func (s *PlanetStore) RelocatePlanet(ctx context.Context, planetID, userID int64
 		}
 		return 0, err
 	}
+	// A teleport knocks the coordinates' moon (if any) Phalanx Sensor offline for
+	// a short window (Planetarium rule).
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE celestial_objects
+		SET phalanx_offline_until = NOW() + make_interval(secs => $1::double precision)
+		WHERE universe_id = $2 AND galaxy = $3 AND system = $4 AND position = $5
+		  AND object_type = 'MOON'
+	`, int64(game.PhalanxOfflineAfterRelocation.Seconds()), universe, g, sys, pos); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
@@ -532,6 +542,16 @@ func (s *PlanetStore) GetCoordinates(ctx context.Context, planetID string) (name
 		planetID,
 	).Scan(&name, &galaxy, &system, &position)
 	return
+}
+
+// CelestialType returns a celestial's object_type (PLANET/MOON/...).
+func (s *PlanetStore) CelestialType(ctx context.Context, planetID string) (models.CelestialType, error) {
+	var otype models.CelestialType
+	err := s.db.QueryRowContext(ctx,
+		"SELECT object_type FROM celestial_objects WHERE id = $1",
+		planetID,
+	).Scan(&otype)
+	return otype, err
 }
 
 // ListOwnedCelestials returns every planet and moon an account owns, with the
