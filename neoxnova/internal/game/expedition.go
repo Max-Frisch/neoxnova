@@ -84,27 +84,28 @@ type ExpeditionResult struct {
 	Flavor int
 }
 
-// expeditionOutcomeWeights is the outcome distribution. Re-locked 2026-10-09
-// against the fresh live harvest (the private ops repo §11, n=772): owner kept
-// combat 15 %, adopted the measured fatal black hole 1.68 % (was 0.5 %), added
-// the rare POSITIVE black-hole loot (~1.7 %) and moved the freed weight into
-// nothing/fast while preserving the live ships:resources:DM proportions
-// (29.1:20.5:14.8). 2026-10-15 (X3): added the rare stardust find at the
-// measured ~1.9 % (the private ops repo §15, n=2062) and folded that weight
-// proportionally out of the unlocked buckets (combat / both black holes stay
-// pinned). Sums to 1.0. PROVISIONAL beyond the locked rates (full n=2062
-// rebalance is the X4 pass).
+// expeditionOutcomeWeights is the outcome distribution. X4 full rebalance
+// 2026-10-15 (owner direction; the private ops repo §15, n=2062): owner kept
+// **combat 13.5 %** (deliberately above the 10.2 % the reference admin
+// suppressed on live), kept the measured fatal black hole 1.68 % and the rare
+// POSITIVE black-hole loot (~1.7 %), and set the stardust find to the measured
+// 1.9 %. The six unlocked buckets (ships/resources/darkmatter/delay/nothing/fast)
+// are normalized to their measured n=2062 proportions
+// (30.8:18.1:14.5:11.1:7.5:4.1) within the remaining 0.8122 weight. Sums to 1.0.
+// Ship/resource find magnitudes stay fleet-size-scaled in the resolver
+// (expeditionRecovery on FleetPoints, expeditionLoot on cargo) — explicitly NOT
+// the static/nerfed live behaviour.
 var expeditionOutcomeWeights = []struct {
 	outcome ExpeditionOutcome
 	weight  float64
 }{
-	{ExpeditionResources, 0.1981},
-	{ExpeditionShips, 0.2812},
-	{ExpeditionCombat, 0.15},
-	{ExpeditionNothing, 0.0772},
-	{ExpeditionDarkMatter, 0.1431},
-	{ExpeditionDelay, 0.0586},
-	{ExpeditionFastReturn, 0.039},
+	{ExpeditionResources, 0.1707},
+	{ExpeditionShips, 0.2905},
+	{ExpeditionCombat, 0.135},
+	{ExpeditionNothing, 0.0707},
+	{ExpeditionDarkMatter, 0.1368},
+	{ExpeditionDelay, 0.1047},
+	{ExpeditionFastReturn, 0.0388},
 	{ExpeditionBlackHoleLoot, 0.017},
 	{ExpeditionBlackHole, 0.0168},
 	{ExpeditionStardust, 0.019},

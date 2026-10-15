@@ -175,10 +175,13 @@ deferred (backlog X4 / the private ops repo §11e).
 - **X1 (slots + deep-space target) DONE.** `floor(astrophysics/2)` + universe bonus,
   optional cap (migration `0017`); enforced in `Dispatch`; expeditions pinned to
   `[g:s:21]`. See `BACKLOG.md`.
-- **Owner re-lock (pending, the X4 pass):** ships/resources/DM proportions stay
-  fleet-size-scaled — `expeditionRecovery` (points-scaled) and `expeditionLoot`
-  (cargo-scaled) are deliberately **not** the live static/nerfed behavior. Set
-  **combat ≈ 13.5 %** (not the measured 10.2 %, which the reference admin lowered);
-  add a rare **stardust** find (~1.5–2 %) and fold the remaining weight into the
-  ships/resources/DM/delay/nothing/fast buckets. Fatal BH stays 1.68 %.
+- **X4 (mix recalibration) DONE 2026-10-15.** `expeditionOutcomeWeights`: combat
+  **13.5 %** (owner direction, above the suppressed live 10.2 %), stardust
+  **1.9 %**, fatal BH **1.68 %** and positive BH-loot **1.7 %** pinned; the six
+  unlocked buckets (ships/resources/DM/delay/nothing/fast) normalized to the
+  measured n=2062 proportions (30.8:18.1:14.5:11.1:7.5:4.1) within the remaining
+  0.8122 weight. Ship finds (`expeditionRecovery`, FleetPoints-scaled) and
+  resource finds (`expeditionLoot`, cargo-scaled) stay fleet-size-scaled —
+  deliberately **not** the live static/nerfed magnitudes; a scaling test guards
+  it. `cmd/exposim` now also samples and prints the realized outcome mix.
 

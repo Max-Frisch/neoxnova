@@ -41,8 +41,9 @@ func TestRollExpeditionDeterministic(t *testing.T) {
 }
 
 // TestExpeditionOutcomeMix checks every outcome is reachable and the locked
-// rates hold: combat 15 %, fatal black hole 1.68 %, positive BH-loot 1.7 %,
-// stardust 1.9 %.
+// rates hold (X4, n=2062): combat 13.5 %, fatal black hole 1.68 %, positive
+// BH-loot 1.7 %, stardust 1.9 %, and the six unlocked buckets normalized to
+// the measured ships/resources/DM/delay/nothing/fast split.
 func TestExpeditionOutcomeMix(t *testing.T) {
 	atk := expSampleAtk()
 	const n = 40000
@@ -59,15 +60,16 @@ func TestExpeditionOutcomeMix(t *testing.T) {
 			t.Errorf("outcome %q never occurred in %d rolls", o, n)
 		}
 	}
-	assertShare(t, counts, n, ExpeditionCombat, 0.15, 0.02)
+	assertShare(t, counts, n, ExpeditionCombat, 0.135, 0.02)
 	assertShare(t, counts, n, ExpeditionBlackHole, 0.0168, 0.005)
 	assertShare(t, counts, n, ExpeditionBlackHoleLoot, 0.017, 0.005)
 	assertShare(t, counts, n, ExpeditionStardust, 0.019, 0.01)
-	assertShare(t, counts, n, ExpeditionResources, 0.1981, 0.03)
-	assertShare(t, counts, n, ExpeditionShips, 0.2812, 0.03)
-	assertShare(t, counts, n, ExpeditionDarkMatter, 0.1431, 0.03)
-	assertShare(t, counts, n, ExpeditionNothing, 0.0772, 0.02)
-	assertShare(t, counts, n, ExpeditionFastReturn, 0.039, 0.015)
+	assertShare(t, counts, n, ExpeditionResources, 0.1707, 0.03)
+	assertShare(t, counts, n, ExpeditionShips, 0.2905, 0.03)
+	assertShare(t, counts, n, ExpeditionDarkMatter, 0.1368, 0.03)
+	assertShare(t, counts, n, ExpeditionDelay, 0.1047, 0.02)
+	assertShare(t, counts, n, ExpeditionNothing, 0.0707, 0.02)
+	assertShare(t, counts, n, ExpeditionFastReturn, 0.0388, 0.015)
 }
 
 // assertShare fails when an outcome's sampled share drifts beyond ±tol.
@@ -162,6 +164,40 @@ func TestExpeditionRecovery(t *testing.T) {
 	}
 	if expeditionRecovery(0, rng) != nil {
 		t.Fatal("recovery for 0 points should be nil")
+	}
+}
+
+// TestExpeditionFindScaling asserts ship finds (FleetPoints-scaled) and
+// resource finds (cargo-scaled) grow with the sent fleet — deliberately NOT the
+// static/nerfed live magnitudes.
+func TestExpeditionFindScaling(t *testing.T) {
+	const n = 3000
+	median := func(v []float64) float64 {
+		sort.Float64s(v)
+		return v[len(v)/2]
+	}
+	recMedian := func(points int64) float64 {
+		rng := rand.New(rand.NewSource(7))
+		out := make([]float64, 0, n)
+		for i := 0; i < n; i++ {
+			out = append(out, float64(FleetPoints(expeditionRecovery(points, rng))))
+		}
+		return median(out)
+	}
+	lootMedian := func(capacity int64) float64 {
+		rng := rand.New(rand.NewSource(8))
+		out := make([]float64, 0, n)
+		for i := 0; i < n; i++ {
+			l := expeditionLoot(capacity, rng)
+			out = append(out, float64(l.Metal+l.Crystal+l.Deuterium))
+		}
+		return median(out)
+	}
+	if r := recMedian(4e10) / recMedian(4e9); r < 8 || r > 12 {
+		t.Fatalf("ship-find scaling ratio %.2f, want ~10", r)
+	}
+	if r := lootMedian(1e7) / lootMedian(1e6); r < 8 || r > 12 {
+		t.Fatalf("resource-find scaling ratio %.2f, want ~10", r)
 	}
 }
 

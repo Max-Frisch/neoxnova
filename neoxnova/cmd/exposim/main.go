@@ -7,7 +7,8 @@
 // It reports, per composition, the rebuild time (from the live shipyard
 // "N per second" tiers), the fleet's build throughput (points/s), own losses as
 // a percent of fleet points, win rate and cargo capacity. Use it to pick the
-// expedition fleet before changing the farm plan.
+// expedition fleet before changing the farm plan. It also samples the locked
+// X4 outcome distribution so the mix can be eyeballed alongside the sweep.
 package main
 
 import (
@@ -241,6 +242,44 @@ func main() {
 	for _, r := range rows {
 		fmt.Printf("%-22s %9.3g %7.0fs %10.3g %7.1f%% %7.1f%% %8.1f%% %5.0f%% %7.0f%% %7.1f %10.3g\n",
 			r.name, r.points, r.buildSec, r.ptsPerS, r.lossPir, r.lossAln, r.lossWipe, r.win, r.winWipe, r.rounds, r.cargo)
+	}
+	fmt.Println()
+
+	// Sample the locked X4 outcome mix (weights are fleet-independent) using a
+	// representative live expedition fleet.
+	outcomeMix(scaleComp(map[string]float64{"227": 1, "219": 0.04}, budget), 50000)
+}
+
+// outcomeMix samples RollExpedition against a representative attacker and prints
+// the realized outcome distribution next to the X4 locked targets.
+func outcomeMix(units map[string]int64, n int) {
+	a := game.Combatant{
+		Units: units, Techs: atkTechs, Academy: atkAcad, Upgrades: atkUpg,
+		AcademyDamagePct: atkDmg, AcademyShieldPct: atkShld, AcademyHullPct: atkHull,
+		AcademyRFReductionPct: atkRFRed,
+	}
+	counts := map[game.ExpeditionOutcome]int{}
+	for s := int64(0); s < int64(n); s++ {
+		counts[game.RollExpedition(a, s).Outcome]++
+	}
+	targets := []struct {
+		outcome game.ExpeditionOutcome
+		want    float64
+	}{
+		{game.ExpeditionShips, 0.2905},
+		{game.ExpeditionResources, 0.1707},
+		{game.ExpeditionDarkMatter, 0.1368},
+		{game.ExpeditionCombat, 0.135},
+		{game.ExpeditionDelay, 0.1047},
+		{game.ExpeditionNothing, 0.0707},
+		{game.ExpeditionFastReturn, 0.0388},
+		{game.ExpeditionStardust, 0.019},
+		{game.ExpeditionBlackHoleLoot, 0.017},
+		{game.ExpeditionBlackHole, 0.0168},
+	}
+	fmt.Printf("outcome mix (%d rolls; X4 locked model, n=2062 rebalance)\n", n)
+	for _, t := range targets {
+		fmt.Printf("  %-14s %6.2f%%  (want %5.2f%%)\n", t.outcome, 100*float64(counts[t.outcome])/float64(n), 100*t.want)
 	}
 	fmt.Println()
 }
