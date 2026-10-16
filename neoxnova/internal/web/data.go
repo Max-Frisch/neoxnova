@@ -241,9 +241,11 @@ func (h *Handler) ResourcesPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, http.StatusOK, Page(sh, ResourcesBody(sh, data)))
 }
 
-// productionBonus combines an account's Arsenal production upgrades (17/18/19)
-// with its extraction researches (Mineral/Semi-Crystals/Fuel) into one
-// percentage bonus per resource.
+// productionBonus combines an account's Arsenal production upgrades (17/18/19),
+// extraction researches (Mineral/Semi-Crystals/Fuel) and active production
+// governators (Resource/Energy) into one percentage bonus. It mirrors the
+// scheduler's RecomputeCelestial so the resources page matches the cached
+// hourly figures.
 func (h *Handler) productionBonus(r *http.Request, userID int64, researchLevels map[string]int) game.ProductionBonus {
 	upgrades := map[int]float64{}
 	rows, err := h.db.QueryContext(r.Context(), `
@@ -260,7 +262,10 @@ func (h *Handler) productionBonus(r *http.Request, userID int64, researchLevels 
 			}
 		}
 	}
-	return game.ProductionBonusFor(upgrades).Plus(game.ResearchProductionBonus(researchLevels))
+	activeGov, _ := h.senate.ActiveGovernators(r.Context(), userID)
+	return game.ProductionBonusFor(upgrades).
+		Plus(game.ResearchProductionBonus(researchLevels)).
+		Plus(game.GovernatorProductionBonus(activeGov))
 }
 
 // ---- Buildings -----------------------------------------------------------
@@ -294,6 +299,15 @@ func costTableJSON(table []levelCost) string {
 	b, err := json.Marshal(table)
 	if err != nil || len(table) == 0 {
 		return "[]"
+	}
+	return string(b)
+}
+
+// unitCostJSON serialises a single unit's cost for the live quantity preview.
+func unitCostJSON(c models.CargoManifest) string {
+	b, err := json.Marshal(levelCost{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium})
+	if err != nil {
+		return "{}"
 	}
 	return string(b)
 }
@@ -774,11 +788,16 @@ func (h *Handler) unitSubmit(w http.ResponseWriter, r *http.Request, back string
 	if qty < 1 {
 		qty = 1
 	}
-	if _, err := h.builds.EnqueueShipyard(r.Context(), id, code, qty); err != nil {
+	result, err := h.builds.EnqueueShipyard(r.Context(), id, code, qty)
+	if err != nil {
 		h.redirect(w, r, back, "", err.Error())
 		return
 	}
 	h.nudge()
+	if result.Quantity < qty {
+		h.redirect(w, r, back, fmt.Sprintf("Queued %d of %d × %s (partial)", result.Quantity, qty, displayName(code)), "")
+		return
+	}
 	h.redirect(w, r, back, "Queued "+code, "")
 }
 

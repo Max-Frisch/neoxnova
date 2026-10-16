@@ -46,12 +46,14 @@ const (
 	BaseDeutPerHour    = 1000.0
 )
 
-// ProductionBonus is an account's Arsenal production bonus in percent for each
-// resource. The zero value adds nothing.
+// ProductionBonus is an account's account-wide production bonus in percent for
+// each resource, plus an energy-production bonus (the Energy governator). The
+// zero value adds nothing.
 type ProductionBonus struct {
 	Metal     float64
 	Crystal   float64
 	Deuterium float64
+	Energy    float64
 }
 
 // ProductionBonusFor extracts the production upgrade percentages (17/18/19)
@@ -101,6 +103,7 @@ func (b ProductionBonus) Plus(o ProductionBonus) ProductionBonus {
 		Metal:     b.Metal + o.Metal,
 		Crystal:   b.Crystal + o.Crystal,
 		Deuterium: b.Deuterium + o.Deuterium,
+		Energy:    b.Energy + o.Energy,
 	}
 }
 
@@ -181,6 +184,8 @@ func RecomputeProduction(levels map[string]int, tempMax int, resourceSpeed float
 	if satCount > 0 {
 		energyMax += float64(satCount) * float64(SatelliteEnergy(tempMax))
 	}
+	// The Energy governator raises energy output (account-wide, additive percent).
+	energyMax *= 1.0 + bonus.Energy/100.0
 
 	if energyUsed > energyMax && energyUsed > 0 {
 		efficiency := energyMax / energyUsed

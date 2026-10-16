@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 	"strconv"
 	"time"
 
@@ -31,7 +32,34 @@ type QueueResult struct {
 	Duration    time.Duration
 	Cost        game.Cost
 	Queued      int
+	Quantity    int64
 	TargetLevel int
+}
+
+// affordableQty is the largest batch of a unit payable from the given resources;
+// 0 when at least one unit's cost cannot be met. A zero-cost component is
+// ignored (no limit from it).
+func affordableQty(metal, crystal, deuterium float64, per game.Cost) int64 {
+	limit := int64(math.MaxInt64)
+	if per.Metal > 0 {
+		if v := int64(metal) / per.Metal; v < limit {
+			limit = v
+		}
+	}
+	if per.Crystal > 0 {
+		if v := int64(crystal) / per.Crystal; v < limit {
+			limit = v
+		}
+	}
+	if per.Deuterium > 0 {
+		if v := int64(deuterium) / per.Deuterium; v < limit {
+			limit = v
+		}
+	}
+	if limit < 1 {
+		return 0
+	}
+	return limit
 }
 
 func isUniqueViolation(err error) bool {
@@ -388,10 +416,16 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 		return QueueResult{}, ErrPrerequisites
 	}
 
-	cost, _ := game.UnitCost(unitCode, quantity)
-	if metal < float64(cost.Metal) || crystal < float64(cost.Crystal) || deuterium < float64(cost.Deuterium) {
+	// Partial builds: when the requested batch is unaffordable, build as many
+	// units as the current resources allow instead of failing outright.
+	unitCost, _ := game.UnitCost(unitCode, 1)
+	if affordable := affordableQty(metal, crystal, deuterium, unitCost); affordable < quantity {
+		quantity = affordable
+	}
+	if quantity < 1 {
 		return QueueResult{}, ErrInsufficientResources
 	}
+	cost, _ := game.UnitCost(unitCode, quantity)
 
 	kindCodes := defenseCodes()
 	if _, isShip := game.Ships[unitCode]; isShip {
@@ -440,7 +474,7 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 	if err := tx.Commit(); err != nil {
 		return QueueResult{}, err
 	}
-	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost, Queued: 1}, nil
+	return QueueResult{QueueID: queueID, EndTime: end, Duration: duration, Cost: cost, Queued: 1, Quantity: quantity}, nil
 }
 
 // EnqueueResearch queues one or more levels of an empire-wide technology. Costs
@@ -1072,7 +1106,13 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		if err != nil {
 			return err
 		}
-		bonus = game.ProductionBonusFor(upgrades).Plus(game.ResearchProductionBonus(techs))
+		activeGov, err := loadActiveGovernators(ctx, tx, owner.Int64)
+		if err != nil {
+			return err
+		}
+		bonus = game.ProductionBonusFor(upgrades).
+			Plus(game.ResearchProductionBonus(techs)).
+			Plus(game.GovernatorProductionBonus(activeGov))
 	}
 	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
 

@@ -47,6 +47,7 @@ type Handler struct {
 	arsenal    *store.ArsenalStore
 	moons      *store.MoonStore
 	trades     *store.TradeStore
+	senate     *store.SenateStore
 	notify     func()
 }
 
@@ -66,6 +67,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		arsenal:    store.NewArsenalStore(db),
 		moons:      store.NewMoonStore(db),
 		trades:     store.NewTradeStore(db),
+		senate:     store.NewSenateStore(db),
 		notify:     notify,
 	}
 }
@@ -153,6 +155,10 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /market/list", h.page(h.requireUser(h.MarketListSubmit)))
 	mux.HandleFunc("POST /market/buy", h.page(h.requireUser(h.MarketBuySubmit)))
 	mux.HandleFunc("POST /market/remove", h.page(h.requireUser(h.MarketRemoveSubmit)))
+	mux.HandleFunc("GET /senate", h.page(h.requireUser(h.SenatePage)))
+	mux.HandleFunc("GET /senate/governators", h.page(h.requireUser(h.GovernatorsPage)))
+	mux.HandleFunc("POST /senate/governators/improve", h.page(h.requireUser(h.GovernatorImproveSubmit)))
+	mux.HandleFunc("POST /senate/governators/hire", h.page(h.requireUser(h.GovernatorHireSubmit)))
 	mux.HandleFunc("GET /technologies", h.page(h.requireUser(h.TechnologiesPage)))
 	mux.HandleFunc("GET /simulator", h.page(h.requireUser(h.SimulatorPage)))
 	mux.HandleFunc("POST /simulator", h.page(h.requireUser(h.SimulatorSubmit)))

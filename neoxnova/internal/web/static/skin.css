@@ -1276,6 +1276,118 @@ img {
   margin-top: auto;
 }
 
+/* ---- Senate / Governators --------------------------------------------- */
+
+.gov-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gov-ap-header {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.gov-ap-header b {
+  color: #eaf2ff;
+}
+
+.gov-officers-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.gov-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.gov-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gov-level {
+  color: #7fd1ff;
+  font-weight: 400;
+}
+
+.gov-active {
+  margin-left: auto;
+  color: #8fe08f;
+  font-weight: 400;
+}
+
+.gov-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.gov-icon {
+  width: 72px;
+  height: 72px;
+}
+
+.gov-effects {
+  flex: 1 1 170px;
+}
+
+.gov-actions {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.gov-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 230px;
+}
+
+.gov-price {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.gov-price b {
+  color: #eaf2ff;
+}
+
+.gov-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gov-label {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.gov-days,
+.gov-target {
+  width: 66px;
+  background: rgba(4, 10, 20, 0.85);
+  border: 1px solid var(--line-soft);
+  color: #eaf2ff;
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+
+.gov-active-badge {
+  color: #ff9a9a;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 /* ---- Black market hub ------------------------------------------------- */
 
 .bm-grid {

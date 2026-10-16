@@ -69,6 +69,8 @@ func ProductionBreakdown(levels map[string]int, tempMax int, resourceSpeed float
 	if satCount > 0 {
 		energyMax += float64(satCount) * float64(SatelliteEnergy(tempMax))
 	}
+	// Match RecomputeProduction: the Energy governator scales energy output.
+	energyMax *= 1.0 + bonus.Energy/100.0
 
 	// Energy deficit scales the three mines proportionally, exactly as
 	// RecomputeProduction does.

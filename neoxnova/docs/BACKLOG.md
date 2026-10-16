@@ -22,7 +22,8 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — **done through B4**.
-- [ ] **Playability: live shipyard/defenses panels** — same htmx status-poll as buildings/research.
+- [ ] **Senate: Officers + governator gameplay effects** — Officers roster/cost (HAR capture needed);
+      wire Building/Research/Fleet/combat governator bonuses (catalog fields already present).
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
 - [ ] **TOTP 2FA** — second auth factor (`internal/auth`).
 - [ ] **Full game-loop integration test** — register → … → abandon.
@@ -30,13 +31,18 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
-- 2026-10-16 — **Hangar/defenses live panels + solar-satellite energy**: shipyard/defenses now
-  htmx-poll like buildings/research (`GET /{shipyard,defenses}/{id}/status`, `ShipyardData.Sig` → `204`
-  when unchanged) so a finished batch clears its queue row and bumps the dock count in place.
-  `resolveShipyard` recomputes the celestial (accrue → station → `RecomputeCelestial`) when the
-  completed unit is a solar satellite (`212`), so cached `energy_max` and the resource bar update
-  immediately instead of waiting for the next building completion. Tests: engine satellite-energy +
-  e2e shipyard/defenses status polls.
+- 2026-10-16 — **Senate: Governators (`page=gubernators`)**: catalog `internal/game/senate.go` with the
+  exact live formulas (AP cost `round(base·factor^(i-1))` summed; DM/day `round(base·factor^level)`;
+  bonus `= +10% +1%/level`); migration `0022_senate.sql` (`users.achievement_points` +
+  `user_governators`); `store.SenateStore` (irreversible AP improve, timed DM hire, engine expiry
+  sweep); `/senate` hub + `/senate/governators` with live improve/Days previews in `app.js`. Active
+  Resource/Energy governators fold into `game.ProductionBonus` (new `Energy` term) and the cached
+  production columns. Tests: formulas (0→10 = 1,045 AP; DM/day), store lifecycle+production, render.
+- 2026-10-16 — **Shipyard/defenses: cumulative cost + partial builds + live panels**: unit cards embed
+  per-unit cost/time and `app.js` scales by the typed quantity; `EnqueueShipyard` caps an oversized
+  batch to `affordableQty` (`QueueResult.Quantity`, "Queued N of M × …"); shipyard/defenses htmx-poll
+  their status like buildings/research and `resolveShipyard` recomputes on solar-satellite completion
+  (`energy_max`). Tests: `TestAffordableQty`, partial-enqueue + satellite-energy integration, i3 markup.
 - 2026-10-16 — **Live client countdowns + simpler backdrop**: `[data-countdown]` ticker in `app.js`
   (reuses the `#server-clock` skew, re-queried each second so htmx swaps are picked up; `hms`/`dur`
   formats) drives build/research/shipyard queue rows, fleet/expedition/incoming ETAs and the

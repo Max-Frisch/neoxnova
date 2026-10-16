@@ -287,3 +287,42 @@ func TestEnqueueShipyardChainsByKind(t *testing.T) {
 		t.Fatalf("defense batch start %v chained behind the ship line (first ship ends %v)", defs[0].start, ships[0].end)
 	}
 }
+
+// TestEnqueueShipyardPartialWhenUnaffordable proves an oversized batch is capped
+// to what the planet can pay for instead of erroring.
+func TestEnqueueShipyardPartialWhenUnaffordable(t *testing.T) {
+	db := openQueueTestDB(t)
+	ctx := context.Background()
+	p := newChainPlanet(t, db, ctx)
+	// Light Cargo (202) is gated on Shipyard 2 + Combustion Drive 2 by the
+	// tech-tree back-fill; it costs 2000 metal / 2000 crystal per unit.
+	setStructure(ctx, t, db, p.planetID, "shipyard", 2)
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO user_technologies (user_id, tech_code, level)
+		VALUES ($1, 'combustion_drive', 2)
+		ON CONFLICT (user_id, tech_code) DO UPDATE SET level = EXCLUDED.level
+	`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+	// This funds exactly two Light Cargo.
+	setResources(ctx, t, db, p.planetID, 5000, 5000, 0)
+
+	got, err := NewBuildStore(db).EnqueueShipyard(ctx, p.planetID, "202", 5)
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if got.Quantity != 2 {
+		t.Fatalf("Quantity = %d, want 2 (partial)", got.Quantity)
+	}
+	if got.Cost.Metal != 4000 || got.Cost.Crystal != 4000 {
+		t.Fatalf("Cost = %+v, want 4000/4000", got.Cost)
+	}
+	var total int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT quantity_total FROM shipyard_queues WHERE id=$1`, got.QueueID).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Fatalf("queued quantity_total = %d, want 2", total)
+	}
+}

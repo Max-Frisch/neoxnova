@@ -396,9 +396,11 @@ templ unitCard(sh Shell, it UnitItem, buildPath string) {
 			}
 			if it.Unlocked {
 				<div class="gcard-info">
-					@costRows(it.Cost)
+					<div data-cost-total>
+						@costRows(it.Cost)
+					</div>
 					if it.DurationSecs > 0 {
-						<span class="gcard-duration">Duration: { hms(it.DurationSecs) }</span>
+						<span class="gcard-duration">Duration: <span data-duration-total>{ hms(it.DurationSecs) }</span></span>
 					}
 				</div>
 			} else {
@@ -407,9 +409,9 @@ templ unitCard(sh Shell, it UnitItem, buildPath string) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked {
-				<form method="post" action={ templ.URL(buildPath) } class="unit-form">
+				<form method="post" action={ templ.URL(buildPath) } class="unit-form" data-unit-cost={ unitCostJSON(it.Cost) } data-unit-time={ strconv.FormatInt(it.DurationSecs, 10) }>
 					<input type="hidden" name="code" value={ it.Code }/>
-					<input id={ "q_" + it.Code } class="build-level unit-qty" name="quantity" type="text" inputmode="numeric" value="0"/>
+					<input id={ "q_" + it.Code } class="build-level unit-qty" name="quantity" type="text" inputmode="numeric" value="1" data-unit-input/>
 					<button type="button" class="unit-max" data-target={ "q_" + it.Code } data-max={ strconv.FormatInt(it.MaxQty, 10) }>Max</button>
 					<button type="submit" class="build-next">Build</button>
 				</form>

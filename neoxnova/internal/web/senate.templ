@@ -1,0 +1,93 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/game"
+)
+
+// ---- Senate hub ----------------------------------------------------------
+
+templ SenateBody(sh Shell, tiles []BlackMarketTile) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Senate</h2>
+		<p class="resource-sub">Hire officers and governators to boost your empire.</p>
+		<div class="bm-grid">
+			for _, t := range tiles {
+				@blackMarketTile(t)
+			}
+		</div>
+	</div>
+}
+
+// ---- Governators ---------------------------------------------------------
+
+templ GovernatorsBody(sh Shell, d GovernatorsData) {
+	<div class="panel">
+		<div class="gov-topbar">
+			<h2 class="panel-title">Governators</h2>
+			<span class="gov-ap-header">Achievement points: <b>{ fnum(d.AchievementPoints) }</b></span>
+			<span class="bm-tile is-disabled gov-officers-btn" title="Coming soon">Officers</span>
+		</div>
+		<p class="resource-sub">Buy a permanent bonus level with Achievement Points, then activate it for a number of days with Dark Matter.</p>
+		<div class="gov-list">
+			for _, it := range d.Items {
+				@governatorCard(it)
+			}
+		</div>
+	</div>
+}
+
+templ governatorCard(it GovernatorItem) {
+	<div class="upgrade-box gov-card">
+		<div class="upgrade-head gov-head">
+			<span>{ it.Name }</span>
+			<span class="gov-level">[level { strconv.Itoa(it.Level) }/{ strconv.Itoa(it.MaxLevel) }]</span>
+			if it.Active {
+				<span class="gov-active">Activation time: <span data-countdown={ strconv.FormatInt(it.ExpiresAt.Unix(), 10) }>--:--:--</span></span>
+			}
+		</div>
+		<div class="upgrade-body gov-body">
+			if it.Image != "" {
+				<img class="upgrade-icon gov-icon" src={ it.Image } alt={ it.Name }/>
+			}
+			<div class="upgrade-info gov-effects">
+				for _, e := range it.Effects {
+					<span class="upgrade-line">
+						<b class="upgrade-bonus">{ govEffectText(it.BonusPct, e) }</b> { e.Label }
+					</span>
+				}
+			</div>
+			<div class="gov-actions">
+				<div class="gov-block">
+					<span class="gov-price">Dark Matter: <b id={ "dm_" + strconv.Itoa(it.Code) }>{ fnum(it.DMPricePerDay) }</b></span>
+					if it.Active {
+						<span class="gov-active-badge">Governor activated</span>
+					} else {
+						<form method="post" action="/senate/governators/hire" class="gov-form" data-perday={ strconv.FormatInt(it.DMPricePerDay, 10) } data-price-id={ "dm_" + strconv.Itoa(it.Code) }>
+							<input type="hidden" name="id" value={ strconv.Itoa(it.Code) }/>
+							<label class="gov-label">Days:
+								<input class="gov-days" name="days" type="number" min="1" max={ strconv.Itoa(game.MaxGovernatorDays) } value="1" data-gov-days/>
+							</label>
+							<button class="build-next" type="submit">Hire</button>
+						</form>
+					}
+				</div>
+				<div class="gov-block">
+					<span class="gov-price">Achievement points: <b id={ "ap_" + strconv.Itoa(it.Code) }>{ fnum(it.APCostNext) }</b></span>
+					if it.AtMax {
+						<span class="gov-active-badge">Maximum level reached</span>
+					} else {
+						<form method="post" action="/senate/governators/improve" class="gov-form" data-ap-cum={ apCumJSON(it.APCum) } data-gov-level={ strconv.Itoa(it.Level) } data-gov-max={ strconv.Itoa(it.MaxLevel) } data-ap-id={ "ap_" + strconv.Itoa(it.Code) }>
+							<input type="hidden" name="lvl_id" value={ strconv.Itoa(it.Code) }/>
+							<label class="gov-label">To improve the level
+								<input class="gov-target" name="lvl_count" type="number" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-gov-target/>
+							</label>
+							<button class="build-next" type="submit" title="Improve">▲</button>
+						</form>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}

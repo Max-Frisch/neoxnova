@@ -37,6 +37,8 @@ var (
 	ErrLotExpired              = errors.New("market lot has expired")
 	ErrCannotBuyOwnLot         = errors.New("cannot buy your own market lot")
 	ErrInsufficientAntimatter  = errors.New("insufficient antimatter")
+	ErrInsufficientAchievement = errors.New("insufficient achievement points")
+	ErrGovernatorLevel         = errors.New("governator is already at that level or higher")
 	ErrInsufficientStardust    = errors.New("insufficient stardust")
 	ErrInsufficientDebris      = errors.New("insufficient debris field for the diameter expansion")
 	ErrNoJumpgate              = errors.New("at least two moons with a Jumpgate are required")

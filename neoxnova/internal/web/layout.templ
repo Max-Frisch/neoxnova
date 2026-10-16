@@ -112,7 +112,7 @@ templ MainMenu(s Shell) {
 			@menuLink(s, "Fleet", "/fleet/"+pid(s), false)
 			@menuLink(s, "Technologies", "/technologies", false)
 			@menuLink(s, "Resources", "/resources/"+pid(s), false)
-			@menuDisabled("Senate", false)
+			@menuLink(s, "Senate", "/senate", false)
 			@menuLink(s, "Arsenal", "/arsenal", false)
 			@menuDisabled("Academy", false)
 			@menuDisabled("Achievements", false)
@@ -156,6 +156,8 @@ func menuActive(s Shell, label string) bool {
 	switch label {
 	case "Hangar":
 		return strings.HasPrefix(s.Title, "Shipyard")
+	case "Senate":
+		return strings.HasPrefix(s.Title, "Senate") || strings.HasPrefix(s.Title, "Governators")
 	}
 	return strings.HasPrefix(s.Title, label)
 }

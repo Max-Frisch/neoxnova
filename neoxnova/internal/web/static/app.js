@@ -131,6 +131,7 @@
       var input = document.getElementById(el.getAttribute("data-target"));
       if (input) {
         input.value = el.getAttribute("data-max");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
       }
     });
   }
@@ -228,13 +229,104 @@
     }
   }
 
-  // wireLevelPreview updates a card's live cost/time as its target level input
-  // changes. Delegated so it survives htmx swaps.
-  function wireLevelPreview() {
+  // updateUnitPreview scales a ship/defense card's per-unit cost and duration by
+  // the quantity typed into its input (units are linear: qty × per-unit), so the
+  // cumulative resources "count up" as the number grows. The per-unit values ride
+  // along on the form as data-* attributes (generated server-side).
+  function updateUnitPreview(input) {
+    var card = input.closest(".gcard");
+    var form = input.form;
+    if (!card || !form) {
+      return;
+    }
+    var per;
+    try {
+      per = JSON.parse(form.getAttribute("data-unit-cost") || "{}");
+    } catch (e) {
+      return;
+    }
+    var qty = parseInt(input.value, 10);
+    if (isNaN(qty) || qty < 1) {
+      qty = 1;
+    }
+    var costEl = card.querySelector("[data-cost-total]");
+    if (costEl) {
+      costEl.innerHTML = renderCostTotal({
+        m: (per.m || 0) * qty,
+        c: (per.c || 0) * qty,
+        d: (per.d || 0) * qty
+      });
+    }
+    var durEl = card.querySelector("[data-duration-total]");
+    var perT = parseInt(form.getAttribute("data-unit-time"), 10);
+    if (durEl && !isNaN(perT)) {
+      durEl.textContent = hms(perT * qty);
+    }
+  }
+
+  // updateGovernatorTarget previews the Achievement-Point cost of improving a
+  // governator to the typed level, using the cumulative AP table embedded on the
+  // form (server-generated from game.Governator.APCost).
+  function updateGovernatorTarget(input) {
+    var form = input.form;
+    if (!form) {
+      return;
+    }
+    var cum;
+    try {
+      cum = JSON.parse(form.getAttribute("data-ap-cum") || "[]");
+    } catch (e) {
+      return;
+    }
+    var level = parseInt(form.getAttribute("data-gov-level"), 10) || 0;
+    var max = parseInt(form.getAttribute("data-gov-max"), 10) || level;
+    var target = parseInt(input.value, 10);
+    if (isNaN(target) || target <= level) {
+      target = level + 1;
+    }
+    if (target > max) {
+      target = max;
+    }
+    var el = document.getElementById(form.getAttribute("data-ap-id"));
+    if (el) {
+      el.textContent = formatNumber((cum[target] || 0) - (cum[level] || 0));
+    }
+  }
+
+  // updateGovernatorDays scales a governator's per-day Dark Matter price by the
+  // number of days typed into the hire form.
+  function updateGovernatorDays(input) {
+    var form = input.form;
+    if (!form) {
+      return;
+    }
+    var perDay = parseInt(form.getAttribute("data-perday"), 10) || 0;
+    var days = parseInt(input.value, 10);
+    if (isNaN(days) || days < 1) {
+      days = 1;
+    }
+    var el = document.getElementById(form.getAttribute("data-price-id"));
+    if (el) {
+      el.textContent = formatNumber(perDay * days);
+    }
+  }
+
+  // wireCardPreviews updates a card's live cost/time as its target-level or
+  // quantity input changes. Delegated so it survives htmx swaps.
+  function wireCardPreviews() {
     document.addEventListener("input", function (evt) {
       var el = evt.target;
-      if (el && el.hasAttribute && el.hasAttribute("data-level-input")) {
+      if (!el || !el.hasAttribute) {
+        return;
+      }
+      if (el.hasAttribute("data-level-input")) {
         updateLevelPreview(el);
+      } else if (el.hasAttribute("data-unit-input")) {
+        updateUnitPreview(el);
+      } else if (el.hasAttribute("data-gov-target")) {
+        updateGovernatorTarget(el);
+      } else if (el.hasAttribute("data-gov-days")) {
+        updateGovernatorDays(el);
       }
     });
   }
@@ -244,7 +336,7 @@
     startClock();
     wirePlanetSelect();
     wireMaxButtons();
-    wireLevelPreview();
+    wireCardPreviews();
     tickCountdowns();
     window.setInterval(tickCountdowns, 1000);
   }

@@ -27,6 +27,7 @@ type EventEngine struct {
 	builds     *store.BuildStore
 	arsenal    *store.ArsenalStore
 	blueprints *store.BlueprintStore
+	senate     *store.SenateStore
 	lastSweep  time.Time
 }
 
@@ -37,6 +38,7 @@ func NewEventEngine(rdb *redis.Client, db *sql.DB) *EventEngine {
 		builds:     store.NewBuildStore(db),
 		arsenal:    store.NewArsenalStore(db),
 		blueprints: store.NewBlueprintStore(db),
+		senate:     store.NewSenateStore(db),
 	}
 }
 
@@ -122,6 +124,11 @@ func (e *EventEngine) processDue(ctx context.Context, universeID string) {
 		if err := e.arsenal.ExpireLot(ctx, id); err != nil {
 			log.Printf("[ERROR] Failed to expire market lot #%d: %v", id, err)
 		}
+	}
+	// Lapsed governator activations keep their bought level but lose the bonus;
+	// ExpireGovernators also refreshes the affected accounts' cached production.
+	if err := e.senate.ExpireGovernators(ctx); err != nil {
+		log.Printf("[ERROR] Failed to expire governators: %v", err)
 	}
 	// Slow sweep: advance blueprints for planets that were idle at boot, whose
 	// build was cancelled, or that just became affordable. Event-driven advances
