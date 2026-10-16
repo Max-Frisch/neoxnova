@@ -94,13 +94,25 @@ func isProductionGovernator(code int) bool {
 	return code == game.GovCodeResource || code == game.GovCodeEnergy
 }
 
-// ImproveGovernator permanently raises a governator's level to target, paying
-// the summed Achievement-Point cost of the levels in between. The action is
-// irreversible and does not activate the bonus. Returns the AP spent.
-func (s *SenateStore) ImproveGovernator(ctx context.Context, userID int64, code, target int) (int64, error) {
+// GovernatorImproveResult reports the outcome of an improve. Partial is set when
+// the requested target was unaffordable and the level was locked in at the
+// highest affordable one instead.
+type GovernatorImproveResult struct {
+	Level     int
+	Requested int
+	Spent     int64
+	Partial   bool
+}
+
+// ImproveGovernator permanently raises a governator's level toward target with
+// the account's Achievement Points. The action is irreversible and does not
+// activate the bonus. When the target is unaffordable it locks in at the highest
+// affordable level (partial); if even the next level cannot be paid for it
+// returns ErrInsufficientAchievement and changes nothing.
+func (s *SenateStore) ImproveGovernator(ctx context.Context, userID int64, code, target int) (GovernatorImproveResult, error) {
 	def, ok := game.GovernatorByCode(code)
 	if !ok {
-		return 0, ErrUnknownCode
+		return GovernatorImproveResult{}, ErrUnknownCode
 	}
 	if target > def.MaxLevel {
 		target = def.MaxLevel
@@ -108,7 +120,7 @@ func (s *SenateStore) ImproveGovernator(ctx context.Context, userID int64, code,
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
-		return 0, err
+		return GovernatorImproveResult{}, err
 	}
 	defer tx.Rollback()
 
@@ -119,56 +131,74 @@ func (s *SenateStore) ImproveGovernator(ctx context.Context, userID int64, code,
 	if errors.Is(err, sql.ErrNoRows) {
 		level = 0
 	} else if err != nil {
-		return 0, err
+		return GovernatorImproveResult{}, err
 	}
 	if target <= level {
-		return 0, ErrGovernatorLevel
+		return GovernatorImproveResult{}, ErrGovernatorLevel
 	}
-	cost := def.APCost(level, target)
 
-	res, err := tx.ExecContext(ctx, `
-		UPDATE users SET achievement_points = achievement_points - $1
-		WHERE id = $2 AND achievement_points >= $1
-	`, cost, userID)
-	if err != nil {
-		return 0, err
+	var ap int64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT achievement_points FROM users WHERE id = $1 FOR UPDATE
+	`, userID).Scan(&ap); err != nil {
+		return GovernatorImproveResult{}, err
 	}
-	if n, err := res.RowsAffected(); err != nil {
-		return 0, err
-	} else if n == 0 {
-		return 0, ErrInsufficientAchievement
+	newLevel := def.AffordableLevel(level, target, ap)
+	if newLevel <= level {
+		return GovernatorImproveResult{}, ErrInsufficientAchievement
+	}
+	cost := def.APCost(level, newLevel)
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users SET achievement_points = achievement_points - $1 WHERE id = $2
+	`, cost, userID); err != nil {
+		return GovernatorImproveResult{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO user_governators (user_id, governator_code, level)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (user_id, governator_code) DO UPDATE SET level = EXCLUDED.level
-	`, userID, code, target); err != nil {
-		return 0, err
+	`, userID, code, newLevel); err != nil {
+		return GovernatorImproveResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return 0, err
+		return GovernatorImproveResult{}, err
 	}
 	if isProductionGovernator(code) {
 		s.recompute(ctx, userID)
 	}
-	return cost, nil
+	return GovernatorImproveResult{Level: newLevel, Requested: target, Spent: cost, Partial: newLevel < target}, nil
 }
 
-// HireGovernator activates a governator for `days` days at its current level,
-// paying the Dark Matter per-day price. A live activation is extended rather
-// than restarted. Returns the Dark Matter spent.
-func (s *SenateStore) HireGovernator(ctx context.Context, userID int64, code, days int) (int64, error) {
+// GovernatorHireResult reports the outcome of a hire. Partial is set when the
+// requested days were unaffordable and fewer days were activated instead.
+type GovernatorHireResult struct {
+	Days      int
+	Requested int
+	Spent     int64
+	Partial   bool
+}
+
+// HireGovernator activates a governator at its current level, paying the Dark
+// Matter per-day price. A live activation is extended rather than restarted.
+// When the requested days are unaffordable it activates as many as the account
+// can pay for (partial); if not even one day is affordable it returns
+// ErrInsufficientDarkMatter and changes nothing.
+func (s *SenateStore) HireGovernator(ctx context.Context, userID int64, code, days int) (GovernatorHireResult, error) {
 	def, ok := game.GovernatorByCode(code)
 	if !ok {
-		return 0, ErrUnknownCode
+		return GovernatorHireResult{}, ErrUnknownCode
 	}
-	if days < 1 || days > game.MaxGovernatorDays {
-		return 0, ErrInvalidQuantity
+	if days < 1 {
+		days = 1
+	}
+	if days > game.MaxGovernatorDays {
+		days = game.MaxGovernatorDays
 	}
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
-		return 0, err
+		return GovernatorHireResult{}, err
 	}
 	defer tx.Rollback()
 
@@ -181,35 +211,44 @@ func (s *SenateStore) HireGovernator(ctx context.Context, userID int64, code, da
 	if errors.Is(err, sql.ErrNoRows) {
 		level, exp = 0, sql.NullTime{}
 	} else if err != nil {
-		return 0, err
+		return GovernatorHireResult{}, err
 	}
 
-	perDay := def.DMPricePerDay(level)
-	total := perDay * int64(days)
+	var dm int64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT dark_matter FROM users WHERE id = $1 FOR UPDATE
+	`, userID).Scan(&dm); err != nil {
+		return GovernatorHireResult{}, err
+	}
+	payDays := def.AffordableDays(level, days, dm)
+	if payDays < 1 {
+		return GovernatorHireResult{}, ErrInsufficientDarkMatter
+	}
+	total := def.BulkPrice(level, payDays)
 	if err := debitDarkMatter(ctx, tx, userID, total); err != nil {
-		return 0, err
+		return GovernatorHireResult{}, err
 	}
 
 	base := time.Now()
 	if exp.Valid && exp.Time.After(base) {
 		base = exp.Time
 	}
-	newExp := base.Add(time.Duration(days) * 24 * time.Hour)
+	newExp := base.Add(time.Duration(payDays) * 24 * time.Hour)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO user_governators (user_id, governator_code, level, activated_at, expires_at)
 		VALUES ($1, $2, $3, NOW(), $4)
 		ON CONFLICT (user_id, governator_code)
 		DO UPDATE SET activated_at = NOW(), expires_at = EXCLUDED.expires_at
 	`, userID, code, level, newExp); err != nil {
-		return 0, err
+		return GovernatorHireResult{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return 0, err
+		return GovernatorHireResult{}, err
 	}
 	if isProductionGovernator(code) {
 		s.recompute(ctx, userID)
 	}
-	return total, nil
+	return GovernatorHireResult{Days: payDays, Requested: days, Spent: total, Partial: payDays < days}, nil
 }
 
 // ExpireGovernators clears lapsed activations (keeping the bought level) and

@@ -125,6 +125,54 @@ func (g Governator) APCost(from, to int) int64 {
 	return total
 }
 
+// AffordableLevel returns the highest level in (from, to] whose cumulative AP
+// cost does not exceed ap. When even the next level is unaffordable it returns
+// `from` (no change). `to` is clamped to MaxLevel.
+func (g Governator) AffordableLevel(from, to int, ap int64) int {
+	if to > g.MaxLevel {
+		to = g.MaxLevel
+	}
+	best := from
+	var cost int64
+	for i := from + 1; i <= to; i++ {
+		cost += int64(math.Round(g.APPrice[0] * math.Pow(g.APPrice[1], float64(i-1))))
+		if cost > ap {
+			break
+		}
+		best = i
+	}
+	return best
+}
+
+// BulkPrice is the Dark Matter price of `days` at the given level.
+func (g Governator) BulkPrice(level, days int) int64 {
+	return g.DMPricePerDay(level) * int64(days)
+}
+
+// AffordableDays returns how many of `days` the given Dark Matter can pay for at
+// the given level, capped at days and MaxGovernatorDays. 0 when a single day is
+// unaffordable.
+func (g Governator) AffordableDays(level, days int, dm int64) int {
+	perDay := g.DMPricePerDay(level)
+	if perDay <= 0 {
+		if days > MaxGovernatorDays {
+			return MaxGovernatorDays
+		}
+		return days
+	}
+	if days > MaxGovernatorDays {
+		days = MaxGovernatorDays
+	}
+	max := int(dm / perDay)
+	if max > days {
+		max = days
+	}
+	if max < 0 {
+		max = 0
+	}
+	return max
+}
+
 // DMPricePerDay is the Dark Matter price to activate one day at the given level:
 // round(DMPrice[0] * DMPrice[1]^level).
 func (g Governator) DMPricePerDay(level int) int64 {

@@ -54,7 +54,7 @@ templ governatorCard(it GovernatorItem) {
 			<div class="upgrade-info gov-effects">
 				for _, e := range it.Effects {
 					<span class="upgrade-line">
-						<b class="upgrade-bonus">{ govEffectText(it.BonusPct, e) }</b> { e.Label }
+						<b class="upgrade-bonus" data-gov-effect data-gov-sign={ govEffectSign(e) }>{ govEffectText(it.BonusPct, e) }</b> { e.Label }
 					</span>
 				}
 			</div>
@@ -78,7 +78,7 @@ templ governatorCard(it GovernatorItem) {
 					if it.AtMax {
 						<span class="gov-active-badge">Maximum level reached</span>
 					} else {
-						<form method="post" action="/senate/governators/improve" class="gov-form" data-ap-cum={ apCumJSON(it.APCum) } data-gov-level={ strconv.Itoa(it.Level) } data-gov-max={ strconv.Itoa(it.MaxLevel) } data-ap-id={ "ap_" + strconv.Itoa(it.Code) }>
+						<form method="post" action="/senate/governators/improve" class="gov-form" data-ap-cum={ apCumJSON(it.APCum) } data-gov-bonus={ govBonusJSON(it.BonusPctTable) } data-gov-level={ strconv.Itoa(it.Level) } data-gov-max={ strconv.Itoa(it.MaxLevel) } data-ap-id={ "ap_" + strconv.Itoa(it.Code) }>
 							<input type="hidden" name="lvl_id" value={ strconv.Itoa(it.Code) }/>
 							<label class="gov-label">To improve the level
 								<input class="gov-target" name="lvl_count" type="number" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-gov-target/>

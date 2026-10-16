@@ -291,6 +291,26 @@
     if (el) {
       el.textContent = formatNumber((cum[target] || 0) - (cum[level] || 0));
     }
+    // Raise the shown bonus percent with the selected level, like a resource
+    // cost counting up (mirrors governators.js GubPriceAP).
+    var bonus;
+    try {
+      bonus = JSON.parse(form.getAttribute("data-gov-bonus") || "[]");
+    } catch (e) {
+      return;
+    }
+    var pct = bonus[target];
+    if (pct === undefined) {
+      return;
+    }
+    var card = input.closest(".gov-card");
+    if (!card) {
+      return;
+    }
+    var effects = card.querySelectorAll("[data-gov-effect]");
+    for (var i = 0; i < effects.length; i++) {
+      effects[i].textContent = (effects[i].getAttribute("data-gov-sign") || "+") + pct + "%";
+    }
   }
 
   // updateGovernatorDays scales a governator's per-day Dark Matter price by the

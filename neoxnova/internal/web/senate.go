@@ -49,6 +49,7 @@ type GovernatorItem struct {
 	NextLevel     int
 	APCostNext    int64
 	APCum         []int64 // cumulative AP cost to reach level i (index i)
+	BonusPctTable []int   // effect percent at level i (index i)
 	DMPricePerDay int64
 	Active        bool
 	ExpiresAt     time.Time
@@ -92,8 +93,12 @@ func (h *Handler) GovernatorsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		it.APCostNext = def.APCost(st.Level, it.NextLevel)
 		it.APCum = make([]int64, def.MaxLevel+1)
+		it.BonusPctTable = make([]int, def.MaxLevel+1)
 		for i := 1; i <= def.MaxLevel; i++ {
 			it.APCum[i] = def.APCost(0, i)
+		}
+		for i := 0; i <= def.MaxLevel; i++ {
+			it.BonusPctTable[i] = def.BonusPct(i)
 		}
 		if st.ExpiresAt.Valid && st.ExpiresAt.Time.After(now) {
 			it.Active = true
@@ -108,47 +113,66 @@ func (h *Handler) GovernatorImproveSubmit(w http.ResponseWriter, r *http.Request
 	userID, _ := h.userID(r)
 	code, _ := strconv.Atoi(r.FormValue("lvl_id"))
 	target, _ := strconv.Atoi(r.FormValue("lvl_count"))
-	cost, err := h.senate.ImproveGovernator(r.Context(), userID, code, target)
+	res, err := h.senate.ImproveGovernator(r.Context(), userID, code, target)
 	if err != nil {
 		h.redirect(w, r, "/senate/governators", "", err.Error())
 		return
 	}
 	def, _ := game.GovernatorByCode(code)
-	lvl := target
-	if lvl > def.MaxLevel {
-		lvl = def.MaxLevel
+	msg := fmt.Sprintf("%s improved to level %d for %s achievement points", def.Name, res.Level, fnum(res.Spent))
+	if res.Partial {
+		msg = fmt.Sprintf("%s improved to level %d of %d (best affordable) for %s achievement points",
+			def.Name, res.Level, res.Requested, fnum(res.Spent))
 	}
-	h.redirect(w, r, "/senate/governators",
-		fmt.Sprintf("%s improved to level %d for %s achievement points", def.Name, lvl, fnum(cost)), "")
+	h.redirect(w, r, "/senate/governators", msg, "")
 }
 
 func (h *Handler) GovernatorHireSubmit(w http.ResponseWriter, r *http.Request) {
 	userID, _ := h.userID(r)
 	code, _ := strconv.Atoi(r.FormValue("id"))
 	days, _ := strconv.Atoi(r.FormValue("days"))
-	total, err := h.senate.HireGovernator(r.Context(), userID, code, days)
+	res, err := h.senate.HireGovernator(r.Context(), userID, code, days)
 	if err != nil {
 		h.redirect(w, r, "/senate/governators", "", err.Error())
 		return
 	}
 	def, _ := game.GovernatorByCode(code)
-	h.redirect(w, r, "/senate/governators",
-		fmt.Sprintf("%s activated for %d day(s) for %s Dark Matter", def.Name, days, fnum(total)), "")
+	msg := fmt.Sprintf("%s activated for %d day(s) for %s Dark Matter", def.Name, res.Days, fnum(res.Spent))
+	if res.Partial {
+		msg = fmt.Sprintf("%s activated for %d of %d day(s) (best affordable) for %s Dark Matter",
+			def.Name, res.Days, res.Requested, fnum(res.Spent))
+	}
+	h.redirect(w, r, "/senate/governators", msg, "")
 }
 
 // govEffectText renders a governator effect as a signed percentage, e.g.
 // "+20%" or "-20%" for effects that reduce their target.
 func govEffectText(pct int, e game.GovernatorEffect) string {
+	return govEffectSign(e) + strconv.Itoa(pct) + "%"
+}
+
+// govEffectSign is "+" for bonuses and "-" for effects that reduce the target.
+func govEffectSign(e game.GovernatorEffect) string {
 	if e.Decrease {
-		return "-" + strconv.Itoa(pct) + "%"
+		return "-"
 	}
-	return "+" + strconv.Itoa(pct) + "%"
+	return "+"
 }
 
 // apCumJSON serialises a cumulative AP-cost table for the live improve preview.
 func apCumJSON(cum []int64) string {
 	b, err := json.Marshal(cum)
 	if err != nil || len(cum) == 0 {
+		return "[]"
+	}
+	return string(b)
+}
+
+// govBonusJSON serialises the per-level effect-percent table used by the live
+// improve preview to raise the shown bonus with the selected level.
+func govBonusJSON(table []int) string {
+	b, err := json.Marshal(table)
+	if err != nil || len(table) == 0 {
 		return "[]"
 	}
 	return string(b)

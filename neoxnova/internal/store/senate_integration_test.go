@@ -22,12 +22,12 @@ func TestGovernatorLifecycle(t *testing.T) {
 	}
 
 	// Improve Resource Upgrade 0 -> 10 costs 1,045 AP and locks the level in.
-	cost, err := ss.ImproveGovernator(ctx, p.userID, game.GovCodeResource, 10)
+	imp, err := ss.ImproveGovernator(ctx, p.userID, game.GovCodeResource, 10)
 	if err != nil {
 		t.Fatalf("improve: %v", err)
 	}
-	if cost != 1045 {
-		t.Fatalf("improve cost = %d, want 1045", cost)
+	if imp.Spent != 1045 || imp.Level != 10 || imp.Partial {
+		t.Fatalf("improve = %+v, want level 10 / 1045 AP / full", imp)
 	}
 	if ap, _ := ss.AchievementPoints(ctx, p.userID); ap != 955 {
 		t.Fatalf("achievement points = %d, want 955", ap)
@@ -53,12 +53,12 @@ func TestGovernatorLifecycle(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 100000 WHERE id = $1`, p.userID); err != nil {
 		t.Fatal(err)
 	}
-	total, err := ss.HireGovernator(ctx, p.userID, game.GovCodeResource, 1)
+	hired, err := ss.HireGovernator(ctx, p.userID, game.GovCodeResource, 1)
 	if err != nil {
 		t.Fatalf("hire: %v", err)
 	}
-	if total != 37293 {
-		t.Fatalf("hire total = %d, want 37293", total)
+	if hired.Spent != 37293 || hired.Days != 1 || hired.Partial {
+		t.Fatalf("hire = %+v, want 1 day / 37293 DM / full", hired)
 	}
 	var dm int64
 	if err := db.QueryRowContext(ctx, `SELECT dark_matter FROM users WHERE id=$1`, p.userID).Scan(&dm); err != nil {
@@ -145,6 +145,60 @@ func TestGovernatorProductionBonusApplied(t *testing.T) {
 	}
 	if got := read(); !almostEqual(got, base) {
 		t.Fatalf("production after expiry = %v, want %v", got, base)
+	}
+}
+
+// TestGovernatorPartialAffordability proves improve/hire clamp to the last
+// affordable amount and no-op when nothing is affordable.
+func TestGovernatorPartialAffordability(t *testing.T) {
+	db := openQueueTestDB(t)
+	ctx := context.Background()
+	p := newChainPlanet(t, db, ctx)
+	ss := NewSenateStore(db)
+
+	energy, _ := game.GovernatorByCode(game.GovCodeEnergy)
+	// 150 AP covers Energy levels 0->2 (50 + 51) but not 0->3 (153).
+	if _, err := db.ExecContext(ctx, `UPDATE users SET achievement_points = 150 WHERE id=$1`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+	imp, err := ss.ImproveGovernator(ctx, p.userID, game.GovCodeEnergy, 5)
+	if err != nil {
+		t.Fatalf("partial improve: %v", err)
+	}
+	wantLvl := energy.AffordableLevel(0, 5, 150)
+	if !imp.Partial || imp.Level != wantLvl || imp.Spent != energy.APCost(0, wantLvl) {
+		t.Fatalf("partial improve = %+v, want level %d partial", imp, wantLvl)
+	}
+	if ap, _ := ss.AchievementPoints(ctx, p.userID); ap != 150-imp.Spent {
+		t.Fatalf("achievement points = %d, want %d", ap, 150-imp.Spent)
+	}
+
+	// Zero Achievement Points: nothing changes.
+	if _, err := db.ExecContext(ctx, `UPDATE users SET achievement_points = 0 WHERE id=$1`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ss.ImproveGovernator(ctx, p.userID, game.GovCodeEnergy, 5); !errors.Is(err, ErrInsufficientAchievement) {
+		t.Fatalf("zero-AP improve = %v, want ErrInsufficientAchievement", err)
+	}
+
+	// 60,000 DM covers exactly two days of a level-0 Resource governator (30,000/day).
+	if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 60000 WHERE id=$1`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+	hired, err := ss.HireGovernator(ctx, p.userID, game.GovCodeResource, 5)
+	if err != nil {
+		t.Fatalf("partial hire: %v", err)
+	}
+	if !hired.Partial || hired.Days != 2 || hired.Spent != 60000 {
+		t.Fatalf("partial hire = %+v, want 2 days / 60000 DM partial", hired)
+	}
+
+	// Zero Dark Matter: nothing changes.
+	if _, err := db.ExecContext(ctx, `UPDATE users SET dark_matter = 0 WHERE id=$1`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ss.HireGovernator(ctx, p.userID, game.GovCodeShield, 1); !errors.Is(err, ErrInsufficientDarkMatter) {
+		t.Fatalf("zero-DM hire = %v, want ErrInsufficientDarkMatter", err)
 	}
 }
 

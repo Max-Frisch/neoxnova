@@ -37,7 +37,9 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
   `user_governators`); `store.SenateStore` (irreversible AP improve, timed DM hire, engine expiry
   sweep); `/senate` hub + `/senate/governators` with live improve/Days previews in `app.js`. Active
   Resource/Energy governators fold into `game.ProductionBonus` (new `Energy` term) and the cached
-  production columns. Tests: formulas (0→10 = 1,045 AP; DM/day), store lifecycle+production, render.
+  production columns. The improve input raises the shown bonus % live and both improve (AP) and hire
+  (DM) clamp to the last affordable amount (partial), no-op at zero. Tests: formulas + affordability,
+  store lifecycle/partial/production, render.
 - 2026-10-16 — **Shipyard/defenses: cumulative cost + partial builds + live panels**: unit cards embed
   per-unit cost/time and `app.js` scales by the typed quantity; `EnqueueShipyard` caps an oversized
   batch to `affordableQty` (`QueueResult.Quantity`, "Queued N of M × …"); shipyard/defenses htmx-poll

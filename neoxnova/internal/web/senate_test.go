@@ -36,6 +36,7 @@ func TestGovernatorsBody(t *testing.T) {
 		Level: 10, MaxLevel: def.MaxLevel, BonusPct: def.BonusPct(10),
 		Effects: def.Effects, NextLevel: 11, APCostNext: def.APCost(10, 11),
 		APCum:         []int64{0, 100, 201},
+		BonusPctTable: []int{10, 11, 12},
 		DMPricePerDay: def.DMPricePerDay(10),
 	}
 	d := GovernatorsData{Items: []GovernatorItem{it}, AchievementPoints: 3849}
@@ -55,6 +56,9 @@ func TestGovernatorsBody(t *testing.T) {
 		`id="ap_704"`,
 		`data-gov-level="10"`,
 		`data-gov-max="250"`,
+		`data-gov-bonus="`,
+		`data-gov-effect`,
+		`data-gov-sign="+"`,
 		"Achievement points:",
 	} {
 		if !strings.Contains(html, want) {

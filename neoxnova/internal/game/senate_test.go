@@ -56,6 +56,44 @@ func TestGovernatorDMPrice(t *testing.T) {
 	}
 }
 
+// TestGovernatorAffordableLevel proves a target is clamped to the highest level
+// the banked AP can pay for (and no change when the next level is unaffordable).
+func TestGovernatorAffordableLevel(t *testing.T) {
+	e, _ := GovernatorByCode(GovCodeEnergy)
+	// Energy APCost: 0->1 = 50, 0->2 = 101, 0->3 = 153.
+	if got := e.AffordableLevel(0, 5, 150); got != 2 {
+		t.Errorf("AffordableLevel(0,5,150) = %d, want 2", got)
+	}
+	if got := e.AffordableLevel(0, 5, 101); got != 2 {
+		t.Errorf("AffordableLevel(0,5,101) = %d, want 2", got)
+	}
+	if got := e.AffordableLevel(0, 5, 100); got != 1 {
+		t.Errorf("AffordableLevel(0,5,100) = %d, want 1", got)
+	}
+	if got := e.AffordableLevel(0, 5, 10); got != 0 {
+		t.Errorf("AffordableLevel(0,5,10) = %d, want 0 (no change)", got)
+	}
+	if got := e.AffordableLevel(0, 999, 1<<40); got != e.MaxLevel {
+		t.Errorf("AffordableLevel capped = %d, want %d", got, e.MaxLevel)
+	}
+}
+
+func TestGovernatorAffordableDays(t *testing.T) {
+	r, _ := GovernatorByCode(GovCodeResource) // 30,000 DM/day at level 0
+	if got := r.AffordableDays(0, 5, 60000); got != 2 {
+		t.Errorf("AffordableDays(0,5,60000) = %d, want 2", got)
+	}
+	if got := r.AffordableDays(0, 5, 29999); got != 0 {
+		t.Errorf("AffordableDays(0,5,29999) = %d, want 0", got)
+	}
+	if got := r.AffordableDays(0, 3, 1<<40); got != 3 {
+		t.Errorf("AffordableDays(0,3,huge) = %d, want 3", got)
+	}
+	if got := r.AffordableDays(0, 99, 1<<40); got != MaxGovernatorDays {
+		t.Errorf("AffordableDays(0,99,huge) = %d, want %d", got, MaxGovernatorDays)
+	}
+}
+
 func TestGovernatorProductionBonus(t *testing.T) {
 	b := GovernatorProductionBonus(map[int]int{GovCodeResource: 10, GovCodeEnergy: 5})
 	if b.Metal != 20 || b.Crystal != 20 || b.Deuterium != 20 {
