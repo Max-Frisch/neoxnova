@@ -43,8 +43,10 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
   duration, so only the flight legs shrank with `universes.fleet_speed`; a 15x expedition was not
   ~3x shorter than at 5x. New pure `game.CalculateHoldDuration(hold, fleetSpeed)` compresses the
   player-selected hold by the same factor (floored at 1s), applied to EXPEDITION and HOLD in
-  `FleetStore.Dispatch`, so a whole mission now scales as 1/fleet_speed. Tests:
-  `TestHoldDurationScalesWithFleetSpeed`/`FloorsAndZero`, updated hold/e2e integration assertions.
+  `FleetStore.Dispatch`, so a whole mission now scales as 1/fleet_speed. The expedition panel
+  (`expedition.templ`/`expedition.js`) shows the real hold next to the nominal slider value. Tests:
+  `TestHoldDurationScalesWithFleetSpeed`/`FloorsAndZero`, `TestExpeditionHoldLabel`, updated
+  hold/e2e integration assertions.
 - 2026-10-17 — **Online Bonus DM not shown**: the payout *was* credited (`ClaimBonusButton`
   updates `users.dark_matter`), but the resbar always read 0 because `GetResourceState`/`GetOverview`
   never selected `dark_matter`/`antimatter` (only `stardust`). Both queries now `LEFT JOIN users`
