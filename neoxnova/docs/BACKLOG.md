@@ -30,6 +30,18 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-16 — **Hangar/defenses live panels + solar-satellite energy**: shipyard/defenses now
+  htmx-poll like buildings/research (`GET /{shipyard,defenses}/{id}/status`, `ShipyardData.Sig` → `204`
+  when unchanged) so a finished batch clears its queue row and bumps the dock count in place.
+  `resolveShipyard` recomputes the celestial (accrue → station → `RecomputeCelestial`) when the
+  completed unit is a solar satellite (`212`), so cached `energy_max` and the resource bar update
+  immediately instead of waiting for the next building completion. Tests: engine satellite-energy +
+  e2e shipyard/defenses status polls.
+- 2026-10-16 — **Live client countdowns + simpler backdrop**: `[data-countdown]` ticker in `app.js`
+  (reuses the `#server-clock` skew, re-queried each second so htmx swaps are picked up; `hms`/`dur`
+  formats) drives build/research/shipyard queue rows, fleet/expedition/incoming ETAs and the
+  jumpgate recharge — all client-side, zero extra requests. Body background switched from the tiled
+  yellow-grid `bg_a.png` to a pure-CSS space gradient.
 - 2026-10-16 — **Playability: research-gated prereqs + live build panels**: buildings page merges
   research levels into prereq checks (Nanite Factory was stuck at "Computer Technology 0/10"); the
   buildings/research panels are htmx-polled (`GET /{buildings,research}/{id}/status`, 5 s, `panelSig`

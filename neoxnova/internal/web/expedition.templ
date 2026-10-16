@@ -80,7 +80,7 @@ templ ExpeditionStatusPanel(sh Shell, d ExpeditionData) {
 						<tr class="border-t border-slate-800">
 							<td class="py-1">{ string(f.Phase) }</td>
 							<td>{ coordStr(f.Destination) }</td>
-							<td>{ dur(f.RemainingSecs) }</td>
+							<td><span data-countdown={ strconv.FormatInt(f.ArrivalTime.Unix(), 10) } data-cd-format="dur">{ dur(f.RemainingSecs) }</span></td>
 							<td>
 								<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/recall") }>
 									<input type="hidden" name="fleet_id" value={ strconv.FormatInt(f.FleetID, 10) }/>

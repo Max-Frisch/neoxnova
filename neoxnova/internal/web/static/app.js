@@ -13,6 +13,10 @@
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   ];
 
+  // serverOffsetMs is the captured server-vs-client clock skew (ms). Countdowns
+  // and the clock both derive from it so local timezone/latency never drift.
+  var serverOffsetMs = null;
+
   function pad(n) {
     return n < 10 ? "0" + n : "" + n;
   }
@@ -47,6 +51,17 @@
     }
   }
 
+  // serverNowMs returns the current server wall-clock time in ms, using the skew
+  // captured from #server-clock on first use (0 when the element is absent).
+  function serverNowMs() {
+    if (serverOffsetMs === null) {
+      var el = document.getElementById("server-clock");
+      var base = el ? parseInt(el.getAttribute("data-t"), 10) : NaN;
+      serverOffsetMs = isNaN(base) ? 0 : base * 1000 - Date.now();
+    }
+    return Date.now() + serverOffsetMs;
+  }
+
   // startClock keeps the server clock ticking, offset by the server/client skew
   // captured at load so it never drifts with the browser timezone.
   function startClock() {
@@ -58,12 +73,33 @@
     if (isNaN(base)) {
       return;
     }
-    var offsetMs = base * 1000 - Date.now();
+    serverOffsetMs = base * 1000 - Date.now();
     var render = function () {
-      el.textContent = formatServerTime(new Date(Date.now() + offsetMs));
+      el.textContent = formatServerTime(new Date(serverNowMs()));
     };
     render();
     window.setInterval(render, 1000);
+  }
+
+  // tickCountdowns updates every [data-countdown] element (absolute server epoch
+  // in unix seconds) so build/research/fleet ETAs count down live with no extra
+  // requests. Default format is HH:MM:SS; data-cd-format="dur" picks the compact
+  // "2h 5m" style used by fleet ETAs. Re-queried every tick so htmx swaps are
+  // picked up automatically.
+  function tickCountdowns() {
+    var els = document.querySelectorAll("[data-countdown]");
+    if (els.length === 0) {
+      return;
+    }
+    var now = serverNowMs();
+    for (var i = 0; i < els.length; i++) {
+      var end = parseInt(els[i].getAttribute("data-countdown"), 10);
+      if (isNaN(end)) {
+        continue;
+      }
+      var secs = Math.max(0, Math.round(end - now / 1000));
+      els[i].textContent = els[i].getAttribute("data-cd-format") === "dur" ? dur(secs) : hms(secs);
+    }
   }
 
   // wirePlanetSelect navigates on planet dropdown changes.
@@ -112,6 +148,22 @@
     var m = Math.floor((secs % 3600) / 60);
     var s = secs % 60;
     return pad(h) + ":" + pad(m) + ":" + pad(s);
+  }
+
+  // dur renders seconds as "2h 5m" / "5m 30s" / "45s" (matches the server fleet
+  // ETA formatter in data.go).
+  function dur(secs) {
+    secs = Math.max(0, Math.floor(secs || 0));
+    var h = Math.floor(secs / 3600);
+    var m = Math.floor((secs % 3600) / 60);
+    var s = secs % 60;
+    if (h > 0) {
+      return h + "h " + m + "m";
+    }
+    if (m > 0) {
+      return m + "m " + s + "s";
+    }
+    return s + "s";
   }
 
   // renderCostTotal builds the same cost-row markup the server renders.
@@ -193,6 +245,8 @@
     wirePlanetSelect();
     wireMaxButtons();
     wireLevelPreview();
+    tickCountdowns();
+    window.setInterval(tickCountdowns, 1000);
   }
 
   document.addEventListener("DOMContentLoaded", init);

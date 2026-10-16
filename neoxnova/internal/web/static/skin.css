@@ -43,8 +43,15 @@ body.auth-body {
   font-size: 13px;
   line-height: 1.4;
   background-color: var(--bg);
-  background-image: url("/static/niburu/bg/bg_a.png");
-  background-repeat: repeat;
+  /* Simple CSS-only deep-space backdrop: no images, no extra requests. */
+  background-image: radial-gradient(
+    ellipse 90% 70% at 50% -15%,
+    #142f54 0%,
+    #0a1a30 42%,
+    #050a15 72%,
+    #03060d 100%
+  );
+  background-repeat: no-repeat;
   background-attachment: fixed;
 }
 

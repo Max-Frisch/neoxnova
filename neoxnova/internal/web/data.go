@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a-h/templ"
+
 	"neoxnova/internal/game"
 	"neoxnova/internal/models"
 	"neoxnova/internal/store"
@@ -537,6 +539,7 @@ type UnitSection struct {
 type ShipyardData struct {
 	Sections []UnitSection
 	Queue    []models.QueueEntrySummary
+	Sig      string
 }
 
 // unitClassDef is one fixed shipyard band captured from the live client.
@@ -587,6 +590,39 @@ func (h *Handler) DefensesPage(w http.ResponseWriter, r *http.Request) {
 	sh.Title = "Defenses"
 	data := h.unitPageData(r, sh, id, r.PathValue("id"), defenseClasses)
 	h.render(w, r, http.StatusOK, Page(sh, DefensesBody(sh, data)))
+}
+
+// ShipyardStatus is the htmx fragment keeping the hangar panel live. It returns
+// 204 while the panel signature is unchanged, so a completed ship batch clears
+// its queue row and bumps the docked count in place without a full reload.
+func (h *Handler) ShipyardStatus(w http.ResponseWriter, r *http.Request) {
+	h.unitStatus(w, r, shipClasses, ShipyardBody)
+}
+
+// DefensesStatus is the htmx fragment keeping the defenses panel live.
+func (h *Handler) DefensesStatus(w http.ResponseWriter, r *http.Request) {
+	h.unitStatus(w, r, defenseClasses, DefensesBody)
+}
+
+// unitStatus renders the shipyard/defenses status fragment, short-circuiting to
+// 204 No Content when the caller's signature still matches the panel state.
+func (h *Handler) unitStatus(w http.ResponseWriter, r *http.Request, classes []unitClassDef, body func(Shell, ShipyardData) templ.Component) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	sh := Shell{ActivePlanetID: id}
+	if rs, err := h.planets.GetResourceState(r.Context(), r.PathValue("id")); err == nil {
+		sh.Resources = &rs
+	}
+	d := h.unitPageData(r, sh, id, r.PathValue("id"), classes)
+	if sig := r.FormValue("sig"); sig != "" && sig == d.Sig {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	h.render(w, r, http.StatusOK, body(sh, d))
 }
 
 // unitPageData assembles the grouped ship/defense cards for a celestial. The
@@ -642,7 +678,19 @@ func (h *Handler) unitPageData(r *http.Request, sh Shell, id int64, idStr string
 		}
 		addSection(class.Title, codes)
 	}
-	return ShipyardData{Sections: sections, Queue: queue}
+	// Signature over the visible state so the status poll can skip swapping
+	// (204) while nothing changed, but refreshes the cards/queue in place when a
+	// batch completes (counts, recently-built band and the queue all change).
+	var sig strings.Builder
+	for _, q := range queue {
+		fmt.Fprintf(&sig, "|q%s:%d:%d:%d", q.Code, q.Quantity, q.TargetLevel, q.EndTime.Unix())
+	}
+	for _, sec := range sections {
+		for _, it := range sec.Items {
+			fmt.Fprintf(&sig, "|%s:%d:%t", it.Code, it.Count, it.Unlocked)
+		}
+	}
+	return ShipyardData{Sections: sections, Queue: queue, Sig: panelSig(sig.String())}
 }
 
 func buildUnitItem(def game.UnitDef, count int64, levels map[string]int, res *models.RealtimeResourceState, shipyard, nanite int, speed float64) UnitItem {

@@ -574,6 +574,19 @@ func (e *EventEngine) resolveShipyard(ctx context.Context, queueID int64) {
 		codeColumn = "defense_code"
 	}
 
+	// Solar satellites feed the planet's energy budget, which is cached on
+	// celestial_objects. Bank accrued resources under the old rate before the
+	// satellite lands, then rewrite the energy/production columns after so the
+	// resource bar and ticker reflect the new output immediately (without this,
+	// energy only refreshed when some later building/consumer completed).
+	satellite := unitCode == "212"
+	if satellite {
+		if err := e.accrueResources(ctx, tx, celestialID); err != nil {
+			log.Printf("[ERROR] Failed to accrue before shipyard #%d: %v", queueID, err)
+			return
+		}
+	}
+
 	// Table/column names are selected from fixed literals above, never user input.
 	insert := "INSERT INTO " + table + " (celestial_id, " + codeColumn + ", quantity) VALUES ($1, $2, $3) " +
 		"ON CONFLICT (celestial_id, " + codeColumn + ") DO UPDATE SET quantity = " + table + ".quantity + EXCLUDED.quantity"
@@ -584,6 +597,12 @@ func (e *EventEngine) resolveShipyard(ctx context.Context, queueID int64) {
 	if _, err := tx.ExecContext(ctx, `UPDATE shipyard_queues SET status = 'COMPLETED', quantity_completed = quantity_total WHERE id = $1`, queueID); err != nil {
 		log.Printf("[ERROR] Failed to complete shipyard queue #%d: %v", queueID, err)
 		return
+	}
+	if satellite {
+		if err := e.builds.RecomputeCelestial(ctx, tx, celestialID); err != nil {
+			log.Printf("[ERROR] Failed to recompute celestial %d after satellites: %v", celestialID, err)
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

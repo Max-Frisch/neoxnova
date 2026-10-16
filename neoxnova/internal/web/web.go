@@ -95,10 +95,12 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST /buildings/{id}/cancel", h.page(h.requireUser(h.BuildCancelSubmit)))
 
 	mux.HandleFunc("GET /shipyard/{id}", h.page(h.requireUser(h.ShipyardPage)))
+	mux.HandleFunc("GET /shipyard/{id}/status", h.page(h.requireUser(h.ShipyardStatus)))
 	mux.HandleFunc("POST /shipyard/{id}/build", h.page(h.requireUser(h.ShipyardSubmit)))
 	mux.HandleFunc("POST /shipyard/{id}/cancel", h.page(h.requireUser(h.ShipyardCancelSubmit)))
 
 	mux.HandleFunc("GET /defenses/{id}", h.page(h.requireUser(h.DefensesPage)))
+	mux.HandleFunc("GET /defenses/{id}/status", h.page(h.requireUser(h.DefensesStatus)))
 	mux.HandleFunc("POST /defenses/{id}/build", h.page(h.requireUser(h.DefensesSubmit)))
 	mux.HandleFunc("POST /defenses/{id}/cancel", h.page(h.requireUser(h.DefensesCancelSubmit)))
 

@@ -264,6 +264,38 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, frag, `id="research-panel"`, "research status fragment")
 	})
 
+	t.Run("shipyard panel status poll is live", func(t *testing.T) {
+		page := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/shipyard/%d", a.HomeID))
+		sig := e2eAttrValue(t, page, `name="sig" value="`)
+		status, _ := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/shipyard/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusNoContent {
+			t.Fatalf("unchanged status = %d, want 204", status)
+		}
+		status, frag := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/shipyard/%d/status?sig=%s", a.HomeID, "stale"))
+		if status != http.StatusOK {
+			t.Fatalf("changed status = %d, want 200", status)
+		}
+		e2eWantContains(t, frag, `id="shipyard-panel"`, "shipyard status fragment")
+	})
+
+	t.Run("defenses panel status poll is live", func(t *testing.T) {
+		page := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/defenses/%d", a.HomeID))
+		sig := e2eAttrValue(t, page, `name="sig" value="`)
+		status, _ := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/defenses/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusNoContent {
+			t.Fatalf("unchanged status = %d, want 204", status)
+		}
+		status, frag := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/defenses/%d/status?sig=%s", a.HomeID, "stale"))
+		if status != http.StatusOK {
+			t.Fatalf("changed status = %d, want 200", status)
+		}
+		e2eWantContains(t, frag, `id="defenses-panel"`, "defenses status fragment")
+	})
+
 	t.Run("espionage produces a report", func(t *testing.T) {
 		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/fleet/%d/dispatch", a.HomeID), url.Values{
 			"mission": {"ESPIONAGE"}, "galaxy": {strconv.Itoa(b.G)},

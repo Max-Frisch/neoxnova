@@ -24,6 +24,7 @@ type JumpShipOption struct {
 type JumpgateData struct {
 	Level        int
 	CooldownSecs int64
+	ReadyAtUnix  int64
 	Destinations []store.JumpDestination
 	Ships        []JumpShipOption
 	Badge        string
@@ -49,6 +50,9 @@ func (h *Handler) JumpgatePage(w http.ResponseWriter, r *http.Request) {
 	sh.Title = "Jumpgate"
 
 	data := JumpgateData{Level: st.Level, CooldownSecs: st.CooldownSecs, Destinations: st.Destinations}
+	if st.CooldownSecs > 0 && !st.ReadyAt.IsZero() {
+		data.ReadyAtUnix = st.ReadyAt.Unix()
+	}
 	if st.Level < 1 {
 		data.Badge = "No Jumpgate on this moon"
 	} else if len(st.Destinations) == 0 {

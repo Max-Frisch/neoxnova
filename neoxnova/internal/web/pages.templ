@@ -135,7 +135,7 @@ templ OverviewBody(sh Shell, d OverviewData) {
 									<td>{ string(f.Mission) }</td>
 									<td>{ string(f.Phase) }</td>
 									<td>{ coordStr(f.Origin) } → { coordStr(f.Destination) }</td>
-									<td>{ dur(f.RemainingSecs) }</td>
+									<td><span data-countdown={ strconv.FormatInt(f.ArrivalTime.Unix(), 10) } data-cd-format="dur">{ dur(f.RemainingSecs) }</span></td>
 									<td>{ strconv.Itoa(len(f.ShipManifest)) }</td>
 								</tr>
 							}
@@ -163,7 +163,7 @@ templ OverviewBody(sh Shell, d OverviewData) {
 						<tr>
 							<td>{ f.MissionText }</td>
 							<td>{ coordStr(f.Origin) }</td>
-							<td>{ dur(f.RemainingSecs) }</td>
+							<td><span data-countdown={ strconv.FormatInt(f.ArrivalTime.Unix(), 10) } data-cd-format="dur">{ dur(f.RemainingSecs) }</span></td>
 						</tr>
 					}
 				</tbody>
@@ -261,7 +261,7 @@ templ queueRow(n int, label string, q models.QueueEntrySummary, cancelURL string
 		<span class="queue-label">{ label }</span>
 		<span class="queue-cost">{ costStr(q.Cost) }</span>
 		<span class="queue-end">Ending: { endTimeStr(q.EndTime) }</span>
-		<span class="queue-remain">{ hms(q.RemainingSecs) }</span>
+		<span class="queue-remain" data-countdown={ strconv.FormatInt(q.EndTime.Unix(), 10) }>{ hms(q.RemainingSecs) }</span>
 		<form method="post" action={ templ.URL(cancelURL) }>
 			<input type="hidden" name="queue_id" value={ strconv.FormatInt(q.ID, 10) }/>
 			<button type="submit" class="queue-cancel" title="Cancel">✕</button>
@@ -349,11 +349,17 @@ func activityLabel(q *models.QueueEntrySummary) string {
 // ---- Shipyard / Defenses bodies -----------------------------------------
 
 templ ShipyardBody(sh Shell, d ShipyardData) {
-	@unitSections(sh, d, "/shipyard/"+pid(sh)+"/build", "/shipyard/"+pid(sh)+"/cancel")
+	<div id="shipyard-panel" hx-get={ "/shipyard/" + pid(sh) + "/status" } hx-trigger="every 5s" hx-swap="outerHTML" hx-include="#shipyard-sig">
+		<input type="hidden" id="shipyard-sig" name="sig" value={ d.Sig }/>
+		@unitSections(sh, d, "/shipyard/"+pid(sh)+"/build", "/shipyard/"+pid(sh)+"/cancel")
+	</div>
 }
 
 templ DefensesBody(sh Shell, d ShipyardData) {
-	@unitSections(sh, d, "/defenses/"+pid(sh)+"/build", "/defenses/"+pid(sh)+"/cancel")
+	<div id="defenses-panel" hx-get={ "/defenses/" + pid(sh) + "/status" } hx-trigger="every 5s" hx-swap="outerHTML" hx-include="#defenses-sig">
+		<input type="hidden" id="defenses-sig" name="sig" value={ d.Sig }/>
+		@unitSections(sh, d, "/defenses/"+pid(sh)+"/build", "/defenses/"+pid(sh)+"/cancel")
+	</div>
 }
 
 templ unitSections(sh Shell, d ShipyardData, buildPath, cancelPath string) {
@@ -552,7 +558,7 @@ templ FleetBody(sh Shell, d FleetData) {
 								<tr>
 									<td>{ string(f.Mission) }</td>
 									<td>{ string(f.Phase) }</td>
-									<td>{ dur(f.RemainingSecs) }</td>
+									<td><span data-countdown={ strconv.FormatInt(f.ArrivalTime.Unix(), 10) } data-cd-format="dur">{ dur(f.RemainingSecs) }</span></td>
 									<td>
 										<form method="post" action={ templ.URL("/fleet/" + pid(sh) + "/recall") }>
 											<input type="hidden" name="fleet_id" value={ strconv.FormatInt(f.FleetID, 10) }/>
@@ -577,7 +583,7 @@ templ FleetBody(sh Shell, d FleetData) {
 								<tr>
 									<td>{ f.MissionText }</td>
 									<td>{ coordStr(f.Origin) }</td>
-									<td>{ dur(f.RemainingSecs) }</td>
+									<td><span data-countdown={ strconv.FormatInt(f.ArrivalTime.Unix(), 10) } data-cd-format="dur">{ dur(f.RemainingSecs) }</span></td>
 								</tr>
 							}
 						</tbody>

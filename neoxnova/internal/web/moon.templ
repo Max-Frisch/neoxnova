@@ -12,7 +12,7 @@ templ JumpgateBody(sh Shell, d JumpgateData) {
 		<span class="text-sm text-slate-400">
 			Level <span class="font-semibold text-cyan-300">{ strconv.Itoa(d.Level) }</span>
 			if d.CooldownSecs > 0 {
-				· recharge <span class="text-amber-300">{ hms(d.CooldownSecs) }</span>
+				· recharge <span class="text-amber-300" data-countdown={ strconv.FormatInt(d.ReadyAtUnix, 10) }>{ hms(d.CooldownSecs) }</span>
 			}
 		</span>
 	</div>
