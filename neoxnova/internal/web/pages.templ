@@ -469,19 +469,28 @@ templ researchCard(sh Shell, it ResearchItem) {
 					if it.DurationSecs > 0 {
 						<span class="gcard-duration">Duration: <span data-duration-total>{ hms(it.DurationSecs) }</span></span>
 					}
+					if it.EnergyReq > 0 {
+						if it.EnergyMet {
+							<span class="energy gain">Energy { fnum(it.EnergyReq) } required · { fnumF(it.EnergyHave) } produced</span>
+						} else {
+							<span class="energy need">Energy { fnum(it.EnergyReq) } required · { fnumF(it.EnergyHave) } produced</span>
+						}
+					}
 				</div>
 			} else {
 				@prereqBlock("For research is needed:", it.Prereqs)
 			}
 		</div>
 		<div class="gcard-foot">
-			if it.Unlocked {
+			if it.Unlocked && (it.EnergyReq == 0 || it.EnergyMet) {
 				<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) }>
 					<input type="hidden" name="code" value={ it.Code }/>
 					<button type="submit" class="build-next">Research to the next level</button>
 					<input class="build-level" name="target_level" type="number" inputmode="numeric" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-level-input/>
 					<button type="submit" class="build-up" title="Research">▲</button>
 				</form>
+			} else if it.Unlocked {
+				<span class="energy need">Not enough energy production</span>
 			}
 		</div>
 	</div>

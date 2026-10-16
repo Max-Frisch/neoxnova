@@ -804,6 +804,7 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, panel, "Active expeditions", "live slots panel")
 		e2eWantContains(t, panel, "exp_time", "hold-time slider")
 		e2eWantContains(t, panel, "exp_speed", "speed slider")
+		e2eWantContains(t, panel, "· real ", "real (fleet-speed compressed) hold label")
 		e2eWantContains(t, panel, e2eCoord(a.G, a.S, 21), "auto deep-space target")
 
 		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/expedition/%d/send", a.HomeID), url.Values{
@@ -812,20 +813,29 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, "Sent 1 expedition", "expedition dispatch flash")
 		e2eWantContains(t, body, "Slots", "slot counter after send")
 
-		// exp_time 4 -> 60 min hold; the fleet targets [g:s:21].
-		var holdMin float64
+		// exp_time 4 -> 60 min hold, then compressed by the universe fleet-speed
+		// multiplier; the fleet targets [g:s:21]. The sandbox runs at 500000x, so
+		// the hold floors at 1s.
+		var fleetSpeed float64
+		if err := db.QueryRowContext(ctx, `
+			SELECT fleet_speed FROM universes WHERE code_name = $1
+		`, e2eUniverse).Scan(&fleetSpeed); err != nil {
+			t.Fatalf("read fleet speed: %v", err)
+		}
+		wantHold := game.CalculateHoldDuration(60*time.Minute, fleetSpeed)
+		var holdSec float64
 		var targetPos int
 		err := db.QueryRowContext(ctx, `
-			SELECT EXTRACT(EPOCH FROM (holding_end_time - arrival_time)) / 60, target_position
+			SELECT EXTRACT(EPOCH FROM (holding_end_time - arrival_time)), target_position
 			FROM fleets
 			WHERE user_id = $1 AND mission = 'EXPEDITION'
 			ORDER BY id DESC LIMIT 1
-		`, a.UserID).Scan(&holdMin, &targetPos)
+		`, a.UserID).Scan(&holdSec, &targetPos)
 		if err != nil {
 			t.Fatalf("load dispatched expedition: %v", err)
 		}
-		if holdMin < 59 || holdMin > 61 {
-			t.Fatalf("expedition hold = %.1f min, want 60", holdMin)
+		if got := time.Duration(holdSec * float64(time.Second)); got != wantHold {
+			t.Fatalf("expedition hold = %s, want %s (fleet_speed %g)", got, wantHold, fleetSpeed)
 		}
 		if targetPos != 21 {
 			t.Fatalf("expedition target position = %d, want 21", targetPos)

@@ -29,6 +29,13 @@ templ dmMarketCard(item DMMarketItem, action string) {
 		<span class="bm-tile-name">{ item.Name }</span>
 		<span class="resource-sub">Level { strconv.Itoa(item.Level) } → { strconv.Itoa(item.NextLevel) }</span>
 		<span class="resource-sub">Metal { fnum(item.Cost.Metal) } · Crystal { fnum(item.Cost.Crystal) } · Deuterium { fnum(item.Cost.Deuterium) }</span>
+		if item.EnergyReq > 0 {
+			if item.EnergyMet {
+				<span class="energy gain">Energy { fnum(item.EnergyReq) } required · { fnumF(item.EnergyHave) } produced</span>
+			} else {
+				<span class="energy need">Energy { fnum(item.EnergyReq) } required · { fnumF(item.EnergyHave) } produced</span>
+			}
+		}
 		if item.Unlocked {
 			<form method="post" action={ templ.URL(action) }>
 				<input type="hidden" name="code" value={ item.Code }/>

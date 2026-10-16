@@ -19,6 +19,10 @@ type DMMarketItem struct {
 	DarkMatter int64
 	Unlocked   bool
 	Reason     string
+	// EnergyReq is nonzero for energy-gated techs (Graviton Research).
+	EnergyReq  int64
+	EnergyHave float64
+	EnergyMet  bool
 }
 
 // DMMarketData backs either DM market sub-page. Action is the POST target and
@@ -32,9 +36,9 @@ type DMMarketData struct {
 	DarkMatter int64
 }
 
-func dmMarketItem(code, name string, level int, cost game.Cost, requires, levels map[string]int, divisor int64) DMMarketItem {
+func dmMarketItem(code, name string, level int, cost game.Cost, requires, levels map[string]int, divisor int64, energyMax float64) DMMarketItem {
 	unlocked, reason := reqOK(requires, levels)
-	return DMMarketItem{
+	item := DMMarketItem{
 		Code:       code,
 		Name:       name,
 		Image:      assetURL(code),
@@ -44,7 +48,18 @@ func dmMarketItem(code, name string, level int, cost game.Cost, requires, levels
 		DarkMatter: game.DMMarketPrice(cost, divisor),
 		Unlocked:   unlocked,
 		Reason:     reason,
+		EnergyMet:  true,
 	}
+	if req, gated := game.TechEnergyRequirement(code, level+1); gated {
+		item.EnergyReq = req
+		item.EnergyHave = energyMax
+		item.EnergyMet = energyMax >= float64(req)
+		if !item.EnergyMet {
+			item.Unlocked = false
+			item.Reason = "Energy " + fnum(req) + " required"
+		}
+	}
+	return item
 }
 
 // dmMarketData lists every building (kind == "structures") or technology (any
@@ -53,6 +68,7 @@ func (h *Handler) dmMarketData(r *http.Request, userID int64, kind string) DMMar
 	divisor := h.dmDivisor(r)
 	data := DMMarketData{Divisor: divisor}
 	home := h.homeworldID(r, userID)
+	energyMax, _ := h.builds.CelestialEnergyMax(r.Context(), home)
 	structLevels, _ := h.builds.StructureLevels(r.Context(), home)
 	techLevels, _ := h.builds.TechLevels(r.Context(), userID)
 	combined := mergeLevels(structLevels, techLevels)
@@ -66,7 +82,7 @@ func (h *Handler) dmMarketData(r *http.Request, userID int64, kind string) DMMar
 		for _, def := range sortedStructures() {
 			lvl := structLevels[def.Code]
 			cost, _ := game.StructureCost(def.Code, lvl+1)
-			data.Items = append(data.Items, dmMarketItem(def.Code, def.Name, lvl, cost, def.Requires, combined, divisor))
+			data.Items = append(data.Items, dmMarketItem(def.Code, def.Name, lvl, cost, def.Requires, combined, divisor, energyMax))
 		}
 		return data
 	}
@@ -76,7 +92,7 @@ func (h *Handler) dmMarketData(r *http.Request, userID int64, kind string) DMMar
 	for _, def := range sortedTechs() {
 		lvl := techLevels[def.Code]
 		cost, _ := game.TechCost(def.Code, lvl+1)
-		data.Items = append(data.Items, dmMarketItem(def.Code, def.Name, lvl, cost, def.Requires, combined, divisor))
+		data.Items = append(data.Items, dmMarketItem(def.Code, def.Name, lvl, cost, def.Requires, combined, divisor, energyMax))
 	}
 	return data
 }

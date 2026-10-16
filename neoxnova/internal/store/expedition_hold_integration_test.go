@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"os"
 	"testing"
+	"time"
 
 	_ "github.com/lib/pq"
 
+	"neoxnova/internal/game"
 	"neoxnova/internal/models"
 )
 
@@ -34,12 +36,13 @@ func TestDispatchExpeditionHoldMinutes(t *testing.T) {
 
 	var universeID string
 	var planetsPerSystem int
+	var fleetSpeed float64
 	if err := db.QueryRowContext(ctx, `
-		SELECT u.id::text, u.planets_per_system
+		SELECT u.id::text, u.planets_per_system, u.fleet_speed
 		FROM universes u
 		JOIN celestial_objects c ON c.universe_id = u.id
 		WHERE c.id = 1
-	`).Scan(&universeID, &planetsPerSystem); err != nil {
+	`).Scan(&universeID, &planetsPerSystem, &fleetSpeed); err != nil {
 		t.Skipf("seed missing celestial 1: %v", err)
 	}
 
@@ -98,14 +101,17 @@ func TestDispatchExpeditionHoldMinutes(t *testing.T) {
 		t.Fatalf("dispatch expedition: %v", err)
 	}
 
-	var holdMin float64
+	var holdSec float64
 	if err := db.QueryRowContext(ctx, `
-		SELECT EXTRACT(EPOCH FROM (holding_end_time - arrival_time)) / 60
+		SELECT EXTRACT(EPOCH FROM (holding_end_time - arrival_time))
 		FROM fleets WHERE id = $1
-	`, res.FleetID).Scan(&holdMin); err != nil {
+	`, res.FleetID).Scan(&holdSec); err != nil {
 		t.Fatalf("read holding window: %v", err)
 	}
-	if holdMin != 15 {
-		t.Fatalf("hold = %.1f min, want 15 (minutes take precedence over hours)", holdMin)
+	// The 15-minute hold is compressed by the universe fleet-speed multiplier
+	// (minutes take precedence over hours; both scale with fleet_speed).
+	want := game.CalculateHoldDuration(15*time.Minute, fleetSpeed)
+	if got := time.Duration(holdSec * float64(time.Second)); got != want {
+		t.Fatalf("hold = %s, want %s (fleet_speed %g)", got, want, fleetSpeed)
 	}
 }

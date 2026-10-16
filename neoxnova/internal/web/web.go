@@ -48,6 +48,7 @@ type Handler struct {
 	moons      *store.MoonStore
 	trades     *store.TradeStore
 	senate     *store.SenateStore
+	peaceful   *store.PeacefulStore
 	notify     func()
 }
 
@@ -68,6 +69,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		moons:      store.NewMoonStore(db),
 		trades:     store.NewTradeStore(db),
 		senate:     store.NewSenateStore(db),
+		peaceful:   store.NewPeacefulStore(db),
 		notify:     notify,
 	}
 }
@@ -90,6 +92,9 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /overview/{id}", h.page(h.requireUser(h.OverviewPage)))
 	mux.HandleFunc("GET /overview/{id}/resources", h.page(h.requireUser(h.ResourcesPartial)))
 	mux.HandleFunc("GET /resources/{id}", h.page(h.requireUser(h.ResourcesPage)))
+
+	mux.HandleFunc("GET /bonus", h.page(h.requireUser(h.BonusPage)))
+	mux.HandleFunc("POST /bonus", h.page(h.requireUser(h.BonusSubmit)))
 
 	mux.HandleFunc("GET /buildings/{id}", h.page(h.requireUser(h.BuildingsPage)))
 	mux.HandleFunc("GET /buildings/{id}/status", h.page(h.requireUser(h.BuildingsStatus)))
@@ -188,6 +193,8 @@ func (h *Handler) page(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Content-Security-Policy", pageCSP)
 		ctx := r.Context()
 		if id, ok := h.resolveUserID(r); ok {
+			// Bank online time for the peaceful level (throttled inside).
+			_ = h.peaceful.AccrueOnlineTime(ctx, id)
 			p := &userPrincipal{userID: id}
 			if owned, err := h.planets.ListOwnedCelestials(ctx, id); err == nil {
 				p.owned, p.ownedOK = owned, true

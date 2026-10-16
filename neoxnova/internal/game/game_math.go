@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"time"
 )
 
 // CalculateCoordinateDistance returns the fleet travel distance between two
@@ -102,6 +103,25 @@ func CalculateFlightDuration(distance float64, baseMaxSpeed int, speedPercent in
 	}
 	raw := flightTimeCoefficient / velocityModifier * math.Sqrt(distance*10.0/float64(baseMaxSpeed))
 	return int64(math.Max(1, math.Round(raw/fleetSpeed)))
+}
+
+// CalculateHoldDuration compresses a player-selected hold window (the expedition
+// "exp_time" / generic "Hold (h)") by the universe fleet-speed multiplier, the
+// same factor CalculateFlightDuration applies to the flight legs. That way the
+// whole mission scales as 1/fleet_speed: an expedition at 15x totals ~1/3 of the
+// same expedition at 5x. A non-zero hold never collapses below one second.
+func CalculateHoldDuration(hold time.Duration, fleetSpeed float64) time.Duration {
+	if hold <= 0 {
+		return 0
+	}
+	if fleetSpeed <= 0 {
+		fleetSpeed = 1.0
+	}
+	scaled := time.Duration(math.Round(float64(hold) / fleetSpeed))
+	if scaled < time.Second {
+		scaled = time.Second
+	}
+	return scaled
 }
 
 // fuelDivisor converts (base fuel x distance x speed) into deuterium, fitted to

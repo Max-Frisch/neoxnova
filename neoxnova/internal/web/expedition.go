@@ -60,29 +60,31 @@ type ExpeditionData struct {
 	OriginG    int
 	OriginS    int
 	DeepSpace  int
+	FleetSpeed float64
 }
 
 // expeditionSlotBudget resolves the Astrophysics-gated expedition slot budget,
-// the deep-space slot and the origin coordinates for one celestial.
-func (h *Handler) expeditionSlotBudget(r *http.Request, celestialID int64) (slotsTotal, deepSpace, originG, originS int) {
+// the deep-space slot, the origin coordinates and the universe fleet-speed
+// multiplier (which compresses the hold window) for one celestial.
+func (h *Handler) expeditionSlotBudget(r *http.Request, celestialID int64) (slotsTotal, deepSpace, originG, originS int, fleetSpeed float64) {
 	var astro, bonus, cap, planetsPerSystem int
 	err := h.db.QueryRowContext(r.Context(), `
 		SELECT COALESCE((SELECT MAX(level) FROM user_technologies
 		                  WHERE user_id = c.user_id AND tech_code = 'astrophysics'), 0),
 		       u.expedition_slots_bonus, u.expedition_slots_cap, u.planets_per_system,
-		       c.galaxy, c.system
+		       c.galaxy, c.system, u.fleet_speed
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&astro, &bonus, &cap, &planetsPerSystem, &originG, &originS)
+	`, celestialID).Scan(&astro, &bonus, &cap, &planetsPerSystem, &originG, &originS, &fleetSpeed)
 	if err != nil {
-		return 0, game.DeepSpacePosition(game.MaxPlanetSlots), 1, 1
+		return 0, game.DeepSpacePosition(game.MaxPlanetSlots), 1, 1, 1
 	}
 	slotsTotal = game.ExpeditionSlots(astro, bonus)
 	if cap > 0 && slotsTotal > cap {
 		slotsTotal = cap
 	}
-	return slotsTotal, game.DeepSpacePosition(planetsPerSystem), originG, originS
+	return slotsTotal, game.DeepSpacePosition(planetsPerSystem), originG, originS, fleetSpeed
 }
 
 // expeditionData assembles the panel state: slot usage, available hulls, active
@@ -90,7 +92,7 @@ func (h *Handler) expeditionSlotBudget(r *http.Request, celestialID int64) (slot
 func (h *Handler) expeditionData(r *http.Request, id int64) ExpeditionData {
 	idStr := strconv.FormatInt(id, 10)
 	var d ExpeditionData
-	d.SlotsTotal, d.DeepSpace, d.OriginG, d.OriginS = h.expeditionSlotBudget(r, id)
+	d.SlotsTotal, d.DeepSpace, d.OriginG, d.OriginS, d.FleetSpeed = h.expeditionSlotBudget(r, id)
 	d.SlotsUsed = h.activeExpeditions(r, id)
 
 	counts, _ := h.planets.PlanetShips(r.Context(), id)
@@ -181,7 +183,7 @@ func (h *Handler) ExpeditionSubmit(w http.ResponseWriter, r *http.Request) {
 		count = 100
 	}
 
-	_, deepSpace, originG, originS := h.expeditionSlotBudget(r, id)
+	_, deepSpace, originG, originS, _ := h.expeditionSlotBudget(r, id)
 	req := models.FleetDispatchRequest{
 		OriginPlanetID: id,
 		Target: models.Coordinates{

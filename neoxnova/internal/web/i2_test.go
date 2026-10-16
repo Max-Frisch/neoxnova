@@ -129,6 +129,28 @@ func TestPanelSig(t *testing.T) {
 	}
 }
 
+// TestResearchCardEnergyGate locks the Graviton energy note and blocked form:
+// a met card still shows the research form, an unmet one does not.
+func TestResearchCardEnergyGate(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	met := ResearchItem{Code: "graviton_research", Name: "Graviton Research", Level: 0, NextLevel: 1, MaxLevel: 20,
+		Unlocked: true, EnergyReq: 300000, EnergyHave: 400000, EnergyMet: true,
+		CostTable: []levelCost{{Level: 1, Secs: 60}}}
+	unmet := met
+	unmet.EnergyHave, unmet.EnergyMet = 100000, false
+	html := renderComponent(t, ResearchBody(sh, ResearchData{Items: []ResearchItem{met, unmet}}))
+
+	if got := strings.Count(html, "Energy 300,000 required"); got != 2 {
+		t.Errorf("energy note count = %d, want 2", got)
+	}
+	if got := strings.Count(html, `/research/7/start`); got != 1 {
+		t.Errorf("start form count = %d, want 1 (unmet card must be blocked)", got)
+	}
+	if !strings.Contains(html, "Not enough energy production") {
+		t.Errorf("missing blocked-card note")
+	}
+}
+
 // TestAssetURLGroups verifies catalog codes resolve into the correct niburu/
 // subdirectory.
 func TestAssetURLGroups(t *testing.T) {

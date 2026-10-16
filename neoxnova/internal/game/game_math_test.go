@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 func TestCoordinateDistanceSamples(t *testing.T) {
@@ -91,5 +92,40 @@ func TestFlightDurationSampleRoughlyMatches(t *testing.T) {
 	d := CalculateFlightDuration(1035, 10000, 100, 15)
 	if d < 240 || d > 420 {
 		t.Fatalf("one-way duration = %ds, want ~300s", d)
+	}
+}
+
+func TestHoldDurationScalesWithFleetSpeed(t *testing.T) {
+	oneHour := time.Hour
+	fast := CalculateHoldDuration(oneHour, 15)
+	slow := CalculateHoldDuration(oneHour, 5)
+	if want := 4 * time.Minute; fast != want {
+		t.Fatalf("15x hold = %s, want %s", fast, want)
+	}
+	if want := 12 * time.Minute; slow != want {
+		t.Fatalf("5x hold = %s, want %s", slow, want)
+	}
+	// The whole expedition (two flight legs + hold) is then 1/fleet_speed, so
+	// 15x totals a third of 5x.
+	if ratio := float64(slow) / float64(fast); math.Abs(ratio-3) > 1e-9 {
+		t.Fatalf("15x/5x hold ratio = %g, want 3", ratio)
+	}
+}
+
+func TestHoldDurationFloorsAndZero(t *testing.T) {
+	if got := CalculateHoldDuration(0, 15); got != 0 {
+		t.Fatalf("zero hold = %s, want 0", got)
+	}
+	if got := CalculateHoldDuration(-time.Minute, 15); got != 0 {
+		t.Fatalf("negative hold = %s, want 0", got)
+	}
+	// A very fast universe compresses a short hold below a second; it is floored
+	// rather than collapsing to zero.
+	if got := CalculateHoldDuration(time.Minute, 500000); got != time.Second {
+		t.Fatalf("fast-universe hold = %s, want 1s", got)
+	}
+	// A sub-1x universe lengthens the hold so the total still scales.
+	if got := CalculateHoldDuration(time.Minute, 0.5); got != 2*time.Minute {
+		t.Fatalf("0.5x hold = %s, want 2m", got)
 	}
 }

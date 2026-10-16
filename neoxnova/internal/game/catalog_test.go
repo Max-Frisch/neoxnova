@@ -168,6 +168,27 @@ func TestTechDurationMatchesCapture(t *testing.T) {
 	}
 }
 
+// TestTechEnergyRequirement locks the Graviton Research energy gate:
+// requirement(level) = 100000·3^level, and only gated techs report true.
+func TestTechEnergyRequirement(t *testing.T) {
+	want := map[int]int64{1: 300000, 2: 900000, 3: 2700000, 4: 8100000, 5: 24300000, 6: 72900000}
+	for level, w := range want {
+		got, ok := TechEnergyRequirement("graviton_research", level)
+		if !ok {
+			t.Fatalf("graviton L%d: not gated", level)
+		}
+		if got != w {
+			t.Errorf("graviton L%d: got %d, want %d", level, got, w)
+		}
+	}
+	if _, ok := TechEnergyRequirement("energy_tech", 1); ok {
+		t.Errorf("energy_tech should have no energy gate")
+	}
+	if _, ok := TechEnergyRequirement("graviton_research", 0); ok {
+		t.Errorf("level 0 should have no energy gate")
+	}
+}
+
 func TestEffectiveResearchLabLevel(t *testing.T) {
 	cases := []struct {
 		name       string

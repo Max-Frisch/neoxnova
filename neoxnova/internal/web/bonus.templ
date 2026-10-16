@@ -1,0 +1,43 @@
+package web
+
+import "strconv"
+
+// BonusBody is the Online Bonus page: the account's peaceful level and its
+// bonuses, plus the Online Bonus button (Dark Matter income).
+templ BonusBody(sh Shell, d BonusData) {
+	<div class="panel market-panel">
+		<h2 class="panel-title">Online Bonus</h2>
+		<p class="resource-sub">Time spent online raises your peaceful level, granting account-wide bonuses.</p>
+		<div class="overview-stats">
+			<span>Peaceful level <b>{ strconv.Itoa(d.Level) }</b></span>
+			<span>Progress <b>{ fnumF(d.ProgressPct) }%</b></span>
+			<span>Next level in <b>{ dur(d.NextSeconds) }</b></span>
+		</div>
+		<div class="bm-grid">
+			<div class="bm-tile">
+				<span class="bm-tile-name">Peaceful level bonuses</span>
+				<span class="energy gain">+{ fnumF(d.Bonus.MinesPct) }% the extraction of mines</span>
+				<span class="energy gain">+{ fnumF(d.Bonus.StudiesPct) }% the speed of studies</span>
+				<span class="energy gain">+{ fnumF(d.Bonus.EnergyPct) }% energy production</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.FleetSlots) } slots fleet</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.FieldsPlanet) } fields on the planet</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.FieldsMoon) } fields on the moon</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.SmallFactory) } units per second in the small production factory</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.MediumFactory) } units per second in the medium production factory</span>
+				<span class="resource-sub">+{ strconv.Itoa(d.Bonus.LargeFactory) } units per second in the large production factory</span>
+			</div>
+			<div class="bm-tile">
+				<span class="bm-tile-name">Online Bonus button</span>
+				<span class="resource-sub">Dark Matter { fnum(d.Reward.DarkMatter) } · Experience { strconv.Itoa(int(d.Reward.ExperiencePercent)) }% · Experience points { strconv.FormatInt(d.Reward.CombatXP, 10) }</span>
+				if d.Ready {
+					<form method="post" action="/bonus">
+						<button type="submit" class="build-next">Collect bonus</button>
+					</form>
+				} else {
+					<span class="energy need">Next bonus in { dur(d.ReadySeconds) }</span>
+				}
+			</div>
+		</div>
+		<p class="resource-sub mt-4"><a href={ templ.URL("/overview/" + pid(sh)) }>Back to overview</a></p>
+	</div>
+}

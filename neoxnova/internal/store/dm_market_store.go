@@ -159,6 +159,15 @@ func (s *BuildStore) InstantTech(ctx context.Context, planetID, userID int64, te
 	if !ok {
 		return game.Cost{}, 0, ErrUnknownCode
 	}
+	if req, gated := game.TechEnergyRequirement(techCode, target); gated {
+		var energyMax float64
+		if err := tx.QueryRowContext(ctx, `SELECT energy_max FROM celestial_objects WHERE id = $1`, planetID).Scan(&energyMax); err != nil {
+			return game.Cost{}, 0, err
+		}
+		if energyMax < float64(req) {
+			return game.Cost{}, 0, ErrEnergyRequirement
+		}
+	}
 	divisor, err := s.universeDMDivisor(ctx, tx, planetID)
 	if err != nil {
 		return game.Cost{}, 0, err

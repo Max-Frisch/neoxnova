@@ -211,9 +211,13 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 
 	now := time.Now()
 	arrivalTime := now.Add(time.Duration(durationSecs) * time.Second)
+	// The hold window is compressed by the same fleet-speed multiplier as the
+	// flight legs, so the whole mission scales as 1/fleet_speed (a 15x universe
+	// totals ~1/3 of a 5x one). The raw hold is still what gates/mission-validates.
+	holdSpan := game.CalculateHoldDuration(hold, fleetSpeed)
 	var holdingEnd sql.NullTime
-	if (req.Mission == models.MissionExpedition || req.Mission == models.MissionHold) && hold > 0 {
-		holdingEnd = sql.NullTime{Time: arrivalTime.Add(hold), Valid: true}
+	if (req.Mission == models.MissionExpedition || req.Mission == models.MissionHold) && holdSpan > 0 {
+		holdingEnd = sql.NullTime{Time: arrivalTime.Add(holdSpan), Valid: true}
 	}
 	returnTime := arrivalTime.Add(time.Duration(durationSecs) * time.Second)
 	if holdingEnd.Valid {

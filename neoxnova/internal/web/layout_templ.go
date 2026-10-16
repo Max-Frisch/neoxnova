@@ -374,7 +374,7 @@ func MainMenu(s Shell) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = menuDisabled("Online Bonus", true).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = menuLink(s, "Online Bonus", "/bonus", true).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

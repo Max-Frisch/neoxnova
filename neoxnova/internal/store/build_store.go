@@ -112,6 +112,22 @@ func scanCounts(rows *sql.Rows) (map[string]int, error) {
 	return counts, rows.Err()
 }
 
+// celestialEnergyMax returns a celestial's gross hourly energy production
+// (energy_max) — the figure the Graviton energy gate is checked against.
+func (s *BuildStore) celestialEnergyMax(ctx context.Context, tx *sql.Tx, planetID int64) (float64, error) {
+	var energyMax float64
+	err := tx.QueryRowContext(ctx, `SELECT energy_max FROM celestial_objects WHERE id = $1`, planetID).Scan(&energyMax)
+	return energyMax, err
+}
+
+// CelestialEnergyMax is the read-only, non-accruing variant of celestialEnergyMax
+// used by the UI to display the Graviton energy requirement.
+func (s *BuildStore) CelestialEnergyMax(ctx context.Context, planetID int64) (float64, error) {
+	var energyMax float64
+	err := s.db.QueryRowContext(ctx, `SELECT energy_max FROM celestial_objects WHERE id = $1`, planetID).Scan(&energyMax)
+	return energyMax, err
+}
+
 // universeQueueSlots returns the per-scope chain-length caps for a celestial's
 // universe. A cap of 0 means "unlimited" for that scope.
 func (s *BuildStore) universeQueueSlots(ctx context.Context, tx *sql.Tx, planetID int64) (buildSlots, researchSlots int, err error) {
@@ -557,6 +573,24 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		return QueueResult{}, err
 	}
 
+	// Gravity-gated techs (Graviton Research) need the planet's gross energy
+	// production to cover the target level; load it lazily, once, if used.
+	energyMax, energyLoaded := 0.0, false
+	energyOK := func(next int) (bool, error) {
+		req, gated := game.TechEnergyRequirement(techCode, next)
+		if !gated {
+			return true, nil
+		}
+		if !energyLoaded {
+			v, err := s.celestialEnergyMax(ctx, tx, planetID)
+			if err != nil {
+				return false, err
+			}
+			energyMax, energyLoaded = v, true
+		}
+		return energyMax >= float64(req), nil
+	}
+
 	result := QueueResult{TargetLevel: current}
 	for {
 		if researchSlots > 0 && queuedTotal >= researchSlots {
@@ -567,6 +601,14 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		}
 		next := current + queued[techCode] + 1
 		if next > targetLevel {
+			break
+		}
+		if ok, err := energyOK(next); err != nil {
+			return QueueResult{}, err
+		} else if !ok {
+			if result.Queued == 0 {
+				return QueueResult{}, ErrEnergyRequirement
+			}
 			break
 		}
 		cost, ok := game.TechCost(techCode, next)
@@ -1110,9 +1152,15 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		if err != nil {
 			return err
 		}
+		var peacefulSeconds int64
+		if err := tx.QueryRowContext(ctx, `SELECT peaceful_seconds FROM users WHERE id = $1`, owner.Int64).Scan(&peacefulSeconds); err != nil {
+			return err
+		}
+		peacefulLevel, _, _ := game.PeacefulLevelState(float64(peacefulSeconds))
 		bonus = game.ProductionBonusFor(upgrades).
 			Plus(game.ResearchProductionBonus(techs)).
-			Plus(game.GovernatorProductionBonus(activeGov))
+			Plus(game.GovernatorProductionBonus(activeGov)).
+			Plus(game.PeacefulProductionBonus(peacefulLevel))
 	}
 	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
 

@@ -24,3 +24,23 @@ func TestExpeditionSliderMappings(t *testing.T) {
 		t.Fatalf("expeditionSpeed(99) = %d, want clamped 100", got)
 	}
 }
+
+// TestExpeditionHoldLabel locks the panel's exp_time caption: it shows the
+// nominal selection plus the real, fleet-speed-compressed hold (0.25 h per step).
+func TestExpeditionHoldLabel(t *testing.T) {
+	cases := []struct {
+		expTime int
+		speed   float64
+		want    string
+	}{
+		{4, 15, "1.00 h · real 4m 0s"},  // 1 h nominal at 15x
+		{4, 5, "1.00 h · real 12m 0s"},  // 1 h nominal at 5x
+		{4, 1, "1.00 h · real 1h 0m"},   // no compression
+		{1, 500000, "0.25 h · real 1s"}, // floored at 1s
+	}
+	for _, c := range cases {
+		if got := expeditionHoldLabel(c.expTime, c.speed); got != c.want {
+			t.Fatalf("expeditionHoldLabel(%d, %g) = %q, want %q", c.expTime, c.speed, got, c.want)
+		}
+	}
+}

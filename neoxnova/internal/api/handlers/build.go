@@ -26,6 +26,8 @@ func writeBuildError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, "Quantity must be at least 1")
 	case errors.Is(err, store.ErrPrerequisites):
 		writeError(w, http.StatusBadRequest, "Prerequisites not met")
+	case errors.Is(err, store.ErrEnergyRequirement):
+		writeError(w, http.StatusBadRequest, "Not enough energy production for this research")
 	case errors.Is(err, store.ErrInsufficientResources):
 		writeError(w, http.StatusBadRequest, "Insufficient resources")
 	case errors.Is(err, store.ErrNoFields):

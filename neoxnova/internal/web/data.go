@@ -156,6 +156,11 @@ func (h *Handler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 		res := ov.Resources
 		snapshot = &res
 	}
+	if st, err := h.peaceful.Status(r.Context(), userID); err == nil {
+		data.Overview.Levels.PeacefulLevel = st.Level
+		data.Overview.Levels.PeacefulProgressPct = st.ProgressPct
+		data.Overview.Levels.PeacefulNextSeconds = st.NextSeconds
+	}
 	sh := h.shellWithResources(r, userID, id, snapshot)
 	sh.Title = "Overview"
 	if snapshot != nil {
@@ -263,9 +268,14 @@ func (h *Handler) productionBonus(r *http.Request, userID int64, researchLevels 
 		}
 	}
 	activeGov, _ := h.senate.ActiveGovernators(r.Context(), userID)
+	peacefulLevel := 0
+	if st, err := h.peaceful.Status(r.Context(), userID); err == nil {
+		peacefulLevel = st.Level
+	}
 	return game.ProductionBonusFor(upgrades).
 		Plus(game.ResearchProductionBonus(researchLevels)).
-		Plus(game.GovernatorProductionBonus(activeGov))
+		Plus(game.GovernatorProductionBonus(activeGov)).
+		Plus(game.PeacefulProductionBonus(peacefulLevel))
 }
 
 // ---- Buildings -----------------------------------------------------------
@@ -847,6 +857,11 @@ type ResearchItem struct {
 	Image        string
 	DurationSecs int64
 	Prereqs      []Prereq
+	// EnergyReq is the gross energy production the planet needs for the next
+	// level (Graviton Research); 0 when the tech has no energy gate.
+	EnergyReq  int64
+	EnergyHave float64
+	EnergyMet  bool
 }
 
 type ResearchData struct {
@@ -903,6 +918,7 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 	if l, u, err := h.builds.EffectiveResearchLab(r.Context(), id); err == nil {
 		lab, university = l, u
 	}
+	energyMax, _ := h.builds.CelestialEnergyMax(r.Context(), id)
 	var sig strings.Builder
 	fmt.Fprintf(&sig, "lab%d/%d", lab, university)
 	for _, def := range sortedTechs() {
@@ -914,14 +930,20 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 			CostTable: techCostTable(def.Code, next, lab, university, speed),
 			Image:     assetURL(def.Code),
 			Prereqs:   prereqList(def.Requires, all),
+			EnergyMet: true,
 		}
 		if c, ok := game.TechCost(def.Code, next); ok {
 			item.Cost = models.CargoManifest{Metal: c.Metal, Crystal: c.Crystal, Deuterium: c.Deuterium}
 		}
+		if req, gated := game.TechEnergyRequirement(def.Code, next); gated {
+			item.EnergyReq = req
+			item.EnergyHave = energyMax
+			item.EnergyMet = energyMax >= float64(req)
+		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
 		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed).Seconds())
 		data.Items = append(data.Items, item)
-		fmt.Fprintf(&sig, "|%s:%d:%t", def.Code, item.Level, item.Unlocked)
+		fmt.Fprintf(&sig, "|%s:%d:%t:%t", def.Code, item.Level, item.Unlocked, item.EnergyMet)
 	}
 	for _, q := range data.Queue {
 		fmt.Fprintf(&sig, "|q%s:%d:%d", q.Code, q.TargetLevel, q.EndTime.Unix())

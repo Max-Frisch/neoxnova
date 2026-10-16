@@ -114,6 +114,9 @@ func nextResearch(spec Spec, st State) (Action, bool) {
 		if st.Structures["research_lab"] < target {
 			continue
 		}
+		if req, gated := game.TechEnergyRequirement(code, target); gated && st.EnergyMax < float64(req) {
+			continue
+		}
 		if !canAfford(spec, st, techCost(code, target)) {
 			continue
 		}

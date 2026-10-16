@@ -44,6 +44,11 @@ type TechDef struct {
 	CostFactor  float64
 	BaseTimeSec float64
 	Requires    map[string]int
+	// EnergyReqBase/EnergyReqFactor gate research behind the planet's gross
+	// energy production (energy_max) instead of a resource cost. Zero means no
+	// gate. Requirement(targetLevel) = EnergyReqBase · EnergyReqFactor^targetLevel.
+	EnergyReqBase   float64
+	EnergyReqFactor float64
 }
 
 // UnitDef describes a shipyard-produced ship or a defensive unit. Costs are per
@@ -150,7 +155,7 @@ var Techs = buildTechs([]TechDef{
 	{Code: "mineral_research", ID: 131, Name: "Mineral Research", BaseCost: Cost{Metal: 750, Crystal: 500, Deuterium: 250}, CostFactor: 2.0},
 	{Code: "semi_crystals_research", ID: 132, Name: "Semi-Crystals Research", BaseCost: Cost{Metal: 1000, Crystal: 750, Deuterium: 500}, CostFactor: 2.0},
 	{Code: "fuel_research", ID: 133, Name: "Fuel Research", BaseCost: Cost{Metal: 1250, Crystal: 1000, Deuterium: 750}, CostFactor: 2.0},
-	{Code: "graviton_research", ID: 199, Name: "Graviton Research", BaseCost: Cost{}, CostFactor: 2.0},
+	{Code: "graviton_research", ID: 199, Name: "Graviton Research", BaseCost: Cost{}, CostFactor: 2.0, EnergyReqBase: 100000, EnergyReqFactor: 3.0},
 })
 
 // Ships is the static catalog of ships, keyed by the server's numeric code.
@@ -248,6 +253,19 @@ func TechCost(code string, targetLevel int) (Cost, bool) {
 		return Cost{}, false
 	}
 	return scaleCost(def.BaseCost, def.CostFactor, targetLevel), true
+}
+
+// TechEnergyRequirement returns the gross energy production (energy_max) a
+// planet must have to research targetLevel of a technology; the second result
+// is false for technologies with no energy gate. Graviton Research needs
+// 100000·3^level — 300k, 900k, 2.7M, 8.1M, 24.3M, 72.9M … — and consumes no
+// energy, it only checks the planet's production.
+func TechEnergyRequirement(code string, targetLevel int) (int64, bool) {
+	def, ok := Techs[code]
+	if !ok || def.EnergyReqBase <= 0 || def.EnergyReqFactor <= 0 || targetLevel < 1 {
+		return 0, false
+	}
+	return int64(def.EnergyReqBase * math.Pow(def.EnergyReqFactor, float64(targetLevel))), true
 }
 
 // LookupUnit finds a ship or defense by numeric code.

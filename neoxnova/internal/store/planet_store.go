@@ -434,16 +434,18 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 	var metalCap, crystalCap, deutCap int64
 	var metalRate, crystalRate, deutRate float64
 	var energyAvailable, energyMax int
-	var stardust int64
-	query := `SELECT metal_capacity, crystal_capacity, deuterium_capacity,
-	                 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
-	                 energy_used, energy_max,
-	                 COALESCE((SELECT stardust FROM users WHERE users.id = celestial_objects.user_id), 0)
-	          FROM celestial_objects WHERE id = $1`
+	var stardust, darkMatter, antimatter int64
+	query := `SELECT c.metal_capacity, c.crystal_capacity, c.deuterium_capacity,
+	                 c.metal_prod_hourly, c.crystal_prod_hourly, c.deuterium_prod_hourly,
+	                 c.energy_used, c.energy_max,
+	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0)
+	          FROM celestial_objects c
+	          LEFT JOIN users u ON u.id = c.user_id
+	          WHERE c.id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
-		&energyAvailable, &energyMax, &stardust,
+		&energyAvailable, &energyMax, &stardust, &darkMatter, &antimatter,
 	)
 	if err != nil {
 		return models.RealtimeResourceState{}, err
@@ -461,6 +463,8 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 		DeutHourlyRate:    deutRate,
 		EnergyAvailable:   energyMax - energyAvailable,
 		EnergyMax:         energyMax,
+		DarkMatter:        darkMatter,
+		Antimatter:        antimatter,
 		Stardust:          stardust,
 		LastCalculatedAt:  outLastCalc,
 	}, nil
@@ -480,21 +484,23 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	var metalRate, crystalRate, deutRate float64
 	var energyUsed, energyMax int
 	var userID int64
-	var stardust int64
+	var stardust, darkMatter, antimatter int64
 
-	query := `SELECT user_id, name, object_type, galaxy, system, position, diameter_km,
-	                 fields_used, fields_max, temp_min, temp_max,
-	                 metal_capacity, crystal_capacity, deuterium_capacity,
-	                 metal_prod_hourly, crystal_prod_hourly, deuterium_prod_hourly,
-	                 energy_used, energy_max,
-	                 COALESCE((SELECT stardust FROM users WHERE users.id = celestial_objects.user_id), 0)
-	          FROM celestial_objects WHERE id = $1`
+	query := `SELECT c.user_id, c.name, c.object_type, c.galaxy, c.system, c.position, c.diameter_km,
+	                 c.fields_used, c.fields_max, c.temp_min, c.temp_max,
+	                 c.metal_capacity, c.crystal_capacity, c.deuterium_capacity,
+	                 c.metal_prod_hourly, c.crystal_prod_hourly, c.deuterium_prod_hourly,
+	                 c.energy_used, c.energy_max,
+	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0)
+	          FROM celestial_objects c
+	          LEFT JOIN users u ON u.id = c.user_id
+	          WHERE c.id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
 		&userID, &planetName, &objectType, &galaxy, &system, &position, &diameter,
 		&fieldsUsed, &fieldsMax, &tempMin, &tempMax,
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
-		&energyUsed, &energyMax, &stardust,
+		&energyUsed, &energyMax, &stardust, &darkMatter, &antimatter,
 	)
 	if err != nil {
 		return models.PlanetOverviewResponse{}, err
@@ -529,6 +535,8 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 			DeutHourlyRate:    deutRate,
 			EnergyAvailable:   energyMax - energyUsed,
 			EnergyMax:         energyMax,
+			DarkMatter:        darkMatter,
+			Antimatter:        antimatter,
 			Stardust:          stardust,
 			LastCalculatedAt:  outLastCalc,
 		},

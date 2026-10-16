@@ -1,10 +1,22 @@
 package web
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
+	"neoxnova/internal/game"
 	"neoxnova/internal/store"
 )
+
+// expeditionHoldLabel shows the slider's nominal hold and the real (fleet-speed
+// compressed) duration the fleet actually waits. It mirrors
+// game.CalculateHoldDuration, which FleetStore.Dispatch applies at dispatch.
+func expeditionHoldLabel(expTime int, fleetSpeed float64) string {
+	nominal := time.Duration(expTime*15) * time.Minute
+	real := game.CalculateHoldDuration(nominal, fleetSpeed)
+	return fmt.Sprintf("%.2f h · real %s", float64(expTime)*0.25, dur(int64(real.Seconds())))
+}
 
 // ---- Expedition command panel -------------------------------------------
 
@@ -37,8 +49,8 @@ templ ExpeditionBody(sh Shell, d ExpeditionData) {
 					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<label class="block text-slate-300">exp_time
-							<input id="exp_time" name="exp_time" type="range" min="1" max="10" value="4" class="mt-2 w-full"/>
-							<span id="exp_time_out" class="text-xs text-cyan-300">1.00 h</span>
+							<input id="exp_time" name="exp_time" type="range" min="1" max="10" value="4" data-fleet-speed={ strconv.FormatFloat(d.FleetSpeed, 'f', -1, 64) } class="mt-2 w-full"/>
+							<span id="exp_time_out" class="text-xs text-cyan-300">{ expeditionHoldLabel(4, d.FleetSpeed) }</span>
 						</label>
 						<label class="block text-slate-300">exp_speed
 							<input id="exp_speed" name="exp_speed" type="range" min="1" max="10" value="10" class="mt-2 w-full"/>
