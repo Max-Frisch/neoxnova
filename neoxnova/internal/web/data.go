@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"math"
 	"net/http"
@@ -318,6 +319,7 @@ type BuildingsData struct {
 	FieldsUsed int
 	FieldsMax  int
 	IsMoon     bool
+	Sig        string
 }
 
 // structureCostTable builds the per-level cost/time preview for a structure
@@ -368,12 +370,33 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sh := h.shell(r, userID, id)
 	sh.Title = "Buildings"
-	idStr := r.PathValue("id")
+	h.render(w, r, http.StatusOK, Page(sh, BuildingsBody(sh, h.buildingsData(r, r.PathValue("id")))))
+}
 
+// BuildingsStatus is the htmx fragment keeping the buildings panel live. It
+// returns 204 No Content while the panel signature is unchanged, so a completed
+// build refreshes the cards/queue in place without clobbering a half-typed
+// target level (the browser never does a full reload).
+func (h *Handler) BuildingsStatus(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	d := h.buildingsData(r, r.PathValue("id"))
+	if sig := r.FormValue("sig"); sig != "" && sig == d.Sig {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	h.render(w, r, http.StatusOK, BuildingsBody(Shell{ActivePlanetID: id}, d))
+}
+
+func (h *Handler) buildingsData(r *http.Request, idStr string) BuildingsData {
 	data := BuildingsData{}
-	levels := map[string]int{}
+	structLevels := map[string]int{}
 	if b, err := h.builds.GetBuildings(r.Context(), idStr); err == nil {
-		levels = b.Levels
+		structLevels = b.Levels
 		data.Queue = b.Queue
 	}
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
@@ -381,18 +404,23 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctype, _ := h.planets.CelestialType(r.Context(), idStr)
 	data.IsMoon = ctype == models.TypeMoon
+	// Prerequisites span the whole graph, including researches (e.g. the Nanite
+	// Factory needs Computer Technology), so merge tech levels into the check.
+	levels := mergeLevels(structLevels, h.researchLevels(r.Context(), idStr))
 	speed := h.gameSpeed(r)
 	queued := queuedCounts(data.Queue)
-	robot := levels["robotics_factory"] + queued["robotics_factory"]
-	nanite := levels["nanite_factory"] + queued["nanite_factory"]
+	robot := structLevels["robotics_factory"] + queued["robotics_factory"]
+	nanite := structLevels["nanite_factory"] + queued["nanite_factory"]
 	defs := sortedStructures()
 	if data.IsMoon {
 		defs = game.MoonStructureDefs()
 	}
+	var sig strings.Builder
+	fmt.Fprintf(&sig, "f%d/%d:%t", data.FieldsUsed, data.FieldsMax, data.IsMoon)
 	for _, def := range defs {
-		next := levels[def.Code] + queued[def.Code] + 1
+		next := structLevels[def.Code] + queued[def.Code] + 1
 		item := BuildItem{
-			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
+			Code: def.Code, ID: def.ID, Name: def.Name, Level: structLevels[def.Code],
 			NextLevel: next,
 			MaxLevel:  next + costTableDepth - 1,
 			CostTable: structureCostTable(def.Code, next, robot, nanite, speed),
@@ -406,8 +434,30 @@ func (h *Handler) BuildingsPage(w http.ResponseWriter, r *http.Request) {
 		item.EnergyDelta = game.StructureEnergyDelta(def.Code, next)
 		item.DurationSecs = int64(game.StructureDuration(def.Code, next, robot, nanite, speed).Seconds())
 		data.Items = append(data.Items, item)
+		fmt.Fprintf(&sig, "|%s:%d:%t", def.Code, item.Level, item.Unlocked)
 	}
-	h.render(w, r, http.StatusOK, Page(sh, BuildingsBody(sh, data)))
+	for _, q := range data.Queue {
+		fmt.Fprintf(&sig, "|q%s:%d:%d", q.Code, q.TargetLevel, q.EndTime.Unix())
+	}
+	data.Sig = panelSig(sig.String())
+	return data
+}
+
+// researchLevels returns an account's technology levels (nil on failure) for
+// prerequisite checks that depend on researches.
+func (h *Handler) researchLevels(ctx context.Context, idStr string) map[string]int {
+	if rr, err := h.builds.GetResearch(ctx, idStr); err == nil {
+		return rr.Levels
+	}
+	return nil
+}
+
+// panelSig hashes the visible state of a build/research panel so the status poll
+// can skip swapping (204) when nothing changed.
+func panelSig(s string) string {
+	h := fnv.New32a()
+	_, _ = io.WriteString(h, s)
+	return strconv.FormatUint(uint64(h.Sum32()), 16)
 }
 
 // BuildCancelSubmit cancels the active construction on a celestial and refunds
@@ -735,6 +785,7 @@ type ResearchItem struct {
 type ResearchData struct {
 	Items []ResearchItem
 	Queue []models.QueueEntrySummary
+	Sig   string
 }
 
 func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
@@ -746,8 +797,27 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sh := h.shell(r, userID, id)
 	sh.Title = "Research"
-	idStr := r.PathValue("id")
+	h.render(w, r, http.StatusOK, Page(sh, ResearchBody(sh, h.researchData(r, id, r.PathValue("id")))))
+}
 
+// ResearchStatus is the htmx fragment keeping the research panel live (204 while
+// nothing changed), so a finished research unlocks/advances its card in place.
+func (h *Handler) ResearchStatus(w http.ResponseWriter, r *http.Request) {
+	userID, _ := h.userID(r)
+	id, ok := parseID(r)
+	if !ok || !h.ownsCelestial(r, id, userID) {
+		http.NotFound(w, r)
+		return
+	}
+	d := h.researchData(r, id, r.PathValue("id"))
+	if sig := r.FormValue("sig"); sig != "" && sig == d.Sig {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	h.render(w, r, http.StatusOK, ResearchBody(Shell{ActivePlanetID: id}, d))
+}
+
+func (h *Handler) researchData(r *http.Request, id int64, idStr string) ResearchData {
 	data := ResearchData{}
 	levels := map[string]int{}
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
@@ -766,6 +836,8 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 	if l, u, err := h.builds.EffectiveResearchLab(r.Context(), id); err == nil {
 		lab, university = l, u
 	}
+	var sig strings.Builder
+	fmt.Fprintf(&sig, "lab%d/%d", lab, university)
 	for _, def := range sortedTechs() {
 		next := levels[def.Code] + queued[def.Code] + 1
 		item := ResearchItem{
@@ -782,8 +854,13 @@ func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
 		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed).Seconds())
 		data.Items = append(data.Items, item)
+		fmt.Fprintf(&sig, "|%s:%d:%t", def.Code, item.Level, item.Unlocked)
 	}
-	h.render(w, r, http.StatusOK, Page(sh, ResearchBody(sh, data)))
+	for _, q := range data.Queue {
+		fmt.Fprintf(&sig, "|q%s:%d:%d", q.Code, q.TargetLevel, q.EndTime.Unix())
+	}
+	data.Sig = panelSig(sig.String())
+	return data
 }
 
 // ResearchCancelSubmit cancels the active empire-wide research and refunds its

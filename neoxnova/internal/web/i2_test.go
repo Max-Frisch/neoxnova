@@ -58,6 +58,10 @@ func TestBuildingsBodyReskin(t *testing.T) {
 		"1,000 M · 500 C",
 		"Nanite Factory 6",
 		"Metal Mine 8",
+		`id="buildings-panel"`,
+		`hx-get="/buildings/7/status"`,
+		`hx-trigger="every 5s"`,
+		`name="sig"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("buildings HTML missing %q", want)
@@ -100,6 +104,10 @@ func TestResearchBodyReskin(t *testing.T) {
 		"Energy Technology 12 Level",
 		"Energy Technology 13",
 		"Energy Technology 14",
+		`id="research-panel"`,
+		`hx-get="/research/7/status"`,
+		`hx-trigger="every 5s"`,
+		`name="sig"`,
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("research HTML missing %q", want)
@@ -107,6 +115,17 @@ func TestResearchBodyReskin(t *testing.T) {
 	}
 	if got := strings.Count(html, `class="queue-row"`); got != 2 {
 		t.Errorf("research queue-row count = %d, want 2", got)
+	}
+}
+
+// TestPanelSig verifies the status-poll signature is deterministic but changes
+// whenever the panel state changes.
+func TestPanelSig(t *testing.T) {
+	if panelSig("a|b") != panelSig("a|b") {
+		t.Fatal("panelSig is not deterministic")
+	}
+	if panelSig("a|b") == panelSig("a|c") {
+		t.Fatal("panelSig ignores state changes")
 	}
 }
 

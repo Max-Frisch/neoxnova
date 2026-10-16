@@ -182,30 +182,33 @@ templ activityRow(label, value, href string) {
 // ---- Buildings body ------------------------------------------------------
 
 templ BuildingsBody(sh Shell, d BuildingsData) {
-	<section class="panel">
-		<div class="fields-bar">
-			<span class="help" title={ fieldsHelp(d.IsMoon) }>?</span>
-			<span>Fields occupied: <b>{ strconv.Itoa(d.FieldsUsed) }</b> from { strconv.Itoa(d.FieldsMax) }</span>
-			<span class="fields-free">Free: { strconv.Itoa(d.FieldsMax - d.FieldsUsed) }</span>
-			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
-		</div>
-		if d.IsMoon {
-			<div class="mb-3 flex gap-2 text-sm">
-				<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/jumpgate/" + pid(sh)) }>Jumpgate</a>
-				<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/phalanx/" + pid(sh)) }>Phalanx Sensor</a>
+	<div id="buildings-panel" hx-get={ "/buildings/" + pid(sh) + "/status" } hx-trigger="every 5s" hx-swap="outerHTML" hx-include="#buildings-sig">
+		<input type="hidden" id="buildings-sig" name="sig" value={ d.Sig }/>
+		<section class="panel">
+			<div class="fields-bar">
+				<span class="help" title={ fieldsHelp(d.IsMoon) }>?</span>
+				<span>Fields occupied: <b>{ strconv.Itoa(d.FieldsUsed) }</b> from { strconv.Itoa(d.FieldsMax) }</span>
+				<span class="fields-free">Free: { strconv.Itoa(d.FieldsMax - d.FieldsUsed) }</span>
+				<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
 			</div>
-		}
-		if len(d.Queue) > 0 {
-			for i, q := range d.Queue {
-				@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/buildings/"+pid(sh)+"/cancel")
+			if d.IsMoon {
+				<div class="mb-3 flex gap-2 text-sm">
+					<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/jumpgate/" + pid(sh)) }>Jumpgate</a>
+					<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/phalanx/" + pid(sh)) }>Phalanx Sensor</a>
+				</div>
 			}
-		}
-		<div class="card-grid">
-			for _, it := range d.Items {
-				@buildCard(sh, it)
+			if len(d.Queue) > 0 {
+				for i, q := range d.Queue {
+					@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/buildings/"+pid(sh)+"/cancel")
+				}
 			}
-		</div>
-	</section>
+			<div class="card-grid">
+				for _, it := range d.Items {
+					@buildCard(sh, it)
+				}
+			</div>
+		</section>
+	</div>
 }
 
 templ buildCard(sh Shell, it BuildItem) {
@@ -419,22 +422,25 @@ func unitTitle(name string, count int64) string {
 // ---- Research body -------------------------------------------------------
 
 templ ResearchBody(sh Shell, d ResearchData) {
-	<section class="panel">
-		<div class="fields-bar">
-			<span class="help" title="Technologies researched account-wide">?</span>
-			<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
-		</div>
-		if len(d.Queue) > 0 {
-			for i, q := range d.Queue {
-				@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/research/"+pid(sh)+"/cancel")
+	<div id="research-panel" hx-get={ "/research/" + pid(sh) + "/status" } hx-trigger="every 5s" hx-swap="outerHTML" hx-include="#research-sig">
+		<input type="hidden" id="research-sig" name="sig" value={ d.Sig }/>
+		<section class="panel">
+			<div class="fields-bar">
+				<span class="help" title="Technologies researched account-wide">?</span>
+				<button type="button" class="dm-buy" disabled title="Coming soon">Buy with Dark matter.</button>
+			</div>
+			if len(d.Queue) > 0 {
+				for i, q := range d.Queue {
+					@queueRow(i+1, displayName(q.Code)+" "+strconv.Itoa(q.TargetLevel), q, "/research/"+pid(sh)+"/cancel")
+				}
 			}
-		}
-		<div class="card-grid">
-			for _, it := range d.Items {
-				@researchCard(sh, it)
-			}
-		</div>
-	</section>
+			<div class="card-grid">
+				for _, it := range d.Items {
+					@researchCard(sh, it)
+				}
+			</div>
+		</section>
+	</div>
 }
 
 templ researchCard(sh Shell, it ResearchItem) {

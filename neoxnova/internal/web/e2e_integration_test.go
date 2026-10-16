@@ -205,6 +205,65 @@ func TestWebEndToEnd(t *testing.T) {
 		})
 	})
 
+	t.Run("buildings unlock research-gated structures", func(t *testing.T) {
+		// The Nanite Factory is gated on Computer Technology 10, a research —
+		// the buildings page must merge research levels into its prerequisites.
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO planet_structures (celestial_id, structure_code, level)
+			VALUES ($1, 'robotics_factory', 10)
+			ON CONFLICT (celestial_id, structure_code)
+			DO UPDATE SET level = GREATEST(planet_structures.level, EXCLUDED.level)`, a.HomeID); err != nil {
+			t.Fatalf("seed robotics factory: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `
+			INSERT INTO user_technologies (user_id, tech_code, level)
+			VALUES ($1, 'computer_tech', 10)
+			ON CONFLICT (user_id, tech_code)
+			DO UPDATE SET level = GREATEST(user_technologies.level, EXCLUDED.level)`, a.UserID); err != nil {
+			t.Fatalf("seed computer tech: %v", err)
+		}
+		body := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d", a.HomeID))
+		// The build form's hidden code input only renders when the card is unlocked.
+		e2eWantContains(t, body, `value="nanite_factory"`, "nanite factory build form")
+	})
+
+	t.Run("buildings panel status poll is live", func(t *testing.T) {
+		page := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d", a.HomeID))
+		sig := e2eAttrValue(t, page, `name="sig" value="`)
+		status, _ := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/buildings/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusNoContent {
+			t.Fatalf("unchanged status = %d, want 204", status)
+		}
+		// Queue a build; the panel signature must change and render a fragment.
+		e2ePost(t, clientA, srv.URL, fmt.Sprintf("/buildings/%d/build", a.HomeID),
+			url.Values{"code": {"crystal_mine"}, "target_level": {"1"}})
+		status, frag := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/buildings/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusOK {
+			t.Fatalf("changed status = %d, want 200", status)
+		}
+		e2eWantContains(t, frag, `id="buildings-panel"`, "buildings status fragment")
+	})
+
+	t.Run("research panel status poll is live", func(t *testing.T) {
+		page := e2eGet(t, clientA, srv.URL, fmt.Sprintf("/research/%d", a.HomeID))
+		sig := e2eAttrValue(t, page, `name="sig" value="`)
+		status, _ := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/research/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusNoContent {
+			t.Fatalf("unchanged status = %d, want 204", status)
+		}
+		e2ePost(t, clientA, srv.URL, fmt.Sprintf("/research/%d/start", a.HomeID),
+			url.Values{"code": {"energy_tech"}, "target_level": {"1"}})
+		status, frag := e2eGetStatus(t, clientA, srv.URL,
+			fmt.Sprintf("/research/%d/status?sig=%s", a.HomeID, sig))
+		if status != http.StatusOK {
+			t.Fatalf("changed status = %d, want 200", status)
+		}
+		e2eWantContains(t, frag, `id="research-panel"`, "research status fragment")
+	})
+
 	t.Run("espionage produces a report", func(t *testing.T) {
 		body := e2ePost(t, clientA, srv.URL, fmt.Sprintf("/fleet/%d/dispatch", a.HomeID), url.Values{
 			"mission": {"ESPIONAGE"}, "galaxy": {strconv.Itoa(b.G)},
@@ -835,6 +894,34 @@ func e2eGet(t *testing.T, c *http.Client, base, path string) string {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	return string(body)
+}
+
+// e2eGetStatus is e2eGet but also returns the HTTP status code.
+func e2eGetStatus(t *testing.T, c *http.Client, base, path string) (int, string) {
+	t.Helper()
+	resp, err := c.Get(base + path)
+	if err != nil {
+		t.Fatalf("GET %s: %v", path, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(body)
+}
+
+// e2eAttrValue extracts the double-quoted value that follows marker in an HTML
+// body (e.g. marker `name="sig" value="`).
+func e2eAttrValue(t *testing.T, body, marker string) string {
+	t.Helper()
+	i := strings.Index(body, marker)
+	if i < 0 {
+		t.Fatalf("marker %q not found in body", marker)
+	}
+	rest := body[i+len(marker):]
+	j := strings.IndexByte(rest, '"')
+	if j < 0 {
+		t.Fatalf("unterminated value after %q", marker)
+	}
+	return rest[:j]
 }
 
 func e2ePost(t *testing.T, c *http.Client, base, path string, form url.Values) string {
