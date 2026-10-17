@@ -14,9 +14,15 @@ package game
 // UpgradeDef describes one of the 19 Arsenal upgrades.
 //
 // Code is the market/sell-form `type` id (1..19). Key is the live activate-form
-// `greid` internal name where known (only "combustion" has been observed, so the
-// rest are left empty rather than guessed). PerLevel is the value added by one
+// `greid` internal name, filled in for the keys confirmed by the live captures
+// (`combustion`, the three conveyors and metal production); the remaining keys
+// are left empty rather than guessed. PerLevel is the value added by one
 // successful activation, in the same unit the Arsenal page displays (`+Y`).
+//
+// The Arsenal page's shown "Bonus" is the account's accumulated
+// (successful activations)×PerLevel, and is independent of the "Available"
+// un-activated upgrade items in the inventory: an account with 7 heavy-conveyor
+// activations shows +2.8% (7×0.4) even while "Available: 0 / Absent".
 type UpgradeDef struct {
 	Code     int
 	Key      string
@@ -41,10 +47,10 @@ var (
 		{Code: 11, Key: "combustion", Name: "Jet engine", Group: "engine", Class: "combustion", PerLevel: 0.6},
 		{Code: 12, Name: "Impulse engine", Group: "engine", Class: "impulse", PerLevel: 0.5},
 		{Code: 13, Name: "Hyperspace engine", Group: "engine", Class: "hyperspace", PerLevel: 0.4},
-		{Code: 14, Name: "Light conveyor", Group: "conveyor", Class: "light", PerLevel: 0.6},
-		{Code: 15, Name: "Average conveyor", Group: "conveyor", Class: "medium", PerLevel: 0.5},
-		{Code: 16, Name: "Heavy conveyor", Group: "conveyor", Class: "heavy", PerLevel: 0.4},
-		{Code: 17, Name: "Metal production", Group: "production", PerLevel: 0.5},
+		{Code: 14, Key: "l_conveyer", Name: "Light conveyor", Group: "conveyor", Class: "light", PerLevel: 0.6},
+		{Code: 15, Key: "m_conveyer", Name: "Average conveyor", Group: "conveyor", Class: "medium", PerLevel: 0.5},
+		{Code: 16, Key: "h_conveyer", Name: "Heavy conveyor", Group: "conveyor", Class: "heavy", PerLevel: 0.4},
+		{Code: 17, Key: "m_production", Name: "Metal production", Group: "production", PerLevel: 0.5},
 		{Code: 18, Name: "Crystal production", Group: "production", PerLevel: 0.45},
 		{Code: 19, Name: "Deuterium production", Group: "production", PerLevel: 0.4},
 	})

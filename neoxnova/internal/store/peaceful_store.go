@@ -104,7 +104,7 @@ func (s *PeacefulStore) ClaimBonusButton(ctx context.Context, userID int64) (gam
 
 	level, _, _ := game.PeacefulLevelState(float64(seconds))
 	reward := game.BonusButtonReward(level)
-	next := now.Add(time.Duration(game.BonusButtonIntervalSeconds) * time.Second)
+	next := now.Add(game.BonusButtonInterval(game.PeacefulPremium{}))
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE users
 		SET dark_matter = dark_matter + $2,

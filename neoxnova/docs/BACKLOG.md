@@ -25,10 +25,11 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **No messages were generated** (owner report) — the owner saw an action produce no
       message/inbox entries this session. Needs repro details (which action) before tracing the
       `messages`/`user_messages` insert path.
-- [ ] **Peaceful level / Online Bonus calibration** — `game/peaceful.go` constants are initial
-      best-fits; new captures (`info/Bonus Button Peaceful`) add L3/L4/L76/L77 payouts + the premium
-      multiplier list, but still mix premium states. See playbook §0/§3 S6. Also apply `StudiesPct`
-      to research time + factory bonuses, and add premium multipliers.
+- [ ] **Peaceful: premium-tagged capture + effects wiring** — S6 refit the online-time curve
+      (weighted quadratic `37n²−57.3n+4076`) + DM payout and added the `PeacefulPremium` model
+      (`game/peaceful.go`). Still need a deliberately premium-tagged run at 5/10/15/20/25/50 to firm
+      the constants, plus wiring `StudiesPct` into research time and the factory units/sec bonuses
+      into shipyard time (captures: `info/Bonus Button Peaceful`).
 - [ ] **Senate: Officers + governator gameplay effects** — Officers roster/cost (HAR capture needed);
       wire Building/Research/Fleet/combat governator bonuses (catalog fields already present).
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
@@ -38,6 +39,15 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **S6 Peaceful calibration + S7 Arsenal greid keys**: from the new Bonus captures,
+  `game/peaceful.go` re-fits the online-time curve to a weighted quadratic (`37n²−57.3n+4076`,
+  within ~1.5% of the L3/4/5/76/77 durations) and the DM payout central fit (`base 7000` /
+  `slope 630`), and adds an explicit `PeacefulPremium` model (`Button Bonus ×4`, appearance +100%,
+  XP +100% → half the online time) wired through `BonusButtonRewardPremium`/`PeacefulLevelStatePremium`
+  and `BonusButtonInterval`; the zero value keeps the old no-premium behaviour. `arsenal.go` adds the
+  confirmed `greid` keys (`l_conveyer`/`m_conveyer`/`h_conveyer`/`m_production`) and documents the
+  "Bonus = activations×PerLevel, independent of available items" rule. Tests: curve anchors, premium
+  multiplier/half-time/interval, greid-key resolution; DB peaceful-store lifecycle still green.
 - 2026-10-17 — **Empire Overview S4–S5** (`page=imperium`): new `PlanetStore.EmpireOverview` loads
   every owned celestial in creation (id) order with per-celestial accrued stock
   (`update_celestial_resources`), cached hourly production incl. the moon Collider's DM/h, fields and

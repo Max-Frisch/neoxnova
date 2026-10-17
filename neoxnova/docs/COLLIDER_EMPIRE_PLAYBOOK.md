@@ -163,16 +163,18 @@ Notes for us: our catalog already covers most buildings/ships/defenses; new name
   `planet_buildings`/`planet_ships`/`planet_defenses` per celestial).
 - Tests: section toggles render; full-matrix render on the sandbox.
 
-### S6 — Peaceful calibration (follow-up, from Bonus captures)
-- Re-fit `bonusButtonDarkMatterBase/Slope` + `ProgressPct` against the L3/L4/L76/L77 payouts;
-  add premium multipliers (`Button Bonus ×4`, `Update of Bonus button +100%`, XP +100%).
-- Refit the online-time curve with the new low-level points (L3≈4210 s, L4≈4460 s) while keeping
-  the high-level linear fit; model premium time-reduction explicitly (captures differ by exactly 2×).
-- **Blocked on** a premium-tagged capture run at 5/10/15/20/25/50.
+### S6 — Peaceful calibration (follow-up, from Bonus captures) — **DONE 2026-10-17**
+- Re-fit `bonusButtonDarkMatterBase/Slope` + `ProgressPct`; added `PeacefulPremium` (`Button Bonus
+  ×4`, `Update of Bonus button +100%`, XP +100%) threaded through `BonusButtonRewardPremium` /
+  `PeacefulLevelStatePremium` / `BonusButtonInterval` (zero value = no premium).
+- Online-time curve refit to a weighted quadratic (`37·n² − 57.3·n + 4076`) against the L3/4/5 and
+  L76/77 durations; the exactly-2× premium time reduction is modelled by the XP multiplier.
+- Still **open**: a premium-tagged capture run at 5/10/15/20/25/50 to firm the constants.
 
-### S7 — Arsenal `greid` keys (small, optional)
-- Add `h_conveyer` → Heavy conveyor and `m_production` → Metal production to `UpgradeByKey`
-  (`internal/game/arsenal.go:64`), and document the "base bonus already present at level 0" rule.
+### S7 — Arsenal `greid` keys (small, optional) — **DONE 2026-10-17**
+- Added `l_conveyer`/`m_conveyer`/`h_conveyer` and `m_production` to `UpgradeByKey`
+  (`internal/game/arsenal.go`), and documented the "Bonus = activations×PerLevel, independent of the
+  available item count" rule.
 
 ### Capture requests (ops repo, not this repo)
 - Collider at levels 3–6 (cheap ATM) to pin the production curve.

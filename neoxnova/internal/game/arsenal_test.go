@@ -16,6 +16,16 @@ func TestArsenalCatalog(t *testing.T) {
 	if got, ok := UpgradeByKey("combustion"); !ok || got.Code != 11 {
 		t.Fatalf("combustion key = %+v ok=%v, want code 11", got, ok)
 	}
+	for key, wantCode := range map[string]int{
+		"l_conveyer":   14,
+		"m_conveyer":   15,
+		"h_conveyer":   16,
+		"m_production": 17,
+	} {
+		if got, ok := UpgradeByKey(key); !ok || got.Code != wantCode {
+			t.Fatalf("%s key = %+v ok=%v, want code %d", key, got, ok, wantCode)
+		}
+	}
 	if _, ok := UpgradeByCode(20); ok {
 		t.Fatal("code 20 should not resolve")
 	}

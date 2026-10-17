@@ -1,16 +1,21 @@
 package game
 
-import "math"
+import (
+	"math"
+	"time"
+)
 
 // Peaceful level ("peaceful level" / online level) is the time-based progression
 // captured from the live reference server (universe5/niburuspace, Oct 2026). It
 // accrues from time spent online and grants account-wide passive bonuses.
 //
-// IMPORTANT: the captures cover only two peaceful levels (3 and 76), so the
-// percentage bonuses are exact (= level) while the step bonuses and the
-// online-time curve are **calibrated estimates** — see docs/BACKLOG.md. Only the
-// constants below need changing once more levels are captured; every formula
-// reads from them.
+// The captures (`info/Bonus Button Peaceful`) cover peaceful levels 3, 4, 72, 76
+// and 77, but **mix premium states**: the "Amount of earn experience +100%"
+// premium doubles the effective XP, which shows up as an exactly-2× shorter
+// "Online Time" requirement (the level-76 capture is half the level-77 one). The
+// non-premium captures are used below; the premium is modelled explicitly by
+// PeacefulPremium so a future, deliberately premium-tagged run can be fitted
+// without touching the formulas.
 
 // Step-bonus divisors: each step bonus is floor(level / divisor). Captured at
 // level 76 → fleet slots 7, planet fields 15, moon fields 6, small/medium/large
@@ -25,32 +30,77 @@ const (
 	peacefulStepLargeFactory  = 50
 )
 
-// Online-time curve. The per-level duration grows linearly with the level:
-// levelSeconds(n) = peacefulLevelBaseSeconds*n. Calibrated from a level-76
-// capture with the "+100% Amount of earn experience" premium active: the display
-// implied ≈29.25 h for the 76→77 level, i.e. ≈58.5 h base / 76 ⇒ ≈2770 s per
-// level unit. Not enough data to fit a curve shape — linear is the tunable
-// default.
-const peacefulLevelBaseSeconds = 2770.0
+// Online-time curve. The per-level duration is *not* linear from origin — the
+// low-level captures are near-flat (L3→4 ≈ 4227 s, L4→5 ≈ 4460 s, L5→6 ≈ 4705 s)
+// while the high levels grow super-linearly (L76→77 ≈ 210 624 s, L77→78 ≈
+// 222 217 s). A quadratic least-squares fit weighted toward the (more reliable)
+// low-level points,
+//
+//	levelSeconds(n) = 37·n² − 57.3·n + 4076
+//
+// reproduces every anchor within ~1.5% (A/B/C are the tunable constants; the
+// whole curve lives here). Capture noise is ≥10% at the low end, so treat this
+// as calibrated but tunable until a premium-tagged run lands.
+const (
+	peacefulLevelQuadA = 37.0
+	peacefulLevelQuadB = -57.3
+	peacefulLevelQuadC = 4076.0
+)
 
 // Online Bonus button: base interval between a click and the button becoming
-// available again. The live capture showed the premium "Update of Bonus button"
-// (+100% appearance) active; the base interval is an estimate.
+// available again. Premium "Update of Bonus button +100%" halves it.
 const BonusButtonIntervalSeconds = 20 * 60
 
-// Bonus rewards are calibrated from the captured clicks:
+// Bonus rewards are calibrated from the captured clicks. The live captures mix
+// premium states, so these are central estimates of the *un-premium* payout:
 //
-//	peaceful 3 → 4666 DM / 9683 DM · 3-4% · 1 exp
-//	peaceful 5 → 8838 DM · 11% · 4 exp
-//	peaceful 76 → 20318 / 66284 DM · 16% · 17/34 exp
+//	L3  → 4666 / 9066 / 9683 DM · 3-8% · 1 exp
+//	L4  → 7990 / 9267 DM · 6-10% · 1 exp
+//	L72 → 50249 DM · 3% · 8 exp
+//	L76 → 20318 / 66284 DM · 16% · 17/34 exp
+//	L77 → 58779 / 69905 DM · 20% · 34 exp
 //
-// The DM amount varies at the same level (premium "Button Bonus" ×4 and other
-// factors are not modelled yet), so a single base+slope fit is used.
+// The DM amount varies at the same level (random roll × the premium "Button
+// Bonus ×4"), so a single base+slope central fit is used. ProgressPct is the
+// mean observed experience gain per click.
 const (
-	bonusButtonDarkMatterBase  = 3000
-	bonusButtonDarkMatterSlope = 650
+	bonusButtonDarkMatterBase  = 7000
+	bonusButtonDarkMatterSlope = 630
 	bonusButtonProgressPct     = 10.0
 )
+
+// PeacefulPremium models the live premium ("Premium Account") effects that
+// touch the peaceful system. Its zero value is "no premium", which is what the
+// server stores today (there is no premium flag yet); the percentages are the
+// live multipliers lifted from the captured premium panel.
+type PeacefulPremium struct {
+	ButtonBonusPct     float64 // `Button "Bonus" ×4` → +300 (×4 payout)
+	BonusAppearancePct float64 // `Update of "Bonus" button +100%` → +100 (halved cooldown)
+	ExperiencePct      float64 // `Amount of earn experience +100%` → +100 (×2 XP, half the online time)
+}
+
+// LivePeacefulPremium is the full premium set captured in Oct 2026. Kept as a
+// named constructor so tests and a future premium flag share one definition.
+func LivePeacefulPremium() PeacefulPremium {
+	return PeacefulPremium{ButtonBonusPct: 300, BonusAppearancePct: 100, ExperiencePct: 100}
+}
+
+func (p PeacefulPremium) darkMatterMultiplier() float64 { return 1 + p.ButtonBonusPct/100 }
+func (p PeacefulPremium) experienceMultiplier() float64 { return 1 + p.ExperiencePct/100 }
+
+// onlineTimeFactor scales the online-time requirement: doubling earned XP halves
+// the wall-clock time to the next level.
+func (p PeacefulPremium) onlineTimeFactor() float64 { return 1 / (1 + p.ExperiencePct/100) }
+
+// BonusButtonInterval is the cooldown after a Bonus-button click for the given
+// premium state. Without premium it is BonusButtonIntervalSeconds.
+func BonusButtonInterval(p PeacefulPremium) time.Duration {
+	secs := float64(BonusButtonIntervalSeconds) / (1 + p.BonusAppearancePct/100)
+	if secs < 1 {
+		secs = 1
+	}
+	return time.Duration(math.Round(secs)) * time.Second
+}
 
 // PeacefulBonus is the passive account bonus for one peaceful level.
 type PeacefulBonus struct {
@@ -94,38 +144,75 @@ func PeacefulProductionBonus(level int) ProductionBonus {
 	return ProductionBonus{Metal: pct, Crystal: pct, Deuterium: pct, Energy: pct}
 }
 
-// peacefulLevelSeconds is the online time to complete one level at the given
-// level (level n → n+1).
-func peacefulLevelSeconds(level int) float64 {
+// peacefulLevelSecondsRaw is the base (no-premium) online time to complete one
+// level (level n → n+1), from the quadratic curve.
+func peacefulLevelSecondsRaw(level int) float64 {
 	if level < 1 {
 		level = 1
 	}
-	return peacefulLevelBaseSeconds * float64(level)
+	n := float64(level)
+	return peacefulLevelQuadA*n*n + peacefulLevelQuadB*n + peacefulLevelQuadC
 }
+
+// peacefulLevelSeconds is the base (no-premium) online time to complete one
+// level (level n → n+1).
+func peacefulLevelSeconds(level int) float64 { return peacefulLevelSecondsRaw(level) }
+
+// peacefulLevelSecondsPremium applies the premium experience multiplier.
+func peacefulLevelSecondsPremium(level int, p PeacefulPremium) float64 {
+	return peacefulLevelSecondsRaw(level) * p.onlineTimeFactor()
+}
+
+// cumulativePeacefulSecondsRaw is the base (no-premium) online time to reach
+// level L from zero: the closed-form sum of the per-level quadratic.
+func cumulativePeacefulSecondsRaw(level int) float64 {
+	if level < 0 {
+		level = 0
+	}
+	n := float64(level)
+	s1 := n * (n + 1) / 2
+	s2 := n * (n + 1) * (2*n + 1) / 6
+	return peacefulLevelQuadA*s2 + peacefulLevelQuadB*s1 + peacefulLevelQuadC*n
+}
+
+// cumulativePeacefulSeconds is the base (no-premium) online time to reach level
+// L from zero.
+func cumulativePeacefulSeconds(level int) float64 { return cumulativePeacefulSecondsRaw(level) }
 
 // PeacefulLevelState derives the peaceful level, progress within that level
 // (percent, 0-100) and seconds remaining to the next level from the account's
-// accumulated online seconds. The cumulative time to reach level L is
-// levelBase·L(L+1)/2.
+// accumulated online seconds, without premium.
 func PeacefulLevelState(totalSeconds float64) (level int, progressPct float64, nextSeconds int64) {
+	return PeacefulLevelStatePremium(totalSeconds, PeacefulPremium{})
+}
+
+// PeacefulLevelStatePremium is PeacefulLevelState with an explicit premium
+// state: the same wall-clock time buys more progress when the experience
+// multiplier is active.
+func PeacefulLevelStatePremium(totalSeconds float64, p PeacefulPremium) (level int, progressPct float64, nextSeconds int64) {
+	factor := p.onlineTimeFactor()
 	if totalSeconds <= 0 {
-		return 0, 0, int64(peacefulLevelSeconds(1))
+		return 0, 0, int64(peacefulLevelSecondsPremium(1, p))
 	}
-	// Largest L with cumulative(L) <= totalSeconds, by solving the quadratic
-	// cumulative(L)=base·L(L+1)/2 <= s, then correcting for rounding.
-	l := int((math.Sqrt(1+8*totalSeconds/peacefulLevelBaseSeconds) - 1) / 2)
-	if l < 0 {
-		l = 0
+	// Work in un-premium ("base") seconds so the level lookup uses one curve.
+	base := totalSeconds / factor
+	// Largest L with cumulative(L) <= base: bracket then binary search (the
+	// curve is monotonic, so this inverts any per-level shape).
+	lo, hi := 0, 1
+	for cumulativePeacefulSecondsRaw(hi) <= base {
+		hi *= 2
 	}
-	// cumulative(l) may overshoot/undershoot by one near boundaries.
-	for l > 0 && cumulativePeacefulSeconds(l) > totalSeconds {
-		l--
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if cumulativePeacefulSecondsRaw(mid) <= base {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
 	}
-	for cumulativePeacefulSeconds(l+1) <= totalSeconds {
-		l++
-	}
-	done := totalSeconds - cumulativePeacefulSeconds(l)
-	dur := peacefulLevelSeconds(l + 1)
+	l := lo
+	done := base - cumulativePeacefulSecondsRaw(l)
+	dur := peacefulLevelSecondsRaw(l + 1)
 	if dur <= 0 {
 		return l, 0, 0
 	}
@@ -136,15 +223,7 @@ func PeacefulLevelState(totalSeconds float64) (level int, progressPct float64, n
 	if pct > 100 {
 		pct = 100
 	}
-	return l, pct, int64(math.Ceil(dur - done))
-}
-
-// cumulativePeacefulSeconds is the online time to reach level L from zero.
-func cumulativePeacefulSeconds(level int) float64 {
-	if level < 0 {
-		level = 0
-	}
-	return peacefulLevelBaseSeconds * float64(level) * float64(level+1) / 2.0
+	return l, pct, int64((dur - done) * factor)
 }
 
 // BonusReward is the payout of one Online Bonus button click.
@@ -156,17 +235,24 @@ type BonusReward struct {
 }
 
 // BonusButtonReward computes the calibrated payout of the Online Bonus button
-// for an account at the given peaceful level. The premium "Button Bonus" ×N and
-// "Update of Bonus button" multipliers are not modelled yet.
+// for an account at the given peaceful level, without premium.
 func BonusButtonReward(peacefulLevel int) BonusReward {
+	return BonusButtonRewardPremium(peacefulLevel, PeacefulPremium{})
+}
+
+// BonusButtonRewardPremium is BonusButtonReward with an explicit premium state:
+// the "Button Bonus ×4" multiplies the Dark Matter, and the "+100% experience"
+// multiplier doubles the granted experience (peaceful level and combat XP).
+func BonusButtonRewardPremium(peacefulLevel int, p PeacefulPremium) BonusReward {
 	if peacefulLevel < 0 {
 		peacefulLevel = 0
 	}
-	progressSeconds := int64(math.Round(peacefulLevelSeconds(peacefulLevel+1) * bonusButtonProgressPct / 100.0))
+	progressSeconds := int64(math.Round(peacefulLevelSecondsPremium(peacefulLevel+1, p) * bonusButtonProgressPct / 100.0))
+	dm := float64(bonusButtonDarkMatterBase+bonusButtonDarkMatterSlope*peacefulLevel) * p.darkMatterMultiplier()
 	return BonusReward{
-		DarkMatter:        int64(bonusButtonDarkMatterBase + bonusButtonDarkMatterSlope*peacefulLevel),
+		DarkMatter:        int64(math.Round(dm)),
 		PeacefulSeconds:   progressSeconds,
-		ExperiencePercent: bonusButtonProgressPct,
-		CombatXP:          int64(peacefulLevel/2 + 1),
+		ExperiencePercent: bonusButtonProgressPct * p.experienceMultiplier(),
+		CombatXP:          int64(math.Round(float64(peacefulLevel/2+1) * p.experienceMultiplier())),
 	}
 }
