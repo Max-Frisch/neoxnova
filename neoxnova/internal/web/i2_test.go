@@ -118,6 +118,41 @@ func TestResearchBodyReskin(t *testing.T) {
 	}
 }
 
+// TestCostRowsShortOnlyWhenStockLacks verifies the buildings/research cards
+// colour each unaffordable resource red and embed the stock for the live JS
+// preview after a target-level change.
+func TestCostRowsShortOnlyWhenStockLacks(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	have := ResourceStock{Metal: 499, Crystal: 500, Deuterium: 500}
+	html := renderComponent(t, BuildingsBody(sh, BuildingsData{
+		Resources: have,
+		Items: []BuildItem{{
+			Code: "metal_mine", Name: "Metal Mine", Level: 1, NextLevel: 2, MaxLevel: 20, Unlocked: true,
+			Cost: models.CargoManifest{Metal: 500, Crystal: 500},
+		}},
+	}))
+
+	if got := strings.Count(html, `class="cost-row short"`); got != 1 {
+		t.Errorf("short cost-row count = %d, want 1 (metal only)", got)
+	}
+	for _, want := range []string{`data-res-metal="499"`, `data-res-crystal="500"`, `data-res-deuterium="500"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("buildings HTML missing %q", want)
+		}
+	}
+
+	researchHTML := renderComponent(t, ResearchBody(sh, ResearchData{
+		Resources: ResourceStock{Crystal: 100},
+		Items: []ResearchItem{{
+			Code: "energy_tech", Name: "Energy Technology", Level: 1, NextLevel: 2, MaxLevel: 20, Unlocked: true,
+			Cost: models.CargoManifest{Crystal: 800},
+		}},
+	}))
+	if !strings.Contains(researchHTML, `class="cost-row short"`) {
+		t.Error("research card missing short cost-row")
+	}
+}
+
 // TestPanelSig verifies the status-poll signature is deterministic but changes
 // whenever the panel state changes.
 func TestPanelSig(t *testing.T) {

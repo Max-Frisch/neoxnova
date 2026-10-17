@@ -167,19 +167,41 @@
     return s + "s";
   }
 
-  // renderCostTotal builds the same cost-row markup the server renders.
-  function renderCostTotal(cost) {
+  // renderCostTotal builds the same cost-row markup the server renders. When
+  // `have` is given, each resource the celestial cannot currently cover is
+  // rendered with the red `short` class.
+  function renderCostTotal(cost, have) {
+    function row(cls, src, alt, amount) {
+      if (have && amount > have[cls]) {
+        return '<span class="cost-row short"><img src="' + src + '" alt="' + alt + '"/>' + formatNumber(amount) + "</span>";
+      }
+      return '<span class="cost-row"><img src="' + src + '" alt="' + alt + '"/>' + formatNumber(amount) + "</span>";
+    }
     var parts = "";
     if (cost.m > 0) {
-      parts += '<span class="cost-row"><img src="/static/niburu/icons/metall_mini.gif" alt="Metal"/>' + formatNumber(cost.m) + "</span>";
+      parts += row("m", "/static/niburu/icons/metall_mini.gif", "Metal", cost.m);
     }
     if (cost.c > 0) {
-      parts += '<span class="cost-row"><img src="/static/niburu/icons/kristall_mini.gif" alt="Crystal"/>' + formatNumber(cost.c) + "</span>";
+      parts += row("c", "/static/niburu/icons/kristall_mini.gif", "Crystal", cost.c);
     }
     if (cost.d > 0) {
-      parts += '<span class="cost-row"><img src="/static/niburu/icons/deuterium_mini.gif" alt="Deuterium"/>' + formatNumber(cost.d) + "</span>";
+      parts += row("d", "/static/niburu/icons/deuterium_mini.gif", "Deuterium", cost.d);
     }
     return '<div class="cost">' + parts + "</div>";
+  }
+
+  // formResourceStock reads the celestial's current stock embedded on a build
+  // form (buildings/research only); null when the form has no stock data.
+  function formResourceStock(form) {
+    var m = form.getAttribute("data-res-metal");
+    if (m === null) {
+      return null;
+    }
+    return {
+      m: parseFloat(m),
+      c: parseFloat(form.getAttribute("data-res-crystal")),
+      d: parseFloat(form.getAttribute("data-res-deuterium"))
+    };
   }
 
   // updateLevelPreview sums the embedded per-level cost/time table from the
@@ -221,7 +243,7 @@
     }
     var costEl = card.querySelector("[data-cost-total]");
     if (costEl) {
-      costEl.innerHTML = renderCostTotal(totals);
+      costEl.innerHTML = renderCostTotal(totals, formResourceStock(form));
     }
     var durEl = card.querySelector("[data-duration-total]");
     if (durEl) {

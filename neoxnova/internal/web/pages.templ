@@ -242,7 +242,7 @@ templ buildCard(sh Shell, it BuildItem, have ResourceStock) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked {
-				<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) }>
+				<form method="post" action={ templ.URL("/buildings/" + pid(sh) + "/build") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) } data-res-metal={ strconv.FormatFloat(have.Metal, 'f', -1, 64) } data-res-crystal={ strconv.FormatFloat(have.Crystal, 'f', -1, 64) } data-res-deuterium={ strconv.FormatFloat(have.Deuterium, 'f', -1, 64) }>
 					<input type="hidden" name="code" value={ it.Code }/>
 					<button type="submit" class="build-next">Build to the next level</button>
 					<input class="build-level" name="target_level" type="number" inputmode="numeric" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-level-input/>
@@ -510,7 +510,7 @@ templ researchCard(sh Shell, it ResearchItem, have ResourceStock) {
 		</div>
 		<div class="gcard-foot">
 			if it.Unlocked && (it.EnergyReq == 0 || it.EnergyMet) {
-				<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) }>
+				<form method="post" action={ templ.URL("/research/" + pid(sh) + "/start") } class="build-form" data-cost-table={ costTableJSON(it.CostTable) } data-res-metal={ strconv.FormatFloat(have.Metal, 'f', -1, 64) } data-res-crystal={ strconv.FormatFloat(have.Crystal, 'f', -1, 64) } data-res-deuterium={ strconv.FormatFloat(have.Deuterium, 'f', -1, 64) }>
 					<input type="hidden" name="code" value={ it.Code }/>
 					<button type="submit" class="build-next">Research to the next level</button>
 					<input class="build-level" name="target_level" type="number" inputmode="numeric" min={ strconv.Itoa(it.NextLevel) } max={ strconv.Itoa(it.MaxLevel) } value={ strconv.Itoa(it.NextLevel) } data-level-input/>
