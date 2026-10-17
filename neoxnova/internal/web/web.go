@@ -138,6 +138,7 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reports/{id}", h.page(h.requireUser(h.ReportsPage)))
 
 	// Account-wide pages (no celestial in the path; anchored to the homeworld).
+	mux.HandleFunc("GET /empire", h.page(h.requireUser(h.EmpirePage)))
 	mux.HandleFunc("GET /arsenal", h.page(h.requireUser(h.ArsenalPage)))
 	mux.HandleFunc("POST /arsenal/activate", h.page(h.requireUser(h.ArsenalActivateSubmit)))
 	// Black market is its own hub; /market is only the Arsenal Market alias.

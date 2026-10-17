@@ -119,6 +119,17 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, fmt.Sprintf("%d:%d:%d", a.G, a.S, a.P), "homeworld coordinates")
 	})
 
+	t.Run("empire overview renders the matrix", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/empire")
+		e2eWantContains(t, body, "Empire", "page title")
+		e2eWantContains(t, body, "Σ", "total column")
+		e2eWantContains(t, body, "Production per hour", "production section")
+		e2eWantContains(t, body, "Buildings", "buildings matrix")
+		e2eWantContains(t, body, "Defenses", "defenses matrix")
+		e2eWantContains(t, body, `data-empire-filter="building"`, "category filter")
+		e2eWantContains(t, body, fmt.Sprintf("/overview/%d", a.HomeID), "per-column Go link")
+	})
+
 	t.Run("building queues and completes", func(t *testing.T) {
 		before := e2eScalarInt64(t, db,
 			`SELECT COALESCE(level, 0) FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`,

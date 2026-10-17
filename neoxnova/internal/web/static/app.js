@@ -377,6 +377,36 @@
     }
   }
 
+  // wireEmpireFilters toggles the Empire matrix rows by their data-section when
+  // an All/Building/Ships/Defenses filter button is clicked (pure client-side;
+  // no request). "all" restores every section.
+  function wireEmpireFilters() {
+    document.addEventListener("click", function (evt) {
+      var el = evt.target;
+      while (el && el !== document && !el.hasAttribute("data-empire-filter")) {
+        el = el.parentNode;
+      }
+      if (!el || el === document) {
+        return;
+      }
+      evt.preventDefault();
+      var filter = el.getAttribute("data-empire-filter");
+      var buttons = document.querySelectorAll("[data-empire-filter]");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.toggle("is-active", buttons[i] === el);
+      }
+      var rows = document.querySelectorAll(".empire-table [data-section]");
+      for (var j = 0; j < rows.length; j++) {
+        var sec = rows[j].getAttribute("data-section");
+        if (filter === "all" || sec === filter) {
+          rows[j].removeAttribute("hidden");
+        } else {
+          rows[j].setAttribute("hidden", "");
+        }
+      }
+    });
+  }
+
   // wireCardPreviews updates a card's live cost/time as its target-level or
   // quantity input changes. Delegated so it survives htmx swaps.
   function wireCardPreviews() {
@@ -403,6 +433,7 @@
     wirePlanetSelect();
     wireMaxButtons();
     wireFleetAll();
+    wireEmpireFilters();
     wireCardPreviews();
     tickCountdowns();
     window.setInterval(tickCountdowns, 1000);

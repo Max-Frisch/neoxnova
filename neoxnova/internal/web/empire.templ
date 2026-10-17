@@ -1,0 +1,81 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/models"
+)
+
+// ---- Empire overview -----------------------------------------------------
+
+// EmpireBody renders the Empire overview matrix (live page=imperium): every
+// owned celestial as a column in creation order, a Σ total column, the
+// Resources / Production / Buildings / Ships / Defenses rows and the
+// All/Building/Fleet/Defense category filters.
+templ EmpireBody(sh Shell, d EmpireData) {
+	<div class="empire-head">
+		<h2 class="empire-title">Empire</h2>
+		<div class="empire-tools">
+			<div class="empire-filters" aria-label="Filter">
+				@empireFilter("all", "All", true)
+				@empireFilter("building", "Buildings", false)
+				@empireFilter("fleet", "Ships", false)
+				@empireFilter("defense", "Defenses", false)
+			</div>
+			<span class="empire-bulk is-disabled" title="Coming soon">
+				<img src="/static/niburu/icons/reduceresources.png" alt=""/>{ " Resources" }
+			</span>
+			<span class="empire-bulk is-disabled" title="Coming soon">
+				<img src="/static/niburu/icons/reducefleet.png" alt=""/>{ " Fleets" }
+			</span>
+		</div>
+	</div>
+	if len(d.Celestials) == 0 {
+		<p class="text-sm text-slate-400">You do not own any celestial yet.</p>
+	} else {
+		<div class="empire-scroll">
+			<table class="empire-table">
+				<thead>
+					<tr class="empire-headrow">
+						<th class="empire-corner"></th>
+						<th class="empire-sigma">Σ</th>
+						for _, c := range d.Celestials {
+							<th class={ "empire-col", templ.KV("is-home", c.IsHome) }>
+								<a class="empire-col-name" href={ templ.URL(empireCelestialHref(c.ID)) } title={ c.Name }>
+									{ c.Name }
+								</a>
+								if c.Type == models.TypeMoon {
+									<span class="empire-col-type">(Moon)</span>
+								}
+								<span class="empire-col-coords">{ coord3(c.Galaxy, c.System, c.Position) }</span>
+								<span class="empire-col-fields">{ strconv.Itoa(c.FieldsUsed) } / { strconv.Itoa(c.FieldsMax) }</span>
+								<a class="empire-col-go" href={ templ.URL(empireCelestialHref(c.ID)) }>Go</a>
+							</th>
+						}
+					</tr>
+				</thead>
+				<tbody>
+					for _, sec := range d.Sections {
+						<tr class={ "empire-section", "empire-section--" + sec.Key } data-section={ sec.Key }>
+							<th class="empire-label" colspan={ strconv.Itoa(len(d.Celestials) + 2) }>{ sec.Title }</th>
+						</tr>
+						for _, row := range sec.Rows {
+							<tr class="empire-row" data-section={ sec.Key }>
+								<td class="empire-label">{ row.Label }</td>
+								<td class="empire-sigma">{ row.Total }</td>
+								for _, v := range row.Values {
+									<td class="empire-value">{ v }</td>
+								}
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// empireFilter is one client-side category filter button.
+templ empireFilter(key, label string, active bool) {
+	<button type="button" class={ "empire-filter", templ.KV("is-active", active) } data-empire-filter={ key }>{ label }</button>
+}

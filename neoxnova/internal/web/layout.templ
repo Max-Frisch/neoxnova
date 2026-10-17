@@ -78,6 +78,9 @@ templ TopBar(s Shell) {
 		}
 		<div class="topbar-right">
 			if s.ActivePlanetID != 0 {
+				<a class="topbar-icon" href="/empire" title="Empire">
+					<img src="/static/niburu/icons/imperia.png" alt="Empire"/>
+				</a>
 				<a class="topbar-icon" href={ templ.URL("/reports/" + pid(s)) } title="Messages">
 					<img src="/static/niburu/icons/mesages.png" alt="Messages"/>
 				</a>

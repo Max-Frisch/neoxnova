@@ -125,6 +125,34 @@ type FleetEventSummary struct {
 	Cargo         CargoManifest    `json:"cargo"`
 }
 
+// EmpireCelestial is one owned planet or moon as it appears in the Empire
+// overview matrix (page=imperium): its accrued stock, hourly production (with
+// the moon Collider's Dark Matter/h), field usage and the full building / ship
+// / defense counts. Celestials are returned in creation (id) order.
+type EmpireCelestial struct {
+	ID                int64            `json:"id"`
+	Name              string           `json:"name"`
+	Type              CelestialType    `json:"type"`
+	Galaxy            int              `json:"galaxy"`
+	System            int              `json:"system"`
+	Position          int              `json:"position"`
+	IsHome            bool             `json:"is_home"`
+	FieldsUsed        int              `json:"fields_used"`
+	FieldsMax         int              `json:"fields_max"`
+	Metal             float64          `json:"metal"`
+	Crystal           float64          `json:"crystal"`
+	Deuterium         float64          `json:"deuterium"`
+	EnergyAvailable   int              `json:"energy_available"`
+	EnergyMax         int              `json:"energy_max"`
+	MetalPerHour      float64          `json:"metal_per_hour"`
+	CrystalPerHour    float64          `json:"crystal_per_hour"`
+	DeuteriumPerHour  float64          `json:"deuterium_per_hour"`
+	DarkMatterPerHour float64          `json:"dark_matter_per_hour"`
+	Buildings         map[string]int   `json:"buildings,omitempty"`
+	Ships             map[string]int64 `json:"ships,omitempty"`
+	Defenses          map[string]int64 `json:"defenses,omitempty"`
+}
+
 // OwnedCelestial is one planet or moon an account owns (GET /api/v1/planets).
 type OwnedCelestial struct {
 	ID       int64         `json:"id"`

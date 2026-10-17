@@ -25,9 +25,6 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **No messages were generated** (owner report) — the owner saw an action produce no
       message/inbox entries this session. Needs repro details (which action) before tracing the
       `messages`/`user_messages` insert path.
-- [ ] **Empire Overview** (`page=imperium`) — plan `docs/COLLIDER_EMPIRE_PLAYBOOK.md` §3 S4–S5
-      (all celestials in creation order, resources/production incl. DM/h, Σ, full matrices +
-      filters). Captures: `info/Empire view`.
 - [ ] **Peaceful level / Online Bonus calibration** — `game/peaceful.go` constants are initial
       best-fits; new captures (`info/Bonus Button Peaceful`) add L3/L4/L76/L77 payouts + the premium
       multiplier list, but still mix premium states. See playbook §0/§3 S6. Also apply `StudiesPct`
@@ -41,6 +38,16 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Empire Overview S4–S5** (`page=imperium`): new `PlanetStore.EmpireOverview` loads
+  every owned celestial in creation (id) order with per-celestial accrued stock
+  (`update_celestial_resources`), cached hourly production incl. the moon Collider's DM/h, fields and
+  the building/ship/defense matrices (three grouped `= ANY(ids)` queries — no N+1). New account-wide
+  `GET /empire` page (`internal/web/empire.{go,templ}`) renders the transposed matrix with a **Σ**
+  total column, per-column `Go` links, the All/Buildings/Ships/Defenses client-side filters
+  (`app.js` `wireEmpireFilters`) and stubbed bulk-action links; topbar `imperia.png` link. Tests:
+  store integration (order/home/stock/matrices/DM/h), render (`TestEmpireBodyMatrix`/`EmptyState`),
+  e2e route. Follow-ups: Planetarium/Sensor module/Research Center + M7/M19/M32 rows once their
+  catalogs land, and real `reduceresources`/`reducefleet` routes.
 - 2026-10-17 — **Moon Collider S1–S3**: `game/collider.go` (id 69, ATM cost `850·1.35^(L-1)`,
   DM/h lookup `[4752,10454,17250]` + provisional quadratic past L3, combat/premium multiplier
   hooks); migration `0025` adds `celestial_objects.collider_level`/`collider_dm_prod_hourly` and
