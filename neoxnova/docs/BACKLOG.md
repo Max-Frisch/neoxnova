@@ -48,17 +48,22 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
   `internal/game/academy.go`) — names, tier, prerequisite gates, effect text and per-level point
   costs fitted to the captured (level, cost) anchors; combat effects now fold in from the skill map
   (`1101`/`1102`/`1211`/`1302` attack, `1301`/`1302` shield+armour, `1308` RF reduction; `1103`/`1109`
-  procs as before), the engine skills wire into flights (`1105` +3% speed all drives, `1107`/`1112`
-  fuel reduction) and economy into production (`1201`/`1202`) and storage (`1204`); `1203` Magistracy
-  (-2% research time/level) feeds `TechDuration`. Migration `0026` adds `users.academy_points`; the
-  **Online Bonus button** now grants Academy points as its "Experience points" (owner-verified:
-  peaceful 77 → 34 with the premium "Button Bonus ×4", i.e. an 8.5 base; `game.AcademyPointsBase`) —
-  it no longer (wrongly) fed `combat_xp`, which is a separate combat-fed progression. New
-  `store.AcademyStore` (upgrade with prereq/partial, branch reset at the captured 100%/75%/50%
-  Antimatter/DM/free tiers) and `/academy` page + menu link (was a disabled item). Tests: cost
-  anchors, effect aggregation, flight/fuel/research wiring, prereq/affordable, Bonus payout, store
-  lifecycle, render + e2e buy. Follow-ups: donate skill, achievements→points, cargo/fleet-slot/IRN/
-  planet-cap consumers, and the `42-acad-stat-probe` defender-branch capture.
+  procs as before); `1104` Standardisation (Fleet) discounts every ship's build cost, `1207` Packing
+  of cargo scales every ship's hold, `1205` Academy of Sciences adds IRN-connected labs, and `1206`
+  Expanding Empire extends the colony cap. Flights get `1105` (+3% speed all drives) and `1107`/`1112`
+  (fuel reduction); economy gets `1201`/`1202` production and `1204` storage; `1203` Magistracy
+  (-2% research time/level) feeds `TechDuration`; the colony cap (`game.MaxColonies`: homeworld +
+  universe `base_colonies` + Astrophysics, hard-capped, + academy) is enforced in `resolveColonize`.
+  Migration `0026` adds `users.academy_points`; the **Online Bonus button** grants Academy points as
+  its "Experience points" (owner-verified: peaceful 77 → 34 with the premium "Button Bonus ×4", i.e.
+  an 8.5 base; `game.AcademyPointsBase`) — it no longer (wrongly) fed `combat_xp`, which is a
+  separate combat-fed progression. New `store.AcademyStore` (upgrade with prereq/partial, branch reset
+  at the captured 100%/75%/50% Antimatter/DM/free tiers) and `/academy` page + menu link (was a
+  disabled item). Tests: cost anchors, effect aggregation, flight/fuel/research/cost/cargo/colony
+  wiring, prereq/affordable, Bonus payout, store lifecycle, render + e2e buy. Still text-only / TBD:
+  donate skill, achievements→points, `1108`/`1110`/`1111` procs, `1110`+double-shield defence procs
+  (`1303`/`1311`/`1304`–`1306`), `1209`/`1210`, `1106` fleet slots, and the `42-acad-stat-probe`
+  defender-branch capture.
 - 2026-10-17 — **S6 Peaceful calibration + S7 Arsenal greid keys**: from the new Bonus captures,
   `game/peaceful.go` re-fits the online-time curve to a weighted quadratic (`37n²−57.3n+4076`,
   within ~1.5% of the L3/4/5/76/77 durations) and the DM payout central fit (`base 7000` /

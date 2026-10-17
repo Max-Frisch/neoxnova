@@ -117,6 +117,44 @@ func TestAcademyFlightEffects(t *testing.T) {
 	}
 }
 
+// TestAcademyFleetCostAndCargo locks Standardisation (Fleet) -1%/level and
+// Packing of cargo +5%/level.
+func TestAcademyFleetCostAndCargo(t *testing.T) {
+	if got := AcademyFleetCostReductionPct(map[string]int{SkillStandardFleet: 17}); got != 17 {
+		t.Fatalf("fleet cost reduction = %v, want 17", got)
+	}
+	// 1 Light Cargo holds 25,000; +50% (level 10) = 37,500.
+	got := AcademyCargoCapacity(map[string]int64{"202": 1}, map[string]int{SkillPackingOfCargo: 10})
+	if got != 37500 {
+		t.Fatalf("cargo capacity = %d, want 37500", got)
+	}
+	if base := AcademyCargoCapacity(map[string]int64{"202": 1}, nil); base != 25000 {
+		t.Fatalf("base cargo capacity = %d, want 25000", base)
+	}
+	// DiscountCost rounds each component (17% off 1000/500/100 -> 830/415/83).
+	d := DiscountCost(Cost{Metal: 1000, Crystal: 500, Deuterium: 100}, 17)
+	if d.Metal != 830 || d.Crystal != 415 || d.Deuterium != 83 {
+		t.Fatalf("discount = %+v", d)
+	}
+	if zero := DiscountCost(d, 0); zero != d {
+		t.Fatalf("zero discount changed the cost: %+v", zero)
+	}
+}
+
+// TestMaxColonies locks the colony-cap formula: homeworld + base + astro
+// (hard-capped) + Academy Expanding Empire.
+func TestMaxColonies(t *testing.T) {
+	if got := MaxColonies(1, 0, 5, 35); got != 6 {
+		t.Fatalf("astro 1 = %d colonies, want 6 (5 + 1)", got)
+	}
+	if got := MaxColonies(100, 0, 5, 35); got != 35 {
+		t.Fatalf("hard cap = %d, want 35", got)
+	}
+	if got := MaxColonies(100, 2, 5, 35); got != 37 {
+		t.Fatalf("academy beyond cap = %d, want 37", got)
+	}
+}
+
 func TestAcademyStorageAndMisc(t *testing.T) {
 	if got := AcademyStoragePct(map[string]int{SkillCosmoDepot: 6}); got != 30 {
 		t.Fatalf("storage pct = %v, want 30", got)

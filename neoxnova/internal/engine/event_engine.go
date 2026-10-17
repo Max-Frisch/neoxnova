@@ -861,7 +861,7 @@ func (e *EventEngine) resolveAttackOutcome(ctx context.Context, tx *sql.Tx, flee
 	if res.Winner == "attacker" && survivors > 0 {
 		loot := game.Loot(
 			game.Cost{Metal: metal, Crystal: crystal, Deuterium: deuterium},
-			game.FleetCargo(res.Attacker.Remaining),
+			game.AcademyCargoCapacity(res.Attacker.Remaining, atkAcademy),
 		)
 		if loot.Metal+loot.Crystal+loot.Deuterium > 0 {
 			if _, err := tx.ExecContext(ctx, `
@@ -985,7 +985,15 @@ func (e *EventEngine) resolveRecycle(ctx context.Context, tx *sql.Tx, fleetID, t
 	if err != nil {
 		return err
 	}
-	capacity := game.FleetCargo(ships)
+	var owner int64
+	if err := tx.QueryRowContext(ctx, `SELECT user_id FROM fleets WHERE id = $1`, fleetID).Scan(&owner); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	academyLevels, err := loadAcademy(ctx, tx, owner)
+	if err != nil {
+		return err
+	}
+	capacity := game.AcademyCargoCapacity(ships, academyLevels)
 	take := func(v int64) int64 {
 		w := v
 		if w > capacity {
@@ -1402,8 +1410,10 @@ func (e *EventEngine) resolveColonize(ctx context.Context, tx *sql.Tx, fleetID, 
 		return err
 	}
 
-	var planetsPerSystem int
-	if err := tx.QueryRowContext(ctx, `SELECT planets_per_system FROM universes WHERE id = $1`, universeID).Scan(&planetsPerSystem); err != nil {
+	var planetsPerSystem, baseColonies, colonyHardcap int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT planets_per_system, base_colonies, max_colonies_hardcap FROM universes WHERE id = $1
+	`, universeID).Scan(&planetsPerSystem, &baseColonies, &colonyHardcap); err != nil {
 		return err
 	}
 
@@ -1427,6 +1437,30 @@ func (e *EventEngine) resolveColonize(ctx context.Context, tx *sql.Tx, fleetID, 
 		return err
 	}
 	if colonyShips < 1 || blocked || p < 1 || p > planetsPerSystem {
+		return returnHome()
+	}
+
+	// Colony cap: the homeworld plus the universe's base allowance plus one
+	// colony per Astrophysics level (hard-capped), plus the Academy
+	// "Expanding Empire" planets.
+	var astrophysics int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(level), 0) FROM user_technologies WHERE user_id = $1 AND tech_code = 'astrophysics'
+	`, userID).Scan(&astrophysics); err != nil {
+		return err
+	}
+	academyLevels, err := loadAcademy(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+	var ownedPlanets int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM celestial_objects WHERE user_id = $1 AND object_type = 'PLANET'
+	`, userID).Scan(&ownedPlanets); err != nil {
+		return err
+	}
+	maxPlanets := 1 + game.MaxColonies(astrophysics, game.AcademyPlanets(academyLevels), baseColonies, colonyHardcap)
+	if ownedPlanets >= maxPlanets {
 		return returnHome()
 	}
 
@@ -1465,7 +1499,7 @@ func (e *EventEngine) resolveColonize(ctx context.Context, tx *sql.Tx, fleetID, 
 	if err := e.stationShips(ctx, tx, newID, fleetID); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, fleetID)
+	_, err = tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, fleetID)
 	return err
 }
 

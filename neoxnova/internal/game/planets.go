@@ -9,6 +9,29 @@ import (
 // slot after the last is the expedition (deep-space) slot.
 const MaxPlanetSlots = 20
 
+// MaxColonies is the number of colonies (excluding the homeworld) an account may
+// own. The reference server (niburuspace) grants the universe's base allowance
+// (5 free colonies) plus one colony per Astrophysics level
+// ("astro 1 = main + 5 default + 1 from astro"), capped at the universe's hard
+// cap, plus the Academy "Expanding Empire" planets. The homeworld is additional,
+// so the total planet count is MaxColonies+1.
+func MaxColonies(astrophysics, academyPlanets, baseColonies, hardCap int) int {
+	if baseColonies < 0 {
+		baseColonies = 0
+	}
+	if astrophysics < 0 {
+		astrophysics = 0
+	}
+	free := baseColonies + astrophysics
+	if hardCap > 0 && free > hardCap {
+		free = hardCap
+	}
+	if academyPlanets < 0 {
+		academyPlanets = 0
+	}
+	return free + academyPlanets
+}
+
 // slotRange is per-position min/max of a randomly rolled value.
 type slotRange struct{ min, max int }
 

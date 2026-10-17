@@ -433,8 +433,16 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 	}
 
 	// Partial builds: when the requested batch is unaffordable, build as many
-	// units as the current resources allow instead of failing outright.
+	// units as the current resources allow instead of failing outright. The
+	// Academy "Standardisation (Fleet)" cuts every ship's resource cost
+	// (-1%/level), so apply it before the affordability check.
+	academyLevels, err := loadAcademyLevels(ctx, tx, userID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	fleetCostPct := game.AcademyFleetCostReductionPct(academyLevels)
 	unitCost, _ := game.UnitCost(unitCode, 1)
+	unitCost = game.DiscountCost(unitCost, fleetCostPct)
 	if affordable := affordableQty(metal, crystal, deuterium, unitCost); affordable < quantity {
 		quantity = affordable
 	}
@@ -442,6 +450,7 @@ func (s *BuildStore) EnqueueShipyard(ctx context.Context, planetID int64, unitCo
 		return QueueResult{}, ErrInsufficientResources
 	}
 	cost, _ := game.UnitCost(unitCode, quantity)
+	cost = game.DiscountCost(cost, fleetCostPct)
 
 	kindCodes := defenseCodes()
 	if _, isShip := game.Ships[unitCode]; isShip {
@@ -627,7 +636,7 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 			}
 			break
 		}
-		projIRN := techs["intergalactic_research_network"] + queued["intergalactic_research_network"]
+		projIRN := techs["intergalactic_research_network"] + queued["intergalactic_research_network"] + game.AcademyIRN(academyLevels)
 		projLab := structLevels["research_lab"] + queuedStructs["research_lab"]
 		projUni := structLevels["university"] + queuedStructs["university"]
 		labLevel := game.EffectiveResearchLabLevel(projLab, projIRN, colonyLabs)
@@ -1093,7 +1102,12 @@ func (s *BuildStore) effectiveResearchLab(ctx context.Context, tx *sql.Tx, celes
 	if err != nil {
 		return 0, 0, err
 	}
-	lvl := game.EffectiveResearchLabLevel(structLevels["research_lab"], techs["intergalactic_research_network"], colonyLabs)
+	academyLevels, err := loadAcademyLevels(ctx, tx, userID)
+	if err != nil {
+		return 0, 0, err
+	}
+	irn := techs["intergalactic_research_network"] + game.AcademyIRN(academyLevels)
+	lvl := game.EffectiveResearchLabLevel(structLevels["research_lab"], irn, colonyLabs)
 	return lvl, structLevels["university"], nil
 }
 

@@ -121,3 +121,42 @@ func mustSkill(t *testing.T, code string) game.AcademySkill {
 	}
 	return s
 }
+
+// TestAcademyShipCostDiscount proves Standardisation (Fleet) reduces the
+// resources deducted when building ships in the shipyard.
+func TestAcademyShipCostDiscount(t *testing.T) {
+	db := openQueueTestDB(t)
+	ctx := context.Background()
+	p := newChainPlanet(t, db, ctx)
+	bs := NewBuildStore(db)
+
+	setStructure(ctx, t, db, p.planetID, "shipyard", 5)
+	setStructure(ctx, t, db, p.planetID, "nanite_factory", 5)
+	setResources(ctx, t, db, p.planetID, 1e12, 1e12, 1e12)
+
+	// 20% fleet-cost reduction.
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO user_academy_skills (user_id, skill_code, level) VALUES ($1, '1104', 20)
+		ON CONFLICT (user_id, skill_code) DO UPDATE SET level = 20
+	`, p.userID); err != nil {
+		t.Fatal(err)
+	}
+
+	base, _ := game.UnitCost("204", 1)
+	want := game.DiscountCost(base, 20)
+
+	var before float64
+	if err := db.QueryRowContext(ctx, `SELECT metal FROM celestial_objects WHERE id = $1`, p.planetID).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bs.EnqueueShipyard(ctx, p.planetID, "204", 1); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	var after float64
+	if err := db.QueryRowContext(ctx, `SELECT metal FROM celestial_objects WHERE id = $1`, p.planetID).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if int64(before-after) != want.Metal {
+		t.Fatalf("metal deducted = %d, want %d (discounted from %d)", int64(before-after), want.Metal, base.Metal)
+	}
+}

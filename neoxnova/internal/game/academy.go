@@ -403,6 +403,24 @@ func AcademyCargoPct(levels map[string]int) float64 {
 	return academySum(levels, func(e AcademyEffect) float64 { return e.CargoPct })
 }
 
+// AcademyFleetCostReductionPct is the global ship build-cost reduction (percent)
+// from Standardisation (Fleet): -1% per level for every ship (Solar Satellites
+// included).
+func AcademyFleetCostReductionPct(levels map[string]int) float64 {
+	return academySum(levels, func(e AcademyEffect) float64 { return e.FleetCostPct })
+}
+
+// AcademyCargoCapacity is FleetCargo scaled by the account's Packing of cargo
+// bonus (+5% per level on every ship's hold).
+func AcademyCargoCapacity(units map[string]int64, levels map[string]int) int64 {
+	capacity := FleetCargo(units)
+	pct := AcademyCargoPct(levels)
+	if pct == 0 {
+		return capacity
+	}
+	return int64(math.Round(float64(capacity) * (1.0 + pct/100.0)))
+}
+
 // AcademyFleetSpeedPct is the fleet-speed bonus (percent).
 func AcademyFleetSpeedPct(levels map[string]int) float64 {
 	return academySum(levels, func(e AcademyEffect) float64 { return e.FleetSpeedPct })

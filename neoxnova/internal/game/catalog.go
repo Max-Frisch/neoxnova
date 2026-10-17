@@ -23,6 +23,24 @@ func (c Cost) Mul(n int64) Cost {
 	return Cost{Metal: c.Metal * n, Crystal: c.Crystal * n, Deuterium: c.Deuterium * n}
 }
 
+// DiscountCost applies an additive percentage discount to a resource price (the
+// Academy "Standardisation (Fleet)" -1%/level ship cost), rounding each
+// component. pct is the reduction in percent; a non-positive pct returns c.
+func DiscountCost(c Cost, pct float64) Cost {
+	if pct <= 0 {
+		return c
+	}
+	f := 1.0 - pct/100.0
+	if f < 0 {
+		f = 0
+	}
+	return Cost{
+		Metal:     int64(math.Round(float64(c.Metal) * f)),
+		Crystal:   int64(math.Round(float64(c.Crystal) * f)),
+		Deuterium: int64(math.Round(float64(c.Deuterium) * f)),
+	}
+}
+
 // StructureDef describes a planet building. Code is the stable string key used
 // in the database; ID is the server's numeric building id (captured from HAR).
 type StructureDef struct {

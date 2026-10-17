@@ -176,7 +176,7 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 	res.Flavor = rng.Intn(expeditionFlavorVariants)
 	switch res.Outcome {
 	case ExpeditionResources:
-		res.Loot = expeditionLoot(FleetCargo(fleet), rng)
+		res.Loot = expeditionLoot(AcademyCargoCapacity(fleet, atk.Academy), rng)
 
 	case ExpeditionShips:
 		res.Ships = expeditionRecovery(points, rng)
@@ -207,7 +207,7 @@ func RollExpedition(atk Combatant, seed int64) ExpeditionResult {
 
 	case ExpeditionBlackHoleLoot:
 		// A rare POSITIVE black hole: resources are multiplied on the way through.
-		res.Loot = expeditionBlackHoleLoot(FleetCargo(fleet), rng)
+		res.Loot = expeditionBlackHoleLoot(AcademyCargoCapacity(fleet, atk.Academy), rng)
 
 	case ExpeditionBlackHole:
 		// The engine wipes the fleet; nothing else to compute.
