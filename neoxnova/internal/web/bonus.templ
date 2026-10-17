@@ -28,7 +28,7 @@ templ BonusBody(sh Shell, d BonusData) {
 			</div>
 			<div class="bm-tile">
 				<span class="bm-tile-name">Online Bonus button</span>
-				<span class="resource-sub">Dark Matter { fnum(d.Reward.DarkMatter) } · Experience { strconv.Itoa(int(d.Reward.ExperiencePercent)) }% · Experience points { strconv.FormatInt(d.Reward.CombatXP, 10) }</span>
+				<span class="resource-sub">Dark Matter { fnum(d.Reward.DarkMatter) } · Experience { strconv.Itoa(int(d.Reward.ExperiencePercent)) }% · Experience points { strconv.FormatInt(d.Reward.AcademyPoints, 10) }</span>
 				if d.Ready {
 					<form method="post" action="/bonus">
 						<button type="submit" class="build-next">Collect bonus</button>

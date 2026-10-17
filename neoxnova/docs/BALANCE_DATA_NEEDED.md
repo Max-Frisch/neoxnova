@@ -185,10 +185,13 @@ or durations at a known Nanite level with no officers.
   page (DM + Achievement points: Weapons/Shield +10%, Building −10%, Resource
   +10% extraction, Energy +10%, Research +10% time, Fleet +10% fly time; levels up
   to 65/65/50/250/100/40/20) is likewise custom. Both are the expo-profit levers.
-- **Academy**: not captured (only appears as a nav link) — needs a `page=academy`
-  capture. Academy points likely come from Peaceful levels and/or Achievements and
-  give additive (or multiplicative) combat bonuses; vital for beating pirates and
-  aliens. TBD.
+- **Academy**: captured (see the section below + the private ops repo
+  `tools/explorer/data/academy-map.json`, `_academy.html`/`_academy2.html`). The
+  full 3-branch tree (27 skills) with per-skill effect text, prerequisites and
+  point costs is ported to `internal/game/academy.go`; the combat/economy effects
+  are wired in and the point costs are fitted to the captured (level, cost)
+  anchors. Academy points are the "Experience points" the Online Bonus button
+  grants (owner-verified; premium "Button Bonus ×4" multiplies them too).
 - **Online Bonus** button (above "Premium account"): appears periodically and
   grants Dark Matter + Peaceful-level experience.
 - **Premium** options affect: peaceful XP gain, how often the Online Bonus button

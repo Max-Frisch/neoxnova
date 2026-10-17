@@ -130,6 +130,25 @@ func TestWebEndToEnd(t *testing.T) {
 		e2eWantContains(t, body, fmt.Sprintf("/overview/%d", a.HomeID), "per-column Go link")
 	})
 
+	t.Run("academy tree renders and buys a skill", func(t *testing.T) {
+		body := e2eGet(t, clientA, srv.URL, "/academy")
+		e2eWantContains(t, body, "Academy points:", "point balance")
+		e2eWantContains(t, body, "Weaponry", "attack branch skill")
+		e2eWantContains(t, body, "Production speed", "economy branch skill")
+		e2eWantContains(t, body, "Defensive strategy", "defence branch skill")
+
+		if _, err := db.ExecContext(ctx, `UPDATE users SET academy_points = 5000 WHERE id = $1`, a.UserID); err != nil {
+			t.Fatal(err)
+		}
+		body = e2ePost(t, clientA, srv.URL, "/academy/upgrade", url.Values{"code": {"1101"}, "target": {"3"}})
+		e2eWantContains(t, body, "Weaponry raised to level 3", "skill upgrade")
+		level := e2eScalarInt64(t, db,
+			`SELECT COALESCE(level, 0) FROM user_academy_skills WHERE user_id = $1 AND skill_code = '1101'`, a.UserID)
+		if level != 3 {
+			t.Fatalf("Weaponry level = %d, want 3", level)
+		}
+	})
+
 	t.Run("building queues and completes", func(t *testing.T) {
 		before := e2eScalarInt64(t, db,
 			`SELECT COALESCE(level, 0) FROM planet_structures WHERE celestial_id = $1 AND structure_code = 'metal_mine'`,
@@ -921,6 +940,8 @@ func e2eReset(t *testing.T, ctx context.Context, db *sql.DB, a, b e2ePlayer) {
 		{`UPDATE user_technologies SET level = 6 WHERE user_id = $1 AND tech_code = 'espionage_tech'`, []any{a.UserID}},
 		{`DELETE FROM upgrade_items WHERE account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`DELETE FROM account_upgrades WHERE account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
+		{`DELETE FROM user_academy_skills WHERE user_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
+		{`UPDATE users SET academy_points = 0 WHERE id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`DELETE FROM market_lots WHERE seller_account_id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE users SET antimatter = 1000000 WHERE id IN ($1, $2)`, []any{a.UserID, b.UserID}},
 		{`UPDATE celestial_objects SET metal = 1.0e12, crystal = 5.0e11, deuterium = 1.0e11,

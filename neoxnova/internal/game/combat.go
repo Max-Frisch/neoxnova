@@ -328,7 +328,15 @@ func (s *combatSide) removeAt(i int) {
 func isShipCode(code string) bool { return len(code) == 3 && code[0] == '2' }
 
 func buildSide(c Combatant) (*combatSide, SideReport) {
-	side := &combatSide{rfReduction: c.AcademyRFReductionPct}
+	// Academy flat modifiers. The account's skill tree is carried as c.Academy
+	// (code -> level); fold its attack/shield/hull/RF terms in on top of any
+	// explicit legacy fields, so both the engine and the simulator agree.
+	acadAttack := c.AcademyDamagePct + AcademyAttackPct(c.Academy)
+	acadShield := c.AcademyShieldPct + AcademyShieldPct(c.Academy)
+	acadHull := c.AcademyHullPct + AcademyHullPct(c.Academy)
+	rfReduction := c.AcademyRFReductionPct + AcademyRFReductionPct(c.Academy)
+
+	side := &combatSide{rfReduction: rfReduction}
 	report := SideReport{Initial: map[string]int64{}, Lost: map[string]int64{}, Remaining: map[string]int64{}}
 	// Iterate codes in a stable order so a given seed always produces the same
 	// battle regardless of Go's randomised map iteration.
@@ -350,15 +358,15 @@ func buildSide(c Combatant) (*combatSide, SideReport) {
 		ct := &combatType{
 			code:   code,
 			attack: DerivedAttack(stats.Attack, classes, c),
-			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))+c.FlatBonusPct+c.AcademyShieldPct),
-			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))+c.FlatBonusPct+c.AcademyHullPct),
+			shield: DerivedStatBonus(stats.Shield, c.Techs.Shield, c.upgradePct(UpgradeCodeForClass("shield", classes.Shield))+c.FlatBonusPct+acadShield),
+			hull:   DerivedStatBonus(stats.Hull, c.Techs.Armour, c.upgradePct(UpgradeCodeForClass("armor", classes.Armor))+c.FlatBonusPct+acadHull),
 			isShip: isShipCode(code),
 		}
 		if c.FlatBonusPct != 0 {
 			ct.attack = int(math.Round(float64(ct.attack) * (1.0 + c.FlatBonusPct/100.0)))
 		}
-		if c.AcademyDamagePct != 0 {
-			ct.attack = int(math.Round(float64(ct.attack) * (1.0 + c.AcademyDamagePct/100.0)))
+		if acadAttack != 0 {
+			ct.attack = int(math.Round(float64(ct.attack) * (1.0 + acadAttack/100.0)))
 		}
 		if def, ok := LookupUnit(code); ok {
 			ct.debrisM = def.BaseCost.Metal / 2

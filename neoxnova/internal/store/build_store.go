@@ -1140,6 +1140,7 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		return err
 	}
 	bonus := game.ProductionBonus{}
+	var academyLevels map[string]int
 	if owner.Valid {
 		upgrades, err := LoadAccountUpgrades(ctx, tx, owner.Int64)
 		if err != nil {
@@ -1153,6 +1154,10 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		if err != nil {
 			return err
 		}
+		academyLevels, err = loadAcademyLevels(ctx, tx, owner.Int64)
+		if err != nil {
+			return err
+		}
 		var peacefulSeconds int64
 		if err := tx.QueryRowContext(ctx, `SELECT peaceful_seconds FROM users WHERE id = $1`, owner.Int64).Scan(&peacefulSeconds); err != nil {
 			return err
@@ -1161,7 +1166,8 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 		bonus = game.ProductionBonusFor(upgrades).
 			Plus(game.ResearchProductionBonus(techs)).
 			Plus(game.GovernatorProductionBonus(activeGov)).
-			Plus(game.PeacefulProductionBonus(peacefulLevel))
+			Plus(game.PeacefulProductionBonus(peacefulLevel)).
+			Plus(game.AcademyProductionBonus(academyLevels))
 	}
 	eco := game.RecomputeProduction(levels, tempMax, resourceSpeed, satCount, bonus, objectType == "PLANET")
 
@@ -1179,6 +1185,13 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	metalCap := game.StorageCapacity(levels["metal_storage"], resourceSpeed)
 	crystalCap := game.StorageCapacity(levels["crystal_storage"], resourceSpeed)
 	deutCap := game.StorageCapacity(levels["deuterium_storage"], resourceSpeed)
+	// Cosmo depot (1204) raises storage capacity account-wide.
+	if storagePct := game.AcademyStoragePct(academyLevels); storagePct != 0 {
+		mult := 1.0 + storagePct/100.0
+		metalCap = int64(float64(metalCap) * mult)
+		crystalCap = int64(float64(crystalCap) * mult)
+		deutCap = int64(float64(deutCap) * mult)
+	}
 
 	// The Collider is moon-only and produces account-wide Dark Matter. Its
 	// cached output feeds update_user_dark_matter; it occupies no field (it is

@@ -39,6 +39,18 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Academy (full feature)**: ported the captured 3-branch tree (27 skills,
+  `internal/game/academy.go`) — names, tier, prerequisite gates, effect text and per-level point
+  costs fitted to the captured (level, cost) anchors; combat effects now fold in from the skill map
+  (`1101`/`1102`/`1211`/`1302` attack, `1301`/`1302` shield+armour, `1308` RF reduction; `1103`/`1109`
+  procs as before) and the economy skills wire into production (`1201`/`1202`) and storage (`1204`).
+  Migration `0026` adds `users.academy_points`; the **Online Bonus button** now grants Academy points
+  as its "Experience points" (owner-verified: peaceful 77 → 34 with the premium "Button Bonus ×4",
+  i.e. an 8.5 base; `game.AcademyPointsBase`). New `store.AcademyStore` (upgrade with prereq/partial,
+  branch reset at the captured 100%/75%/50% Antimatter/DM/free tiers) and `/academy` page + menu link
+  (was a disabled item). Tests: cost anchors, effect aggregation, prereq/affordable, Bonus payout,
+  store lifecycle, render + e2e buy. Follow-ups: donate skill, achievements→points, cargo/fleet-slot/
+  IRN/planet-cap consumers, and the `42-acad-stat-probe` defender-branch capture.
 - 2026-10-17 — **S6 Peaceful calibration + S7 Arsenal greid keys**: from the new Bonus captures,
   `game/peaceful.go` re-fits the online-time curve to a weighted quadratic (`37n²−57.3n+4076`,
   within ~1.5% of the L3/4/5/76/77 durations) and the DM payout central fit (`base 7000` /

@@ -1,0 +1,81 @@
+package web
+
+import "strconv"
+
+// AcademyBody is the skill-tree page: Academy-point balance, the three branches
+// with their skills and next-level costs, and the branch reset controls.
+templ AcademyBody(sh Shell, d AcademyData) {
+	<div class="panel">
+		<div class="gov-topbar">
+			<h2 class="panel-title">Academy</h2>
+			<span class="gov-ap-header">Academy points: <b>{ fnum(d.Points) }</b></span>
+		</div>
+		<p class="resource-sub">Buy permanent, account-wide skills with Academy points, earned from the Online Bonus button. Resetting a branch refunds part of its points.</p>
+		for _, bv := range d.Branches {
+			@academyBranch(bv)
+		}
+	</div>
+}
+
+templ academyBranch(bv AcademyBranchView) {
+	<div class="gov-list">
+		<h3 class="resource-sub">{ bv.Label } branch</h3>
+		for _, sk := range bv.Skills {
+			@academySkill(sk)
+		}
+		<div class="gov-actions">
+			<form method="post" action="/academy/reset" class="gov-form">
+				<input type="hidden" name="branch" value={ strconv.Itoa(int(bv.Branch)) }/>
+				<input type="hidden" name="percent" value="100"/>
+				<button class="build-next" type="submit" title="Refund 100% for Antimatter">Reset 100% (10,000 Antimatter)</button>
+			</form>
+			<form method="post" action="/academy/reset" class="gov-form">
+				<input type="hidden" name="branch" value={ strconv.Itoa(int(bv.Branch)) }/>
+				<input type="hidden" name="percent" value="75"/>
+				<button class="build-next" type="submit" title="Refund 75% for Dark Matter">Reset 75% (200,000 Dark Matter)</button>
+			</form>
+			<form method="post" action="/academy/reset" class="gov-form">
+				<input type="hidden" name="branch" value={ strconv.Itoa(int(bv.Branch)) }/>
+				<input type="hidden" name="percent" value="50"/>
+				<button class="build-next" type="submit" title="Refund 50%, free">Reset 50% (Free)</button>
+			</form>
+		</div>
+	</div>
+}
+
+templ academySkill(sk AcademySkillView) {
+	<div class="upgrade-box gov-card">
+		<div class="upgrade-head gov-head">
+			<span>{ sk.Tier } · { sk.Name }</span>
+			<span class="gov-level">[level { strconv.Itoa(sk.Level) }/{ strconv.Itoa(sk.MaxLevel) }]</span>
+		</div>
+		<div class="upgrade-body gov-body">
+			<div class="upgrade-info gov-effects">
+				<span class="upgrade-line">{ sk.EffectText }</span>
+				if sk.PrereqText != "" {
+					if sk.PrereqMet {
+						<span class="resource-sub">Requires { sk.PrereqText } (met)</span>
+					} else {
+						<span class="energy need">Requires { sk.PrereqText }</span>
+					}
+				}
+			</div>
+			<div class="gov-actions">
+				<div class="gov-block">
+					if sk.AtMax {
+						<span class="gov-active-badge">Maximum level reached</span>
+					} else {
+						<span class="gov-price">Cost: <b>{ fnum(sk.CostNext) }</b> Academy points</span>
+						<form method="post" action="/academy/upgrade" class="gov-form">
+							<input type="hidden" name="code" value={ sk.Code }/>
+							<label class="gov-label">To level
+								<input class="gov-target" name="target" type="number" min={ strconv.Itoa(sk.NextLevel) } max={ strconv.Itoa(sk.MaxLevel) } value={ strconv.Itoa(sk.NextLevel) }/>
+							</label>
+							<button class="build-next" type="submit" title="Improve">▲</button>
+						</form>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}

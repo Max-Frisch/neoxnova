@@ -57,6 +57,6 @@ func (h *Handler) BonusSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	msg := "You received: Dark Matter: " + fnum(reward.DarkMatter) +
 		"; Experience: " + strconv.Itoa(int(reward.ExperiencePercent)) +
-		"%; Experience points: " + strconv.FormatInt(reward.CombatXP, 10) + "."
+		"%; Experience points: " + strconv.FormatInt(reward.AcademyPoints, 10) + "."
 	h.redirect(w, r, "/bonus", msg, "")
 }

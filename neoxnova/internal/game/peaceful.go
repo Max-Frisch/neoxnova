@@ -226,12 +226,34 @@ func PeacefulLevelStatePremium(totalSeconds float64, p PeacefulPremium) (level i
 	return l, pct, int64((dur - done) * factor)
 }
 
+// Academy points ("Experience points" on the live Info dialog) are the currency
+// of the Academy skill tree. They are granted by the Online Bonus button and
+// scale linearly with the peaceful level. Owner-verified 2026-10-17: at peaceful
+// level 77 the button granted 34 points *including* the premium "Button Bonus
+// ×4" multiplier, so the un-premium base is 8.5. The low captures (L3/L4 = 1,
+// L72 = 8) fit the same line through (3, 1) and (77, 8.5).
+const (
+	academyPointsBaseAtL3  = 1.0 // captured: L3/L4 grant 1 point
+	academyPointsBaseAtL77 = 8.5 // captured: 34 ÷ premium ×4
+)
+
+// academyPointsBase is the un-premium Academy-point base for a peaceful level:
+// the straight line through the captured (3, 1) and (77, 8.5) anchors.
+func academyPointsBase(peacefulLevel int) float64 {
+	if peacefulLevel < 0 {
+		peacefulLevel = 0
+	}
+	return academyPointsBaseAtL3 +
+		(academyPointsBaseAtL77-academyPointsBaseAtL3)*float64(peacefulLevel-3)/74.0
+}
+
 // BonusReward is the payout of one Online Bonus button click.
 type BonusReward struct {
 	DarkMatter        int64
 	PeacefulSeconds   int64
 	ExperiencePercent float64
 	CombatXP          int64
+	AcademyPoints     int64
 }
 
 // BonusButtonReward computes the calibrated payout of the Online Bonus button
@@ -249,10 +271,14 @@ func BonusButtonRewardPremium(peacefulLevel int, p PeacefulPremium) BonusReward 
 	}
 	progressSeconds := int64(math.Round(peacefulLevelSecondsPremium(peacefulLevel+1, p) * bonusButtonProgressPct / 100.0))
 	dm := float64(bonusButtonDarkMatterBase+bonusButtonDarkMatterSlope*peacefulLevel) * p.darkMatterMultiplier()
+	// The "Button Bonus ×4" premium multiplies the Academy points too (verified:
+	// 34 = 8.5 × 4 at level 77), so apply the same multiplier before rounding.
+	academyPoints := academyPointsBase(peacefulLevel) * p.darkMatterMultiplier()
 	return BonusReward{
 		DarkMatter:        int64(math.Round(dm)),
 		PeacefulSeconds:   progressSeconds,
 		ExperiencePercent: bonusButtonProgressPct * p.experienceMultiplier(),
 		CombatXP:          int64(math.Round(float64(peacefulLevel/2+1) * p.experienceMultiplier())),
+		AcademyPoints:     int64(math.Round(academyPoints)),
 	}
 }
