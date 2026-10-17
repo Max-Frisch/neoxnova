@@ -1310,31 +1310,35 @@ type MessageCategory struct {
 }
 
 type ReportsData struct {
-	Categories []MessageCategory
-	Active     string
-	Combat     []store.CombatReport
-	Espionage  []store.EspionageReport
-	Expedition []store.ExpeditionReport
+	Categories   []MessageCategory
+	Active       string
+	ShowMessages bool
+	Combat       []store.CombatReport
+	Espionage    []store.EspionageReport
+	Expedition   []store.ExpeditionReport
+	Messages     []store.Message
 }
 
 // messageCategories is the grid captured from page=messages, in display order.
-// Backed keys map to the reports store; the others have no engine source yet.
+// Report categories (spy/combat/expedition) are backed by the report stores;
+// the generic categories (Cat >= 0) are backed by the messages table.
 var messageCategories = []struct {
 	Key, Label, Color string
 	Backed            bool
+	Cat               int
 }{
-	{"spy", "Spy messages", "msg-spy", true},
-	{"player", "Player messages", "msg-player", false},
-	{"alliance", "Alliance messages", "msg-alliance", false},
-	{"combat", "Combat messages", "msg-combat", true},
-	{"system", "System messages", "msg-system", false},
-	{"transport", "Transport messages", "msg-transport", false},
-	{"expedition", "Expedition messages", "msg-expedition", true},
-	{"game", "Game messages", "msg-game", false},
-	{"construction", "Construction messages", "msg-construction", false},
-	{"all", "All messages", "msg-all", true},
-	{"archive", "Archive", "msg-archive", false},
-	{"outbox", "Outbox", "msg-outbox", false},
+	{"spy", "Spy messages", "msg-spy", true, -1},
+	{"player", "Player messages", "msg-player", true, game.MessageCategoryPlayer},
+	{"alliance", "Alliance messages", "msg-alliance", true, game.MessageCategoryAlliance},
+	{"combat", "Combat messages", "msg-combat", true, -1},
+	{"system", "System messages", "msg-system", true, game.MessageCategorySystem},
+	{"transport", "Transport messages", "msg-transport", true, game.MessageCategoryTransport},
+	{"expedition", "Expedition messages", "msg-expedition", true, -1},
+	{"game", "Game messages", "msg-game", true, game.MessageCategoryGame},
+	{"construction", "Construction messages", "msg-construction", true, game.MessageCategoryConstruction},
+	{"all", "All messages", "msg-all", true, -1},
+	{"archive", "Archive", "msg-archive", false, -1},
+	{"outbox", "Outbox", "msg-outbox", false, -1},
 }
 
 // messageCategory validates the ?category= key, defaulting to All messages.
@@ -1348,13 +1352,25 @@ func messageCategory(key string) string {
 }
 
 // messageCategoryGrid builds the category cells, wiring real counts and links
-// into the backed categories (base is the reports URL prefix).
-func messageCategoryGrid(base string, counts map[string]int) []MessageCategory {
+// into the backed categories (base is the reports URL prefix). reportCounts
+// carries the spy/combat/expedition tallies; msgCounts the generic per-category
+// tallies keyed by the live cat id.
+func messageCategoryGrid(base string, reportCounts map[string]int, msgCounts map[int]int) []MessageCategory {
 	out := make([]MessageCategory, 0, len(messageCategories))
+	total := reportCounts["all"]
+	for _, n := range msgCounts {
+		total += n
+	}
 	for _, c := range messageCategories {
 		cat := MessageCategory{Key: c.Key, Label: c.Label, Color: c.Color, Backed: c.Backed}
 		if c.Backed {
-			cat.Count = counts[c.Key]
+			if c.Cat >= 0 {
+				cat.Count = msgCounts[c.Cat]
+			} else if c.Key == "all" {
+				cat.Count = total
+			} else {
+				cat.Count = reportCounts[c.Key]
+			}
 			cat.Href = base + c.Key
 		}
 		out = append(out, cat)
@@ -1375,6 +1391,7 @@ func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
 	combat, _ := h.combat.ListForCelestial(r.Context(), id, 100)
 	espionage, _ := h.espionage.ListForCelestial(r.Context(), id, 100)
 	expedition, _ := h.expedition.ListForCelestial(r.Context(), id, 100)
+	msgCounts, _ := h.messages.CountsForUser(r.Context(), userID)
 
 	active := messageCategory(r.URL.Query().Get("category"))
 	data := ReportsData{Active: active}
@@ -1382,7 +1399,7 @@ func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
 		"spy": len(espionage), "combat": len(combat), "expedition": len(expedition),
 		"all": len(combat) + len(espionage) + len(expedition),
 	}
-	data.Categories = messageCategoryGrid("/reports/"+r.PathValue("id")+"?category=", counts)
+	data.Categories = messageCategoryGrid("/reports/"+r.PathValue("id")+"?category=", counts, msgCounts)
 	switch active {
 	case "spy":
 		data.Espionage = espionage
@@ -1390,10 +1407,27 @@ func (h *Handler) ReportsPage(w http.ResponseWriter, r *http.Request) {
 		data.Combat = combat
 	case "expedition":
 		data.Expedition = expedition
-	default:
+	case "all":
 		data.Combat, data.Espionage, data.Expedition = combat, espionage, expedition
+		data.Messages, _ = h.messages.ListForUser(r.Context(), userID, -1, 100)
+		data.ShowMessages = true
+	default:
+		if cat, ok := messageCategoryCat(active); ok {
+			data.Messages, _ = h.messages.ListForUser(r.Context(), userID, cat, 100)
+			data.ShowMessages = true
+		}
 	}
 	h.render(w, r, http.StatusOK, Page(sh, MessagesBody(sh, data)))
+}
+
+// messageCategoryCat maps a grid key to the generic messages-table category id.
+func messageCategoryCat(key string) (int, bool) {
+	for _, c := range messageCategories {
+		if c.Key == key && c.Cat >= 0 {
+			return c.Cat, true
+		}
+	}
+	return 0, false
 }
 
 // ---- helpers -------------------------------------------------------------

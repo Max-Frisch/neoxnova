@@ -874,6 +874,9 @@ templ MessagesBody(sh Shell, d ReportsData) {
 			if len(d.Expedition) > 0 || d.Active == "expedition" || d.Active == "all" {
 				@expeditionSection(d.Expedition)
 			}
+			if d.ShowMessages {
+				@messageSection(d.Messages)
+			}
 		</div>
 	</div>
 }
@@ -960,6 +963,31 @@ templ expeditionSection(reports []store.ExpeditionReport) {
 								<td>{ rep.Outcome }</td>
 								<td class="max-w-md">{ rep.Title }</td>
 								<td>{ rep.CreatedAt.Format("02 Jan 15:04") }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
+}
+
+templ messageSection(messages []store.Message) {
+	<section>
+		<h3 class="tech-group-title">Inbox</h3>
+		if len(messages) == 0 {
+			<p class="text-sm text-slate-500">None.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="game-table">
+					<thead><tr><th>From</th><th>Subject</th><th>Message</th><th>When</th></tr></thead>
+					<tbody>
+						for _, m := range messages {
+							<tr>
+								<td>{ m.Sender }</td>
+								<td>{ m.Subject }</td>
+								<td class="max-w-md">{ m.Body }</td>
+								<td>{ m.CreatedAt.Format("02 Jan 15:04") }</td>
 							</tr>
 						}
 					</tbody>

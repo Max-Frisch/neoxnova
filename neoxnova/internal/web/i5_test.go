@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"neoxnova/internal/game"
 	"neoxnova/internal/models"
+	"neoxnova/internal/store"
 )
 
 // TestArsenalBodyTabs locks the I5 Arsenal tabs: the three tab headers render,
@@ -244,7 +246,7 @@ func TestMessageCategoryValidation(t *testing.T) {
 		"":       "all",
 		"spy":    "spy",
 		"combat": "combat",
-		"player": "all", // unbacked categories fall back to All
+		"player": "player", // generic category is now backed by the messages table
 		"nope":   "all",
 	}
 	for in, want := range cases {
@@ -254,9 +256,12 @@ func TestMessageCategoryValidation(t *testing.T) {
 	}
 }
 
-// TestMessageCategoryGrid wires real counts/links only into backed cells.
+// TestMessageCategoryGrid wires real counts/links into both report-backed and
+// generic (messages-table) cells.
 func TestMessageCategoryGrid(t *testing.T) {
-	cats := messageCategoryGrid("/reports/7?category=", map[string]int{"spy": 1, "combat": 2, "expedition": 3, "all": 6})
+	cats := messageCategoryGrid("/reports/7?category=",
+		map[string]int{"spy": 1, "combat": 2, "expedition": 3, "all": 6},
+		map[int]int{game.MessageCategoryPlayer: 4, game.MessageCategoryTransport: 5})
 	byKey := map[string]MessageCategory{}
 	for _, c := range cats {
 		byKey[c.Key] = c
@@ -267,11 +272,37 @@ func TestMessageCategoryGrid(t *testing.T) {
 	if c := byKey["spy"]; !c.Backed || c.Count != 1 || c.Href != "/reports/7?category=spy" {
 		t.Errorf("spy cell = %+v", c)
 	}
-	if c := byKey["all"]; !c.Backed || c.Count != 6 {
-		t.Errorf("all cell = %+v", c)
+	if c := byKey["all"]; !c.Backed || c.Count != 15 {
+		t.Errorf("all cell = %+v (want 6 reports + 9 messages)", c)
 	}
-	if c := byKey["player"]; c.Backed || c.Count != 0 || c.Href != "" {
-		t.Errorf("player cell should be an unbacked placeholder: %+v", c)
+	if c := byKey["player"]; !c.Backed || c.Count != 4 || c.Href != "/reports/7?category=player" {
+		t.Errorf("player cell = %+v", c)
+	}
+	if c := byKey["transport"]; !c.Backed || c.Count != 5 {
+		t.Errorf("transport cell = %+v", c)
+	}
+	if c := byKey["archive"]; c.Backed || c.Count != 0 || c.Href != "" {
+		t.Errorf("archive cell should be an unbacked placeholder: %+v", c)
+	}
+}
+
+// TestMessagesBodyInbox locks the generic inbox section: sender, subject and
+// body of a messages-table row render under the Inbox heading.
+func TestMessagesBodyInbox(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	d := ReportsData{
+		Active:       "transport",
+		ShowMessages: true,
+		Messages: []store.Message{{
+			Sender: "Fleet Headquarters", Subject: "Located fleet",
+			Body: "Your fleet reaches the planet [3:125:12] and delivers 1.000 Metal.",
+		}},
+	}
+	html := renderComponent(t, MessagesBody(sh, d))
+	for _, want := range []string{"Inbox", "Fleet Headquarters", "Located fleet", "[3:125:12]"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("inbox HTML missing %q", want)
+		}
 	}
 }
 

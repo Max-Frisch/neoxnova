@@ -43,6 +43,7 @@ type Handler struct {
 	combat     *store.CombatReportStore
 	espionage  *store.EspionageReportStore
 	expedition *store.ExpeditionReportStore
+	messages   *store.MessageStore
 	auth       *store.AuthStore
 	arsenal    *store.ArsenalStore
 	moons      *store.MoonStore
@@ -65,6 +66,7 @@ func New(db *sql.DB, universeID string, notify func()) *Handler {
 		combat:     store.NewCombatReportStore(db),
 		espionage:  store.NewEspionageReportStore(db),
 		expedition: store.NewExpeditionReportStore(db),
+		messages:   store.NewMessageStore(db),
 		auth:       store.NewAuthStore(db),
 		arsenal:    store.NewArsenalStore(db),
 		moons:      store.NewMoonStore(db),

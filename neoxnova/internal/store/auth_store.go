@@ -48,14 +48,15 @@ func (s *AuthStore) CreateUser(ctx context.Context, universeCode, username, emai
 	defer tx.Rollback()
 
 	var (
+		universeID    string
 		resourceSpeed float64
 		maxGalaxies   int
 		maxSystems    int
 	)
 	err = tx.QueryRowContext(ctx, `
-		SELECT resource_speed, max_galaxies, max_systems
+		SELECT id::text, resource_speed, max_galaxies, max_systems
 		FROM universes WHERE code_name = $1
-	`, universeCode).Scan(&resourceSpeed, &maxGalaxies, &maxSystems)
+	`, universeCode).Scan(&universeID, &resourceSpeed, &maxGalaxies, &maxSystems)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, ErrNotFound // unknown universe
 	}
@@ -83,6 +84,15 @@ func (s *AuthStore) CreateUser(ctx context.Context, universeCode, username, emai
 	}
 
 	if planetID, err = createHomeworld(ctx, tx, universeCode, userID, username, resourceSpeed, maxGalaxies, maxSystems); err != nil {
+		return 0, 0, err
+	}
+
+	sender, subject, body := game.WelcomeMessage()
+	if err := InsertMessage(ctx, tx, MessageInput{
+		UniverseID: universeID, UserID: userID,
+		Category: game.MessageCategoryPlayer, Class: "player",
+		Sender: sender, Subject: subject, Body: body,
+	}); err != nil {
 		return 0, 0, err
 	}
 

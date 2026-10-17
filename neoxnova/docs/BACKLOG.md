@@ -22,9 +22,16 @@ Read first; keep < 80 lines. One item per session. Full session history (pre-sli
 
 ## Todo (ordered; pick one per session)
 Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — **done through B4**.
-- [ ] **No messages were generated** (owner report) — the owner saw an action produce no
-      message/inbox entries this session. Needs repro details (which action) before tracing the
-      `messages`/`user_messages` insert path.
+- [ ] **Messages: remaining category sources** — the generic inbox (`messages`) now backs
+      player/system/transport/game/construction, but only **player** (registration welcome) and
+      **transport** (delivery + return) have engine writers. Per owner: **system** = the achievement
+      system (needs an achievement engine); **construction** = a build/research that *failed* (the
+      queue allows over-queuing regardless of resources, so a level/research that can't be afforded
+      when due must report the failure); **alliance** = no alliances in engine yet; **game** = TBD.
+      Spy is already report-backed (there is also a `spy-sighting` hostile-fleet warning class).
+      acc1's VM captures have hundreds of each type in per-category subfolders (ops repo
+      `tools/explorer/data/`) to infer exact wording. Also pending: `messages` archive/outbox UI and
+      read/unread tracking (`read_at`/`archived_at` columns exist but are unused; grid `Unread` is 0).
 - [ ] **Combat XP + combat level** — a distinct progression (like the peaceful level but fed by
       combat, **not** the Bonus button; the button's "Experience points" are Academy points). The
       live "Received N combat experience" lines and the `An experience X / Y` level bar are in the
@@ -44,6 +51,27 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Generic message system (player/system/transport/game/construction)**: added a
+  `messages` table (migration `0027`) + `store.MessageStore` (`Insert`/`InsertMessage`,
+  `ListForUser`, `CountsForUser`) and pure `game/messages.go` (live `MessageCategory*` cat ids,
+  per-category senders, `FormatAmount`, welcome/transport builders). Wired two engine writers:
+  the **registration welcome** (player, in `AuthStore.CreateUser`'s tx) and **transport** messages
+  (delivery "Located fleet" + return "Fleet return" in the fleet resolver). The Messages page now
+  backs every generic category in the grid (real counts/links) and renders an **Inbox** section for
+  them; `spy`/`combat`/`expedition` remain report-backed. `MessageInput.UniverseID` is the universe
+  **UUID**. Tests: `game` (FormatAmount/welcome/transport/senders), `store` lifecycle, `engine`
+  transport resolve (both messages + phase transitions), web grid + Inbox render. Still stubbed:
+  alliance/system-achievement/game/construction sources, archive/outbox, read/unread.
+- 2026-10-17 — **Expedition messages missing from inbox**: expeditions *were* resolving and
+  inserting `expedition_reports` rows, but the Messages page (`/reports/{id}`) showed an empty
+  expedition section. Root cause: `scanExpeditionReport` scanned the nullable `ships` JSONB into a
+  `json.RawMessage` (a named `[]byte`), and `database/sql` rejects a nil driver value for named
+  slice types ("unsupported Scan, storing driver.Value type <nil> into type *json.RawMessage");
+  the list query returned an error that `ReportsPage` ignored, dropping every row. Fixed by scanning
+  `ships` into a plain `[]byte` and assigning `json.RawMessage` only when non-nil. Regression test
+  `TestExpeditionReportListToleratesNullShips` (inserts a NULL-ships row + a ships row, asserts both
+  list). Also: the report categories *other than* combat/espionage/expedition remain visual stubs —
+  there is no generic `messages` table, so builds/transports/etc. generate no inbox entries.
 - 2026-10-17 — **Academy (full feature)**: ported the captured 3-branch tree (27 skills,
   `internal/game/academy.go`) — names, tier, prerequisite gates, effect text and per-level point
   costs fitted to the captured (level, cost) anchors; combat effects now fold in from the skill map

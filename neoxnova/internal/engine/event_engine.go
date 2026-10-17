@@ -275,7 +275,8 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 	query := `
 		SELECT id, user_id, mission, phase, origin_id, target_id,
 		       cargo_metal, cargo_crystal, cargo_deuterium,
-		       holding_end_time, return_time
+		       holding_end_time, return_time,
+		       universe_id::text, target_galaxy, target_system, target_position
 		FROM fleets
 		WHERE id = $1 AND phase IN ('OUTBOUND', 'HOLDING', 'RETURNING') AND arrival_time <= NOW()
 		FOR UPDATE SKIP LOCKED;
@@ -286,12 +287,16 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 		cargoMetal, cargoCrystal, cargoDeut int64
 		mission, phase                      string
 		holdingEndTime, returnTime          sql.NullTime
+		universeID                          string
+		targetGalaxy, targetSystem          int
+		targetPosition                      int
 	)
 
 	err = tx.QueryRowContext(ctx, query, fleetID).Scan(
 		&id, &userID, &mission, &phase, &originID, &targetID,
 		&cargoMetal, &cargoCrystal, &cargoDeut,
 		&holdingEndTime, &returnTime,
+		&universeID, &targetGalaxy, &targetSystem, &targetPosition,
 	)
 	if err == sql.ErrNoRows {
 		return // claimed/completed elsewhere
@@ -375,6 +380,17 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 			`, id); err != nil {
 				log.Printf("[ERROR] Failed to set fleet #%d to RETURNING: %v", id, err)
 				return
+			}
+			if sender, subject, body := game.TransportDeliveryMessage(targetGalaxy, targetSystem, targetPosition, cargoMetal, cargoCrystal, cargoDeut); true {
+				if err := store.InsertMessage(ctx, tx, store.MessageInput{
+					UniverseID: universeID, UserID: userID,
+					Category: game.MessageCategoryTransport, Class: "transport",
+					Sender: sender, Subject: subject, Body: body,
+					RefKind: "fleet", RefID: id,
+				}); err != nil {
+					log.Printf("[ERROR] Failed to record transport message for fleet #%d: %v", id, err)
+					return
+				}
 			}
 
 		case "ATTACK":
@@ -481,6 +497,21 @@ func (e *EventEngine) resolveFleetEvent(ctx context.Context, fleetID int64) {
 		if err := e.stationShips(ctx, tx, originID, id); err != nil {
 			log.Printf("[ERROR] Failed to restore ships for fleet #%d: %v", id, err)
 			return
+		}
+		if mission == "TRANSPORT" && targetID.Valid {
+			var targetName string
+			if err := tx.QueryRowContext(ctx, `SELECT name FROM celestial_objects WHERE id = $1`, targetID.Int64).Scan(&targetName); err == nil {
+				sender, subject, body := game.TransportReturnMessage(targetName, targetGalaxy, targetSystem, targetPosition)
+				if err := store.InsertMessage(ctx, tx, store.MessageInput{
+					UniverseID: universeID, UserID: userID,
+					Category: game.MessageCategoryTransport, Class: "transport",
+					Sender: sender, Subject: subject, Body: body,
+					RefKind: "fleet", RefID: id,
+				}); err != nil {
+					log.Printf("[ERROR] Failed to record transport return message for fleet #%d: %v", id, err)
+					return
+				}
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE fleets SET phase = 'RESOLVED' WHERE id = $1`, id); err != nil {
 			log.Printf("[ERROR] Failed to resolve returning fleet #%d: %v", id, err)
