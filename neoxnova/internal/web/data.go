@@ -391,14 +391,14 @@ func structureCostTable(code string, next, robot, nanite int, speed float64) []l
 }
 
 // techCostTable is structureCostTable for an empire-wide technology.
-func techCostTable(code string, next, lab, university int, speed float64) []levelCost {
+func techCostTable(code string, next, lab, university int, speed, academyStudiesPct float64) []levelCost {
 	out := make([]levelCost, 0, costTableDepth)
 	for lvl := next; lvl < next+costTableDepth; lvl++ {
 		c, ok := game.TechCost(code, lvl)
 		if !ok {
 			break
 		}
-		d := game.TechDuration(code, lvl, lab, university, speed)
+		d := game.TechDuration(code, lvl, lab, university, speed, academyStudiesPct)
 		out = append(out, levelCost{lvl, c.Metal, c.Crystal, c.Deuterium, int64(d.Seconds())})
 	}
 	return out
@@ -952,6 +952,9 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 	}
 	all := mergeLevels(structLevels, levels)
 	speed := h.gameSpeed(r)
+	userID, _ := h.userID(r)
+	academyLevels, _ := h.academy.Skills(r.Context(), userID)
+	academyStudiesPct := game.AcademyResearchPct(academyLevels)
 	queued := queuedCounts(data.Queue)
 	lab, university := structLevels["research_lab"], structLevels["university"]
 	if l, u, err := h.builds.EffectiveResearchLab(r.Context(), id); err == nil {
@@ -966,7 +969,7 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 			Code: def.Code, ID: def.ID, Name: def.Name, Level: levels[def.Code],
 			NextLevel: next,
 			MaxLevel:  next + costTableDepth - 1,
-			CostTable: techCostTable(def.Code, next, lab, university, speed),
+			CostTable: techCostTable(def.Code, next, lab, university, speed, academyStudiesPct),
 			Image:     assetURL(def.Code),
 			Prereqs:   prereqList(def.Requires, all),
 			EnergyMet: true,
@@ -980,7 +983,7 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 			item.EnergyMet = energyMax >= float64(req)
 		}
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
-		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed).Seconds())
+		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed, academyStudiesPct).Seconds())
 		data.Items = append(data.Items, item)
 		fmt.Fprintf(&sig, "|%s:%d:%t:%t:%d", def.Code, item.Level, item.Unlocked, item.EnergyMet, costMask(item.Cost, data.Resources))
 	}

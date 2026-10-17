@@ -528,6 +528,11 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 	if err != nil {
 		return QueueResult{}, err
 	}
+	academyLevels, err := loadAcademyLevels(ctx, tx, userID)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	academyStudiesPct := game.AcademyResearchPct(academyLevels)
 	colonyLabs, err := s.researchLabLevels(ctx, tx, userID, planetID)
 	if err != nil {
 		return QueueResult{}, err
@@ -626,7 +631,7 @@ func (s *BuildStore) EnqueueResearch(ctx context.Context, planetID int64, techCo
 		projLab := structLevels["research_lab"] + queuedStructs["research_lab"]
 		projUni := structLevels["university"] + queuedStructs["university"]
 		labLevel := game.EffectiveResearchLabLevel(projLab, projIRN, colonyLabs)
-		duration := game.TechDuration(techCode, next, labLevel, projUni, gameSpeed)
+		duration := game.TechDuration(techCode, next, labLevel, projUni, gameSpeed, academyStudiesPct)
 
 		start := time.Now()
 		if lastEnd.Valid && lastEnd.Time.After(start) {
@@ -955,6 +960,11 @@ func (s *BuildStore) renumberResearchTx(ctx context.Context, tx *sql.Tx, userID,
 	`, tail[0].celestialID).Scan(&gameSpeed); err != nil {
 		return err
 	}
+	academyLevels, err := loadAcademyLevels(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+	academyStudiesPct := game.AcademyResearchPct(academyLevels)
 	type lab struct{ level, university int }
 	labCache := map[int64]lab{}
 	effectiveLab := func(celestialID int64) (lab, error) {
@@ -997,7 +1007,7 @@ func (s *BuildStore) renumberResearchTx(ctx context.Context, tx *sql.Tx, userID,
 				if err != nil {
 					return err
 				}
-				dur = game.TechDuration(o.code, next, l.level, l.university, gameSpeed)
+				dur = game.TechDuration(o.code, next, l.level, l.university, gameSpeed, academyStudiesPct)
 			}
 		}
 		start := cursor

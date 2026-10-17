@@ -106,6 +106,17 @@ func TestAcademyProductionBonus(t *testing.T) {
 	}
 }
 
+// TestAcademyFlightEffects locks the engine speed (+3%/level) and fuel
+// reduction (-2%/level, Engine economication + Relief ships) aggregation.
+func TestAcademyFlightEffects(t *testing.T) {
+	if got := AcademyFleetSpeedPct(map[string]int{SkillEngineLimitation: 16, SkillEmpire: 1}); got != 49 {
+		t.Fatalf("fleet speed pct = %v, want 49", got)
+	}
+	if got := AcademyFuelReductionPct(map[string]int{SkillEngineEconomy: 6, SkillReliefShips: 1}); got != 14 {
+		t.Fatalf("fuel reduction pct = %v, want 14", got)
+	}
+}
+
 func TestAcademyStorageAndMisc(t *testing.T) {
 	if got := AcademyStoragePct(map[string]int{SkillCosmoDepot: 6}); got != 30 {
 		t.Fatalf("storage pct = %v, want 30", got)

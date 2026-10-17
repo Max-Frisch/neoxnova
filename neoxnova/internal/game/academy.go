@@ -65,7 +65,8 @@ type AcademyEffect struct {
 	ResearchPct     float64 // - research ("studying") time
 	StoragePct      float64 // + storage capacity
 	CargoPct        float64 // + fleet cargo space
-	FleetSpeedPct   float64 // + fleet speed
+	FleetSpeedPct   float64 // + fleet speed (all engine types)
+	FuelPct         float64 // - deuterium consumption (all flights)
 	FleetCostPct    float64 // - fleet build cost
 	FleetSlot       int     // + fleet slots
 	IRN             int     // + Intergalactic Research Network
@@ -160,7 +161,7 @@ func buildAcademySkills() []AcademySkill {
 			PerLevel:   AcademyEffect{FleetCostPct: 1},
 			CostFactor: 1.46195}, // L17=435
 		{Code: SkillEngineLimitation, Name: "Engine limitation", Branch: AcademyAttack,
-			EffectText: "+3% Fleet speed", Prereq: AcademyPrereq{SkillWeaponry, 5},
+			EffectText: "+3% Fleet speed (all engine types)", Prereq: AcademyPrereq{SkillWeaponry, 5},
 			PerLevel: AcademyEffect{FleetSpeedPct: 3},
 			CostBase: 2.897, CostFactor: 1.2527}, // (L10=22, L16=85)
 		{Code: SkillComputerization, Name: "Computerization", Branch: AcademyAttack,
@@ -172,6 +173,7 @@ func buildAcademySkills() []AcademySkill {
 			CostFactor: 1.542}, // L9=32
 		{Code: SkillEngineEconomy, Name: "Engine economication", Branch: AcademyAttack,
 			EffectText: "-2% deuterium consumption", Prereq: AcademyPrereq{SkillEngineLimitation, 5},
+			PerLevel:   AcademyEffect{FuelPct: 2},
 			CostFactor: 1.615}, // L6=11
 		{Code: SkillAccurateShots, Name: "Accurate shots", Branch: AcademyAttack,
 			EffectText: "+2% to the maximum number of destroys per round", Prereq: AcademyPrereq{SkillDoubleAttack, 5},
@@ -183,7 +185,8 @@ func buildAcademySkills() []AcademySkill {
 			EffectText: "+8% destruction of additional units", Prereq: AcademyPrereq{SkillDoubleAttack, 7},
 			CostFactor: 1.979}, // L8=119
 		{Code: SkillReliefShips, Name: "Relief ships", Branch: AcademyAttack,
-			EffectText: "-2% Fuel consumption, -2% Armour", Prereq: AcademyPrereq{SkillEngineEconomy, 10}},
+			EffectText: "-2% Fuel consumption, -2% Armour", Prereq: AcademyPrereq{SkillEngineEconomy, 10},
+			PerLevel: AcademyEffect{FuelPct: 2}},
 		{Code: SkillFocusing, Name: "Focusing", Branch: AcademyAttack,
 			EffectText: "+1% ship focus", Prereq: AcademyPrereq{SkillAccurateShots, 5},
 			CostFactor: 1.499}, // L12=86
@@ -403,6 +406,12 @@ func AcademyCargoPct(levels map[string]int) float64 {
 // AcademyFleetSpeedPct is the fleet-speed bonus (percent).
 func AcademyFleetSpeedPct(levels map[string]int) float64 {
 	return academySum(levels, func(e AcademyEffect) float64 { return e.FleetSpeedPct })
+}
+
+// AcademyFuelReductionPct is the global deuterium-consumption reduction (percent)
+// applied to every flight (Engine economication + Relief ships).
+func AcademyFuelReductionPct(levels map[string]int) float64 {
+	return academySum(levels, func(e AcademyEffect) float64 { return e.FuelPct })
 }
 
 // AcademyFleetSlots is the extra fleet-slot count (Computerization).

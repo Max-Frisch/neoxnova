@@ -46,7 +46,7 @@ func TestFuelMatchesLiveSamples(t *testing.T) {
 		{320 * 200, 2985, 100, 22475}, // 200 Galleon
 	}
 	for _, c := range cases {
-		got := CalculateDeuteriumConsumption(c.base, c.dist, c.speed)
+		got := CalculateDeuteriumConsumption(c.base, c.dist, c.speed, 0)
 		relErr := math.Abs(float64(got-c.want)) / float64(c.want)
 		if relErr > 0.12 {
 			t.Errorf("fuel(base=%d dist=%v speed=%d) = %d, want ~%d (%.0f%% off)",
@@ -57,20 +57,47 @@ func TestFuelMatchesLiveSamples(t *testing.T) {
 
 func TestFleetMaxSpeed(t *testing.T) {
 	// Light Fighter (12500, combustion) at combustion 10 -> +100% -> 25000.
-	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, nil); got != 25000 {
+	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, nil, 0); got != 25000 {
 		t.Fatalf("LF combustion 10 = %d, want 25000", got)
 	}
 	// Battleship (10000, hyperspace) at hyperspace 5 -> 15000.
-	if got := FleetMaxSpeed(map[string]int64{"207": 1}, 0, 0, 5, nil); got != 15000 {
+	if got := FleetMaxSpeed(map[string]int64{"207": 1}, 0, 0, 5, nil, 0); got != 15000 {
 		t.Fatalf("BS hyperspace 5 = %d, want 15000", got)
 	}
 	// Mixed fleet is limited by the slowest ship.
-	if got := FleetMaxSpeed(map[string]int64{"204": 1, "207": 1}, 10, 0, 0, nil); got != 10000 {
+	if got := FleetMaxSpeed(map[string]int64{"204": 1, "207": 1}, 10, 0, 0, nil, 0); got != 10000 {
 		t.Fatalf("mixed fleet = %d, want 10000 (BS limits)", got)
 	}
 	// Arsenal Jet engine +100% adds to the +100% tech: 12500*(1+2.0) = 37500.
-	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, map[int]float64{11: 100}); got != 37500 {
+	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 10, 0, 0, map[int]float64{11: 100}, 0); got != 37500 {
 		t.Fatalf("LF combustion 10 + engine upgrade 100%% = %d, want 37500", got)
+	}
+	// Academy Engine limitation "Empire" +30% applies to every drive:
+	// 12500*(1+0.30) = 16250.
+	if got := FleetMaxSpeed(map[string]int64{"204": 1}, 0, 0, 0, nil, 30); got != 16250 {
+		t.Fatalf("LF academy +30%% = %d, want 16250", got)
+	}
+}
+
+func TestFuelAcademyReduction(t *testing.T) {
+	base := CalculateDeuteriumConsumption(20, 2985, 100, 0)
+	if base != 7 {
+		t.Fatalf("base fuel = %d, want 7", base)
+	}
+	if got := CalculateDeuteriumConsumption(20, 2985, 100, 50); got != 3 {
+		t.Fatalf("50%% academy fuel = %d, want 3", got)
+	}
+}
+
+func TestTechDurationAcademyStudies(t *testing.T) {
+	full := TechDuration("energy_tech", 1, 0, 0, 1.0, 0)
+	half := TechDuration("energy_tech", 1, 0, 0, 1.0, 50)
+	if half >= full {
+		t.Fatalf("academy studies reduction did not shorten research: %v vs %v", half, full)
+	}
+	// The reduction is a flat cut, so 50% halving is exact at the second scale.
+	if d := half.Seconds(); math.Abs(d-full.Seconds()/2) > 1.5 {
+		t.Fatalf("50%% studies: got %v, want ~%v", half, full/2)
 	}
 }
 

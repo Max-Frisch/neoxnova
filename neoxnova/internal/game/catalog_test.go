@@ -156,7 +156,7 @@ func TestTechDurationMatchesCapture(t *testing.T) {
 		if key == "" {
 			continue
 		}
-		got := TechDuration(key, it.Level+1, lab, university, gameSpeed).Seconds()
+		got := TechDuration(key, it.Level+1, lab, university, gameSpeed, 0).Seconds()
 		want := float64(it.DurationSec)
 		if d := got - want; d > want*0.03 || d < -want*0.03 {
 			t.Errorf("%s L%d duration = %.0fs, fixture %.0fs (>3%% off)", it.Name, it.Level+1, got, want)

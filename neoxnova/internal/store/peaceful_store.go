@@ -109,12 +109,11 @@ func (s *PeacefulStore) ClaimBonusButton(ctx context.Context, userID int64) (gam
 		UPDATE users
 		SET dark_matter = dark_matter + $2,
 		    peaceful_seconds = peaceful_seconds + $3,
-		    combat_xp = combat_xp + $4,
-		    academy_points = academy_points + $6,
+		    academy_points = academy_points + $4,
 		    bonus_button_ready_at = $5,
 		    bonus_last_click_at = NOW()
 		WHERE id = $1
-	`, userID, reward.DarkMatter, reward.PeacefulSeconds, reward.CombatXP, next, reward.AcademyPoints); err != nil {
+	`, userID, reward.DarkMatter, reward.PeacefulSeconds, reward.AcademyPoints, next); err != nil {
 		return game.BonusReward{}, err
 	}
 	if err := tx.Commit(); err != nil {

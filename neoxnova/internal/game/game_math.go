@@ -64,9 +64,11 @@ var engineUpgradeByDrive = map[string]int{"115": 11, "117": 12, "118": 13}
 
 // FleetMaxSpeed returns the fleet's limiting speed: the slowest ship's base
 // speed boosted by its drive technology (+10% per level) plus the matching
-// Arsenal engine upgrade (additive percent). upgrades may be nil. Defaults to
-// 10000 when no known ship is present.
-func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int, upgrades map[int]float64) int {
+// Arsenal engine upgrade (additive percent). academyEnginePct is the flat
+// percent from Academy "Engine limitation" (+3%/level) / "Empire", applied to
+// every drive. upgrades may be nil. Defaults to 10000 when no known ship is
+// present.
+func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int, upgrades map[int]float64, academyEnginePct float64) int {
 	levels := map[string]int{"115": combustion, "117": impulse, "118": hyperspace}
 	slowest := 0
 	for code, n := range units {
@@ -78,7 +80,7 @@ func FleetMaxSpeed(units map[string]int64, combustion, impulse, hyperspace int, 
 			continue
 		}
 		drive := unitDrive[code]
-		pct := 0.1*float64(levels[drive]) + upgrades[engineUpgradeByDrive[drive]]/100.0
+		pct := 0.1*float64(levels[drive]) + upgrades[engineUpgradeByDrive[drive]]/100.0 + academyEnginePct/100.0
 		speed := int(math.Round(float64(base) * (1.0 + pct)))
 		if slowest == 0 || speed < slowest {
 			slowest = speed
@@ -180,11 +182,13 @@ func FleetFuelBase(units map[string]int64) int64 {
 
 // CalculateDeuteriumConsumption returns the fuel burned for a trip:
 //
-//	fuel = max(1, round(baseFuelTotal * distance / fuelDivisor * speedMod))
+//	fuel = max(1, round(baseFuelTotal * distance / fuelDivisor * speedMod * (1-academyFuel/100)))
 //
-// where speedMod is the velocity percentage (0..1). Note the fitted reference
-// behaviour: lower speed burns *less* fuel, so fuel scales with speedPercent.
-func CalculateDeuteriumConsumption(baseFuelTotal int64, distance float64, speedPercent int) int64 {
+// where speedMod is the velocity percentage (0..1) and academyFuelReductionPct is
+// the Academy "Engine economication"/"Relief ships" global reduction. Note the
+// fitted reference behaviour: lower speed burns *less* fuel, so fuel scales with
+// speedPercent.
+func CalculateDeuteriumConsumption(baseFuelTotal int64, distance float64, speedPercent int, academyFuelReductionPct float64) int64 {
 	if baseFuelTotal <= 0 {
 		return 0
 	}
@@ -193,5 +197,8 @@ func CalculateDeuteriumConsumption(baseFuelTotal int64, distance float64, speedP
 		speedMod = 1.0
 	}
 	fuel := float64(baseFuelTotal) * distance / fuelDivisor * speedMod
+	if academyFuelReductionPct > 0 {
+		fuel *= 1.0 - academyFuelReductionPct/100.0
+	}
 	return int64(math.Max(1, math.Round(fuel)))
 }

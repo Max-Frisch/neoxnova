@@ -125,9 +125,6 @@ func TestBonusButtonRewardPremium(t *testing.T) {
 	if prem.ExperiencePercent != base.ExperiencePercent*2 {
 		t.Fatalf("premium XP%% = %v, want 2×%v", prem.ExperiencePercent, base.ExperiencePercent)
 	}
-	if prem.CombatXP != base.CombatXP*2 {
-		t.Fatalf("premium combat XP = %d, want 2×%d", prem.CombatXP, base.CombatXP)
-	}
 	// The granted progress is a fraction of the (halved) premium requirement.
 	withinPct(t, "premium progress", float64(prem.PeacefulSeconds), float64(base.PeacefulSeconds)/2, 1)
 }

@@ -339,7 +339,9 @@ func EffectiveResearchLabLevel(localLab, irnLevel int, colonyLabs []int) int {
 // effective research-lab level (its own lab plus IRN-connected colony labs) and
 // its University shorten the time: each research-lab level adds 10% research
 // speed and each University level adds 16%, both local to that planet.
-func TechDuration(code string, targetLevel, labLevel, universityLevel int, gameSpeed float64) time.Duration {
+// academyStudiesPct is the Academy "Magistracy" reduction (-2%/level), applied
+// as a flat percentage cut to the final time.
+func TechDuration(code string, targetLevel, labLevel, universityLevel int, gameSpeed, academyStudiesPct float64) time.Duration {
 	cost, ok := TechCost(code, targetLevel)
 	if !ok {
 		return time.Second
@@ -350,7 +352,14 @@ func TechDuration(code string, targetLevel, labLevel, universityLevel int, gameS
 	if gameSpeed > 0 {
 		hours /= gameSpeed
 	}
-	return secondsToDuration(hours * 3600.0 * researchTimeCalibration)
+	secs := hours * 3600.0 * researchTimeCalibration
+	if academyStudiesPct > 0 {
+		secs *= 1.0 - academyStudiesPct/100.0
+		if secs < 1 {
+			secs = 1
+		}
+	}
+	return secondsToDuration(secs)
 }
 
 // UnitDuration is the total time to build quantity ships/defenses, shortened by

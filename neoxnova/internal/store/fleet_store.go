@@ -194,12 +194,16 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	if err != nil {
 		return DispatchResult{}, err
 	}
+	academyLevels, err := loadAcademyLevels(ctx, tx, userID)
+	if err != nil {
+		return DispatchResult{}, err
+	}
 
 	dist := game.CalculateCoordinateDistance(oG, oS, oP, req.Target.Galaxy, req.Target.System, req.Target.Position)
-	baseSpeed := game.FleetMaxSpeed(req.Ships, combustion, impulse, hyperspace, upgrades)
+	baseSpeed := game.FleetMaxSpeed(req.Ships, combustion, impulse, hyperspace, upgrades, game.AcademyFleetSpeedPct(academyLevels))
 	durationSecs := game.CalculateFlightDuration(dist, baseSpeed, req.SpeedPercent, fleetSpeed)
 
-	fuelBurn := game.CalculateDeuteriumConsumption(game.FleetFuelBase(req.Ships), dist, req.SpeedPercent)
+	fuelBurn := game.CalculateDeuteriumConsumption(game.FleetFuelBase(req.Ships), dist, req.SpeedPercent, game.AcademyFuelReductionPct(academyLevels))
 
 	if originDeut < float64(fuelBurn) {
 		return DispatchResult{}, &InsufficientFuelError{Needed: fuelBurn}

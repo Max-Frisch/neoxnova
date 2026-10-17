@@ -247,12 +247,16 @@ func academyPointsBase(peacefulLevel int) float64 {
 		(academyPointsBaseAtL77-academyPointsBaseAtL3)*float64(peacefulLevel-3)/74.0
 }
 
-// BonusReward is the payout of one Online Bonus button click.
+// BonusReward is the payout of one Online Bonus button click. AcademyPoints are
+// the "Experience points" shown in the live Info dialog — the Academy currency.
+// Combat XP and the combat level are a *separate* system (like the peaceful
+// level) fed by experience gained in combat, not by the button (see
+// models.CombatXP; its award path is still to be calibrated from the combat
+// captures).
 type BonusReward struct {
 	DarkMatter        int64
 	PeacefulSeconds   int64
 	ExperiencePercent float64
-	CombatXP          int64
 	AcademyPoints     int64
 }
 
@@ -263,8 +267,8 @@ func BonusButtonReward(peacefulLevel int) BonusReward {
 }
 
 // BonusButtonRewardPremium is BonusButtonReward with an explicit premium state:
-// the "Button Bonus ×4" multiplies the Dark Matter, and the "+100% experience"
-// multiplier doubles the granted experience (peaceful level and combat XP).
+// the "Button Bonus ×4" multiplies the Dark Matter and the Academy points, and
+// the "+100% experience" multiplier doubles the granted peaceful progress.
 func BonusButtonRewardPremium(peacefulLevel int, p PeacefulPremium) BonusReward {
 	if peacefulLevel < 0 {
 		peacefulLevel = 0
@@ -278,7 +282,6 @@ func BonusButtonRewardPremium(peacefulLevel int, p PeacefulPremium) BonusReward 
 		DarkMatter:        int64(math.Round(dm)),
 		PeacefulSeconds:   progressSeconds,
 		ExperiencePercent: bonusButtonProgressPct * p.experienceMultiplier(),
-		CombatXP:          int64(math.Round(float64(peacefulLevel/2+1) * p.experienceMultiplier())),
 		AcademyPoints:     int64(math.Round(academyPoints)),
 	}
 }
