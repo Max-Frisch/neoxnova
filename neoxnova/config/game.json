@@ -1,9 +1,9 @@
 {
-  "game_speed": 4000.0,
-  "resource_speed": 15000.0,
-  "fleet_speed": 15.0,
-  "build_queue_slots": 10,
-  "research_queue_slots": 5,
+  "game_speed": 6000.0,
+  "resource_speed": 20000.0,
+  "fleet_speed": 20.0,
+  "build_queue_slots": 20,
+  "research_queue_slots": 15,
   "merchant_rate": 50,
   "dm_market_divisor": 1000
 }
