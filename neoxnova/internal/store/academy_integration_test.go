@@ -132,6 +132,7 @@ func TestAcademyShipCostDiscount(t *testing.T) {
 
 	setStructure(ctx, t, db, p.planetID, "shipyard", 5)
 	setStructure(ctx, t, db, p.planetID, "nanite_factory", 5)
+	setTech(ctx, t, db, p.userID, "combustion_drive", 1)
 	setResources(ctx, t, db, p.planetID, 1e12, 1e12, 1e12)
 
 	// 20% fleet-cost reduction.

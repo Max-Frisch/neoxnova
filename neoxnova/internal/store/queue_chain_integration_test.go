@@ -60,6 +60,19 @@ func setStructure(ctx context.Context, t *testing.T, db *sql.DB, planetID int64,
 	}
 }
 
+// setTech pins a research level for a user. Requireds for ships include drive
+// techs (e.g. Light Fighter needs combustion_drive), which live here.
+func setTech(ctx context.Context, t *testing.T, db *sql.DB, userID int64, code string, level int) {
+	t.Helper()
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO user_technologies (user_id, tech_code, level)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, tech_code) DO UPDATE SET level = EXCLUDED.level
+	`, userID, code, level); err != nil {
+		t.Fatalf("set tech %s=%d: %v", code, level, err)
+	}
+}
+
 // setResources pins a celestial's stock to exact values with production off and
 // huge capacity, so tests observe exactly what they fund (update_celestial_resources
 // otherwise accrues and clamps to capacity).
