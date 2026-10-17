@@ -39,6 +39,13 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Fleet dispatch selector reskin**: the ship picker is now a grouped table (Battle
+  fleet / Transports / Special) with capture sprites, per-type counts, a per-ship **max** button
+  and an **All ships** button (fills every movable input). Solar Satellites stay listed but are
+  non-selectable (disabled input, no max); `game.Movable` + `store.ErrStationaryShip` also reject a
+  crafted dispatch of stationary units. New `fleet-all-max` JS handler and `.fleet-table` CSS.
+  Tests: `TestFleetBodyReskin`/`TestFleetBodyStationary`/`TestFleetClassCatalogComplete`,
+  `TestMovable`, `TestDispatchStationaryShip`.
 - 2026-10-17 — **Buildings/Research cost colouring**: each resource line on the buildings and
   research cards turns red (not bold) when the planet/moon's current stock cannot cover that
   component of the next level. `ResourceStock` is loaded from the existing overview, and

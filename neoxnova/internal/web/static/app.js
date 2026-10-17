@@ -136,6 +136,30 @@
     });
   }
 
+  // wireFleetAll fills every dispatchable ship input with its available count
+  // when the "All ships" button is clicked. Stationary ships (Solar Satellites)
+  // render a disabled input and are skipped.
+  function wireFleetAll() {
+    document.addEventListener("click", function (evt) {
+      var el = evt.target;
+      while (el && el !== document && !el.classList.contains("fleet-all-max")) {
+        el = el.parentNode;
+      }
+      if (!el || el === document) {
+        return;
+      }
+      evt.preventDefault();
+      var inputs = document.querySelectorAll(".fleet-ship-input");
+      for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].disabled) {
+          continue;
+        }
+        inputs[i].value = inputs[i].getAttribute("max");
+        inputs[i].dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+  }
+
   // formatNumber inserts thousands separators (matches fnum server-side).
   function formatNumber(n) {
     return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -378,6 +402,7 @@
     startClock();
     wirePlanetSelect();
     wireMaxButtons();
+    wireFleetAll();
     wireCardPreviews();
     tickCountdowns();
     window.setInterval(tickCountdowns, 1000);

@@ -120,7 +120,9 @@ func TestFleetBodyReskin(t *testing.T) {
 	sh := Shell{ActivePlanetID: 7}
 	d := FleetData{
 		TargetG: 1, TargetS: 1, TargetP: 1,
-		Ships:    []FleetShip{{Code: "202", Name: "Light Cargo", Count: 4}},
+		Sections: []FleetSection{{Title: "Transports", Ships: []FleetShip{
+			{Code: "202", Name: "Light Cargo", Count: 4, Image: assetURL("202"), Movable: true},
+		}}},
 		Fleets:   []models.FleetEventSummary{{FleetID: 11, Mission: "ATTACK", Phase: "OUTBOUND", RemainingSecs: 120}},
 		Incoming: []models.IncomingFleet{{MissionText: "Hostile attack", RemainingSecs: 60}},
 	}
@@ -132,11 +134,59 @@ func TestFleetBodyReskin(t *testing.T) {
 		`/fleet/7/dispatch`,
 		`/fleet/7/recall`,
 		`name="ship_202"`,
-		"Light Cargo (4)",
+		`id="ship_q_202"`,
+		`data-target="ship_q_202" data-max="4"`,
+		"Light Cargo",
+		"/static/niburu/ships/202.gif",
+		"Transports",
+		"fleet-all-max",
 		"queue-cancel",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("fleet HTML missing %q", want)
+		}
+	}
+}
+
+// TestFleetBodyStationary locks the Solar Satellite rule: it still renders in
+// the selector but its input is disabled and it exposes no "max" button.
+func TestFleetBodyStationary(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	d := FleetData{Sections: []FleetSection{{Title: "Special", Ships: []FleetShip{
+		{Code: "212", Name: "Solar Satellite", Count: 9, Image: assetURL("212"), Movable: false},
+		{Code: "210", Name: "Spy Probe", Count: 3, Image: assetURL("210"), Movable: true},
+	}}}}
+	html := renderComponent(t, FleetBody(sh, d))
+
+	if !strings.Contains(html, "Solar Satellite") {
+		t.Fatalf("stationary ship should still render: %s", html)
+	}
+	if !strings.Contains(html, `id="ship_q_212"`) || !strings.Contains(html, `disabled`) {
+		t.Errorf("solar satellite input should be disabled: %s", html)
+	}
+	if strings.Contains(html, `data-target="ship_q_212"`) {
+		t.Errorf("solar satellite should have no max button")
+	}
+	if !strings.Contains(html, `data-target="ship_q_210" data-max="3"`) {
+		t.Errorf("movable ship should keep its max button")
+	}
+}
+
+// TestFleetClassCatalogComplete guarantees every ship is reachable through
+// exactly one fleet band, so none is silently hidden from the selector.
+func TestFleetClassCatalogComplete(t *testing.T) {
+	seen := map[string]int{}
+	for _, c := range fleetClasses {
+		for _, code := range c.Codes {
+			if _, ok := game.Ships[code]; !ok {
+				t.Errorf("fleet band %q references unknown unit %q", c.Title, code)
+			}
+			seen[code]++
+		}
+	}
+	for code := range game.Ships {
+		if seen[code] != 1 {
+			t.Errorf("ship %q appears in %d fleet bands", code, seen[code])
 		}
 	}
 }

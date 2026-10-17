@@ -41,6 +41,14 @@ var unitSpeed = map[string]int{
 	"227": 15000, "228": 10000,
 }
 
+// stationaryUnits are units that never leave the ground: the Solar Satellite
+// feeds the planet's energy grid, so it can be built but never dispatched.
+var stationaryUnits = map[string]bool{"212": true}
+
+// Movable reports whether a unit can be launched in a fleet. Stationary units
+// (Solar Satellites) are excluded from fleet dispatch.
+func Movable(code string) bool { return !stationaryUnits[code] }
+
 // unitDrive maps a unit to its engine tech code: 115 combustion, 117 impulse,
 // 118 hyperspace.
 var unitDrive = map[string]string{

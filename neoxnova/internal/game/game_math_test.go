@@ -74,6 +74,17 @@ func TestFleetMaxSpeed(t *testing.T) {
 	}
 }
 
+func TestMovable(t *testing.T) {
+	if Movable("212") {
+		t.Error("Solar Satellite (212) must not be movable")
+	}
+	for _, code := range []string{"202", "204", "220"} {
+		if !Movable(code) {
+			t.Errorf("unit %s should be movable", code)
+		}
+	}
+}
+
 func TestFlightDurationScalesWithFleetSpeed(t *testing.T) {
 	const dist = 2795.0
 	slow := CalculateFlightDuration(dist, 10000, 100, 5)

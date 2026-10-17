@@ -86,6 +86,45 @@ func TestDispatchNoobProtection(t *testing.T) {
 	}
 }
 
+// TestDispatchStationaryShip verifies the server rejects a crafted dispatch of
+// a stationary unit (Solar Satellite), matching the fleet selector's rule.
+func TestDispatchStationaryShip(t *testing.T) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		t.Skip("DATABASE_URL not set; skipping DB integration test")
+	}
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	if err := db.PingContext(ctx); err != nil {
+		t.Skipf("db not reachable: %v", err)
+	}
+
+	// Target the origin itself so the test does not depend on seed coordinates.
+	var g, s, p int
+	var objType string
+	if err := db.QueryRowContext(ctx, `
+		SELECT galaxy, system, position, object_type FROM celestial_objects WHERE id = 1
+	`).Scan(&g, &s, &p, &objType); err != nil {
+		t.Skipf("seed missing celestial 1: %v", err)
+	}
+
+	fs := NewFleetStore(db)
+	req := models.FleetDispatchRequest{
+		OriginPlanetID: 1,
+		Target:         models.Coordinates{Galaxy: g, System: s, Position: p, Type: models.CelestialType(objType)},
+		Mission:        models.MissionTransport,
+		Ships:          map[string]int64{"212": 1},
+		SpeedPercent:   100,
+	}
+	if _, err := fs.Dispatch(ctx, req); !errors.Is(err, ErrStationaryShip) {
+		t.Fatalf("dispatch of Solar Satellite = %v, want ErrStationaryShip", err)
+	}
+}
+
 // TestAbandonPlanet verifies the abandon rules and slot locking.
 func TestAbandonPlanet(t *testing.T) {
 	dsn := os.Getenv("DATABASE_URL")

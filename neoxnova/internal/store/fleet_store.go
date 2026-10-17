@@ -131,6 +131,9 @@ func (s *FleetStore) Dispatch(ctx context.Context, req models.FleetDispatchReque
 	}
 
 	for shipCode, count := range req.Ships {
+		if !game.Movable(shipCode) {
+			return DispatchResult{}, ErrStationaryShip
+		}
 		var available int64
 		err := tx.QueryRowContext(ctx, `
 			SELECT quantity FROM planet_ships WHERE celestial_id = $1 AND ship_code = $2 FOR UPDATE

@@ -1035,20 +1035,45 @@ func (h *Handler) ResearchSubmit(w http.ResponseWriter, r *http.Request) {
 // ---- Fleet ---------------------------------------------------------------
 
 type FleetShip struct {
-	Code  string
-	Name  string
-	Count int64
+	Code    string
+	Name    string
+	Count   int64
+	Image   string
+	Movable bool
+}
+
+// FleetSection groups the dispatch selector under the live client's fleet bands
+// (Battle fleet / Transports / Special).
+type FleetSection struct {
+	Title string
+	Ships []FleetShip
+}
+
+// fleetClasses mirrors the live client's fleet-table bands. Solar Satellites
+// stay visible but are not dispatchable (game.Movable reports false).
+var fleetClasses = []unitClassDef{
+	{"Battle fleet", []string{"204", "205", "206", "207", "215", "213", "211", "225", "226", "227", "228", "214", "216", "218", "221", "222", "223"}},
+	{"Transports", []string{"202", "203", "217"}},
+	{"Special", []string{"210", "212", "208", "220", "209", "219"}},
 }
 
 type FleetData struct {
 	Fleets     []models.FleetEventSummary
 	Incoming   []models.IncomingFleet
-	Ships      []FleetShip
+	Sections   []FleetSection
 	TargetG    int
 	TargetS    int
 	TargetP    int
 	Mission    string
 	TargetType string
+}
+
+// fleetRowClass dims a non-dispatchable (stationary) ship row.
+func fleetRowClass(movable bool) string {
+	if movable {
+		return "fleet-row"
+	}
+	return "fleet-row fleet-row-static"
 }
 
 func (h *Handler) FleetPage(w http.ResponseWriter, r *http.Request) {
@@ -1085,9 +1110,23 @@ func (h *Handler) FleetPage(w http.ResponseWriter, r *http.Request) {
 		data.Incoming = in
 	}
 	counts, _ := h.planets.PlanetShips(r.Context(), id)
-	for _, def := range sortedUnits(game.Ships) {
-		if counts[def.Code] > 0 {
-			data.Ships = append(data.Ships, FleetShip{Code: def.Code, Name: def.Name, Count: counts[def.Code]})
+	for _, class := range fleetClasses {
+		ships := make([]FleetShip, 0, len(class.Codes))
+		for _, code := range class.Codes {
+			def, ok := game.LookupUnit(code)
+			if !ok || counts[code] <= 0 {
+				continue
+			}
+			ships = append(ships, FleetShip{
+				Code:    def.Code,
+				Name:    def.Name,
+				Count:   counts[code],
+				Image:   assetURL(def.Code),
+				Movable: game.Movable(def.Code),
+			})
+		}
+		if len(ships) > 0 {
+			data.Sections = append(data.Sections, FleetSection{Title: class.Title, Ships: ships})
 		}
 	}
 	h.render(w, r, http.StatusOK, Page(sh, FleetBody(sh, data)))

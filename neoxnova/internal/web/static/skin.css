@@ -900,6 +900,92 @@ img {
   border-color: #3d5f88;
 }
 
+/* ---- Fleet ship selector (dispatch table) ------------------------------- */
+
+.fleet-table {
+  margin-bottom: 4px;
+}
+
+.fleet-table td {
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+
+.fleet-img {
+  width: 34px;
+}
+
+.fleet-img img {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
+.fleet-name {
+  color: var(--text);
+}
+
+.fleet-count {
+  color: var(--accent);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fleet-maxcell {
+  width: 44px;
+  text-align: center;
+}
+
+.fleet-max {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.fleet-inputcell {
+  width: 72px;
+}
+
+.fleet-ship-input {
+  width: 68px;
+  padding: 2px 6px;
+  text-align: right;
+  color: var(--text);
+  background: rgba(2, 6, 12, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.fleet-row-static {
+  opacity: 0.5;
+}
+
+.fleet-row-static .fleet-ship-input {
+  cursor: not-allowed;
+}
+
+.fleet-actions {
+  margin-top: 8px;
+  text-align: right;
+}
+
+.fleet-all-max {
+  padding: 6px 12px;
+  background: rgba(2, 6, 12, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fleet-all-max:hover {
+  color: #eaf3ff;
+  border-color: #3d5f88;
+}
+
 /* ---- Tabs (technologies) ---------------------------------------------- */
 
 .tabs {

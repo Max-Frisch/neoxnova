@@ -571,14 +571,39 @@ templ FleetBody(sh Shell, d FleetData) {
 				</div>
 				<div>
 					<p class="mb-1 text-slate-400">Ships</p>
-					<div class="grid grid-cols-2 gap-1">
-						for _, s := range d.Ships {
-							<label class="flex items-center justify-between gap-2 rounded bg-slate-950/60 px-2 py-1">
-								<span class="truncate text-xs text-slate-300">{ s.Name } ({ fnum(s.Count) })</span>
-								<input name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" class="w-20 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right"/>
-							</label>
+					if len(d.Sections) == 0 {
+						<p class="text-xs text-slate-500">No ships at this celestial.</p>
+					} else {
+						for _, sec := range d.Sections {
+							<h4 class="unit-section">{ sec.Title }</h4>
+							<table class="game-table fleet-table">
+								<tbody>
+									for _, s := range sec.Ships {
+										<tr class={ fleetRowClass(s.Movable) }>
+											<td class="fleet-img">
+												if s.Image != "" {
+													<img src={ s.Image } alt={ s.Name }/>
+												}
+											</td>
+											<td class="fleet-name">{ s.Name }</td>
+											<td class="fleet-count">{ fnum(s.Count) }</td>
+											<td class="fleet-maxcell">
+												if s.Movable {
+													<button type="button" class="unit-max fleet-max" data-target={ "ship_q_" + s.Code } data-max={ strconv.FormatInt(s.Count, 10) }>max</button>
+												}
+											</td>
+											<td class="fleet-inputcell">
+												<input id={ "ship_q_" + s.Code } class="fleet-ship-input" name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" disabled?={ !s.Movable }/>
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
 						}
-					</div>
+						<div class="fleet-actions">
+							<button type="button" class="fleet-all-max">All ships</button>
+						</div>
+					}
 				</div>
 				<button type="submit" class="build-next">Dispatch fleet</button>
 			</form>

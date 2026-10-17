@@ -8,6 +8,7 @@ import (
 var (
 	ErrNotFound                = errors.New("resource not found")
 	ErrInsufficientShips       = errors.New("insufficient ships")
+	ErrStationaryShip          = errors.New("ships cannot be dispatched")
 	ErrInsufficientFuel        = errors.New("insufficient deuterium")
 	ErrCannotRecall            = errors.New("fleet cannot be recalled")
 	ErrInsufficientResources   = errors.New("insufficient resources")
