@@ -39,6 +39,11 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Buildings/Research cost colouring**: each resource line on the buildings and
+  research cards turns red (not bold) when the planet/moon's current stock cannot cover that
+  component of the next level. `ResourceStock` is loaded from the existing overview, and
+  `costMask` is folded into each panel signature so the 5s status poll also repaints as resources
+  accrue. Shipyard/defenses keep the plain cost rendering.
 - 2026-10-17 — **Expedition hold scales with fleet speed**: the hold window was a fixed wall-clock
   duration, so only the flight legs shrank with `universes.fleet_speed`; a 15x expedition was not
   ~3x shorter than at 5x. New pure `game.CalculateHoldDuration(hold, fleetSpeed)` compresses the

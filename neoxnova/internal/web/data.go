@@ -322,6 +322,31 @@ func unitCostJSON(c models.CargoManifest) string {
 	return string(b)
 }
 
+// ResourceStock is the current resource balance of the celestial a build or
+// research is started from, used to flag unaffordable cost lines.
+type ResourceStock struct {
+	Metal     float64
+	Crystal   float64
+	Deuterium float64
+}
+
+// costMask encodes which cost components the stock covers (1=metal, 2=crystal,
+// 4=deuterium). It is folded into the panel signature so the live poll repaints
+// the affordability colouring as resources accrue.
+func costMask(cost models.CargoManifest, have ResourceStock) int {
+	mask := 0
+	if float64(cost.Metal) <= have.Metal {
+		mask |= 1
+	}
+	if float64(cost.Crystal) <= have.Crystal {
+		mask |= 2
+	}
+	if float64(cost.Deuterium) <= have.Deuterium {
+		mask |= 4
+	}
+	return mask
+}
+
 type BuildItem struct {
 	Code         string
 	ID           int
@@ -345,6 +370,7 @@ type BuildingsData struct {
 	FieldsUsed int
 	FieldsMax  int
 	IsMoon     bool
+	Resources  ResourceStock
 	Sig        string
 }
 
@@ -427,6 +453,11 @@ func (h *Handler) buildingsData(r *http.Request, idStr string) BuildingsData {
 	}
 	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
 		data.FieldsUsed, data.FieldsMax = ov.FieldsUsed, ov.FieldsMax
+		data.Resources = ResourceStock{
+			Metal:     ov.Resources.MetalCurrent,
+			Crystal:   ov.Resources.CrystalCurrent,
+			Deuterium: ov.Resources.DeutCurrent,
+		}
 	}
 	ctype, _ := h.planets.CelestialType(r.Context(), idStr)
 	data.IsMoon = ctype == models.TypeMoon
@@ -460,7 +491,7 @@ func (h *Handler) buildingsData(r *http.Request, idStr string) BuildingsData {
 		item.EnergyDelta = game.StructureEnergyDelta(def.Code, next)
 		item.DurationSecs = int64(game.StructureDuration(def.Code, next, robot, nanite, speed).Seconds())
 		data.Items = append(data.Items, item)
-		fmt.Fprintf(&sig, "|%s:%d:%t", def.Code, item.Level, item.Unlocked)
+		fmt.Fprintf(&sig, "|%s:%d:%t:%d", def.Code, item.Level, item.Unlocked, costMask(item.Cost, data.Resources))
 	}
 	for _, q := range data.Queue {
 		fmt.Fprintf(&sig, "|q%s:%d:%d", q.Code, q.TargetLevel, q.EndTime.Unix())
@@ -865,9 +896,10 @@ type ResearchItem struct {
 }
 
 type ResearchData struct {
-	Items []ResearchItem
-	Queue []models.QueueEntrySummary
-	Sig   string
+	Items     []ResearchItem
+	Queue     []models.QueueEntrySummary
+	Resources ResourceStock
+	Sig       string
 }
 
 func (h *Handler) ResearchPage(w http.ResponseWriter, r *http.Request) {
@@ -901,6 +933,13 @@ func (h *Handler) ResearchStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) researchData(r *http.Request, id int64, idStr string) ResearchData {
 	data := ResearchData{}
+	if ov, err := h.planets.GetOverview(r.Context(), idStr); err == nil {
+		data.Resources = ResourceStock{
+			Metal:     ov.Resources.MetalCurrent,
+			Crystal:   ov.Resources.CrystalCurrent,
+			Deuterium: ov.Resources.DeutCurrent,
+		}
+	}
 	levels := map[string]int{}
 	if rr, err := h.builds.GetResearch(r.Context(), idStr); err == nil {
 		levels = rr.Levels
@@ -943,7 +982,7 @@ func (h *Handler) researchData(r *http.Request, id int64, idStr string) Research
 		item.Unlocked, item.Reason = reqOK(def.Requires, all)
 		item.DurationSecs = int64(game.TechDuration(def.Code, next, lab, university, speed).Seconds())
 		data.Items = append(data.Items, item)
-		fmt.Fprintf(&sig, "|%s:%d:%t:%t", def.Code, item.Level, item.Unlocked, item.EnergyMet)
+		fmt.Fprintf(&sig, "|%s:%d:%t:%t:%d", def.Code, item.Level, item.Unlocked, item.EnergyMet, costMask(item.Cost, data.Resources))
 	}
 	for _, q := range data.Queue {
 		fmt.Fprintf(&sig, "|q%s:%d:%d", q.Code, q.TargetLevel, q.EndTime.Unix())

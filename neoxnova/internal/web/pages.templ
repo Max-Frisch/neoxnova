@@ -204,14 +204,14 @@ templ BuildingsBody(sh Shell, d BuildingsData) {
 			}
 			<div class="card-grid">
 				for _, it := range d.Items {
-					@buildCard(sh, it)
+					@buildCard(sh, it, d.Resources)
 				}
 			</div>
 		</section>
 	</div>
 }
 
-templ buildCard(sh Shell, it BuildItem) {
+templ buildCard(sh Shell, it BuildItem, have ResourceStock) {
 	<div class="gcard">
 		<div class="gcard-head">
 			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
@@ -229,7 +229,7 @@ templ buildCard(sh Shell, it BuildItem) {
 			if it.Unlocked {
 				<div class="gcard-info">
 					<div data-cost-total>
-						@costRows(it.Cost)
+						@costRowsWithStock(it.Cost, have)
 					</div>
 					@energyNote(it.EnergyDelta)
 					if it.DurationSecs > 0 {
@@ -272,15 +272,42 @@ templ queueRow(n int, label string, q models.QueueEntrySummary, cancelURL string
 templ costRows(cost models.CargoManifest) {
 	<div class="cost">
 		if cost.Metal > 0 {
-			<span class="cost-row"><img src="/static/niburu/icons/metall_mini.gif" alt="Metal"/>{ fnum(cost.Metal) }</span>
+			@costRow("/static/niburu/icons/metall_mini.gif", "Metal", cost.Metal, false)
 		}
 		if cost.Crystal > 0 {
-			<span class="cost-row"><img src="/static/niburu/icons/kristall_mini.gif" alt="Crystal"/>{ fnum(cost.Crystal) }</span>
+			@costRow("/static/niburu/icons/kristall_mini.gif", "Crystal", cost.Crystal, false)
 		}
 		if cost.Deuterium > 0 {
-			<span class="cost-row"><img src="/static/niburu/icons/deuterium_mini.gif" alt="Deuterium"/>{ fnum(cost.Deuterium) }</span>
+			@costRow("/static/niburu/icons/deuterium_mini.gif", "Deuterium", cost.Deuterium, false)
 		}
 	</div>
+}
+
+// costRowsWithStock is costRows that colours each resource red when the
+// celestial cannot currently cover it.
+templ costRowsWithStock(cost models.CargoManifest, have ResourceStock) {
+	<div class="cost">
+		if cost.Metal > 0 {
+			@costRow("/static/niburu/icons/metall_mini.gif", "Metal", cost.Metal, float64(cost.Metal) > have.Metal)
+		}
+		if cost.Crystal > 0 {
+			@costRow("/static/niburu/icons/kristall_mini.gif", "Crystal", cost.Crystal, float64(cost.Crystal) > have.Crystal)
+		}
+		if cost.Deuterium > 0 {
+			@costRow("/static/niburu/icons/deuterium_mini.gif", "Deuterium", cost.Deuterium, float64(cost.Deuterium) > have.Deuterium)
+		}
+	</div>
+}
+
+templ costRow(icon, alt string, amount int64, short bool) {
+	<span class={ costRowClass(short) }><img src={ icon } alt={ alt }/>{ fnum(amount) }</span>
+}
+
+func costRowClass(short bool) string {
+	if short {
+		return "cost-row short"
+	}
+	return "cost-row"
 }
 
 templ energyNote(delta float64) {
@@ -444,14 +471,14 @@ templ ResearchBody(sh Shell, d ResearchData) {
 			}
 			<div class="card-grid">
 				for _, it := range d.Items {
-					@researchCard(sh, it)
+					@researchCard(sh, it, d.Resources)
 				}
 			</div>
 		</section>
 	</div>
 }
 
-templ researchCard(sh Shell, it ResearchItem) {
+templ researchCard(sh Shell, it ResearchItem, have ResourceStock) {
 	<div class="gcard">
 		<div class="gcard-head">
 			<span class="gcard-title">{ itemTitle(it.Name, it.Level) }</span>
@@ -464,7 +491,7 @@ templ researchCard(sh Shell, it ResearchItem) {
 			if it.Unlocked {
 				<div class="gcard-info">
 					<div data-cost-total>
-						@costRows(it.Cost)
+						@costRowsWithStock(it.Cost, have)
 					</div>
 					if it.DurationSecs > 0 {
 						<span class="gcard-duration">Duration: <span data-duration-total>{ hms(it.DurationSecs) }</span></span>
