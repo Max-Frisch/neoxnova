@@ -39,6 +39,11 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Fleet: stationary sats get a label, not a dead input**: the Solar Satellite row now
+  shows a muted italic "stationary" in place of the dispatch input (no max button, dimmed row),
+  keeping the sprite/name/count and column alignment while removing the non-interactive spinner.
+  Server still rejects `ship_212` via `game.Movable`/`store.ErrStationaryShip`.
+  `TestFleetBodyStationary` asserts no input/name for 212 and the label instead.
 - 2026-10-17 — **Seed survives migrate-then-seed**: `0016_test_universe` used the auto id sequence
   for the sandbox celestials, so on a fresh DB it grabbed ids 1–2 before `0002_seed` ran and the
   seed's homeworld/outpost inserts were skipped by `ON CONFLICT`. `0016` now jumps the

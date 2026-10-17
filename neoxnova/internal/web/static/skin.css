@@ -961,8 +961,13 @@ img {
   opacity: 0.5;
 }
 
-.fleet-row-static .fleet-ship-input {
-  cursor: not-allowed;
+.fleet-static {
+  display: inline-block;
+  width: 100%;
+  text-align: right;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-style: italic;
 }
 
 .fleet-actions {

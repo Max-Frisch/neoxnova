@@ -161,14 +161,17 @@ func TestFleetBodyStationary(t *testing.T) {
 	if !strings.Contains(html, "Solar Satellite") {
 		t.Fatalf("stationary ship should still render: %s", html)
 	}
-	if !strings.Contains(html, `id="ship_q_212"`) || !strings.Contains(html, `disabled`) {
-		t.Errorf("solar satellite input should be disabled: %s", html)
+	if !strings.Contains(html, "stationary") {
+		t.Errorf("solar satellite should show the stationary label: %s", html)
+	}
+	if strings.Contains(html, `id="ship_q_212"`) || strings.Contains(html, `name="ship_212"`) {
+		t.Errorf("solar satellite should have no dispatch input")
 	}
 	if strings.Contains(html, `data-target="ship_q_212"`) {
 		t.Errorf("solar satellite should have no max button")
 	}
-	if !strings.Contains(html, `data-target="ship_q_210" data-max="3"`) {
-		t.Errorf("movable ship should keep its max button")
+	if !strings.Contains(html, `id="ship_q_210"`) || !strings.Contains(html, `data-target="ship_q_210" data-max="3"`) {
+		t.Errorf("movable ship should keep its input and max button")
 	}
 }
 

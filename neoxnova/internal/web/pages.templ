@@ -593,7 +593,11 @@ templ FleetBody(sh Shell, d FleetData) {
 												}
 											</td>
 											<td class="fleet-inputcell">
-												<input id={ "ship_q_" + s.Code } class="fleet-ship-input" name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0" disabled?={ !s.Movable }/>
+												if s.Movable {
+													<input id={ "ship_q_" + s.Code } class="fleet-ship-input" name={ "ship_" + s.Code } type="number" min="0" max={ strconv.FormatInt(s.Count, 10) } value="0"/>
+												} else {
+													<span class="fleet-static">stationary</span>
+												}
 											</td>
 										</tr>
 									}
