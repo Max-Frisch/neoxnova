@@ -49,6 +49,15 @@ ON CONFLICT (universe_id, username) DO UPDATE SET
     antimatter    = EXCLUDED.antimatter;
 
 -- 3. Homeworlds: A at 1:1:1, B at 1:1:5 (same system, one hop apart) ---------
+-- Reserve low ids (1, 2, ...) for the production seed (0002_seed.sql), which is
+-- applied separately and may run AFTER this migration (`make migrate` then
+-- `make seed`). Jump the sequence so the sandbox celestials take high ids and
+-- can never collide with the seed regardless of application order.
+SELECT setval(
+    pg_get_serial_sequence('celestial_objects', 'id'),
+    GREATEST((SELECT COALESCE(MAX(id), 0) FROM celestial_objects), 999)
+);
+
 INSERT INTO celestial_objects (
     universe_id, user_id, name, object_type, galaxy, system, position,
     diameter_km, fields_used, fields_max, base_fields_max, temp_min, temp_max,

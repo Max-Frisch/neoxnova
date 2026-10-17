@@ -141,25 +141,26 @@ func TestAbandonPlanet(t *testing.T) {
 		t.Skipf("db not reachable: %v", err)
 	}
 	var universeID string
-	if err := db.QueryRowContext(ctx, `SELECT universe_id::text FROM celestial_objects WHERE id = 1`).Scan(&universeID); err != nil {
+	var ownerID int64
+	if err := db.QueryRowContext(ctx, `SELECT universe_id::text, user_id FROM celestial_objects WHERE id = 1`).Scan(&universeID, &ownerID); err != nil {
 		t.Skipf("seed missing celestial 1: %v", err)
 	}
 
-	// A throwaway third planet for the commander (user 2) at 1:5:5.
+	// A throwaway third planet for the homeworld's owner at 1:5:5.
 	var pid int64
 	if err := db.QueryRowContext(ctx, `
 		INSERT INTO celestial_objects (universe_id, user_id, name, object_type, galaxy, system, position, base_fields_max)
-		VALUES ($1, 2, 'Temp', 'PLANET', 1, 5, 5, 300)
-		ON CONFLICT (universe_id, galaxy, system, position, object_type) DO UPDATE SET user_id = 2
+		VALUES ($1, $2, 'Temp', 'PLANET', 1, 5, 5, 300)
+		ON CONFLICT (universe_id, galaxy, system, position, object_type) DO UPDATE SET user_id = $2
 		RETURNING id
-	`, universeID).Scan(&pid); err != nil {
+	`, universeID, ownerID).Scan(&pid); err != nil {
 		t.Fatalf("insert temp planet: %v", err)
 	}
 	defer db.ExecContext(ctx, `DELETE FROM celestial_objects WHERE id = $1`, pid)
 	defer db.ExecContext(ctx, `DELETE FROM coordinate_locks WHERE universe_id=$1 AND galaxy=1 AND system=5 AND position=5`, universeID)
 
 	ps := NewPlanetStore(db)
-	if err := ps.AbandonPlanet(ctx, pid, 2); err != nil {
+	if err := ps.AbandonPlanet(ctx, pid, ownerID); err != nil {
 		t.Fatalf("abandon: %v", err)
 	}
 	var gone int
@@ -175,7 +176,7 @@ func TestAbandonPlanet(t *testing.T) {
 	}
 
 	// The homeworld cannot be abandoned.
-	if err := ps.AbandonPlanet(ctx, 1, 2); !errors.Is(err, ErrCannotAbandonHome) {
+	if err := ps.AbandonPlanet(ctx, 1, ownerID); !errors.Is(err, ErrCannotAbandonHome) {
 		t.Fatalf("homeworld abandon = %v, want ErrCannotAbandonHome", err)
 	}
 }
