@@ -49,12 +49,19 @@ const expeditionReportColumns = `id, fleet_id, user_id, target_galaxy, target_sy
 
 func scanExpeditionReport(row interface{ Scan(...any) error }) (ExpeditionReport, error) {
 	var r ExpeditionReport
+	// ships is a nullable JSONB column; scan it into a plain []byte so a NULL
+	// (non-combat outcomes recover no ships) does not fail the scan. A named
+	// []byte type like json.RawMessage rejects a nil driver value.
+	var ships []byte
 	err := row.Scan(
 		&r.ID, &r.FleetID, &r.UserID, &r.Galaxy, &r.System, &r.Position,
 		&r.Outcome, &r.NPC, &r.CombatReportID, &r.CargoMetal, &r.CargoCrystal,
-		&r.CargoDeuterium, &r.DarkMatter, &r.Stardust, &r.Ships, &r.UpgradeCode,
+		&r.CargoDeuterium, &r.DarkMatter, &r.Stardust, &ships, &r.UpgradeCode,
 		&r.ReturnAdjustSecs, &r.Title, &r.Message, &r.Detail, &r.CreatedAt,
 	)
+	if ships != nil {
+		r.Ships = json.RawMessage(ships)
+	}
 	return r, err
 }
 
