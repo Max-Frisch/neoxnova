@@ -1117,12 +1117,13 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	var baseFields int64
 	var owner sql.NullInt64
 	var objectType string
+	var colliderLevel int
 	if err := tx.QueryRowContext(ctx, `
-		SELECT c.temp_max, u.resource_speed, c.base_fields_max, c.user_id, c.object_type
+		SELECT c.temp_max, u.resource_speed, c.base_fields_max, c.user_id, c.object_type, c.collider_level
 		FROM celestial_objects c
 		JOIN universes u ON u.id = c.universe_id
 		WHERE c.id = $1
-	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner, &objectType); err != nil {
+	`, celestialID).Scan(&tempMax, &resourceSpeed, &baseFields, &owner, &objectType, &colliderLevel); err != nil {
 		return err
 	}
 	// A planet that has never built a solar satellite has no row here, so wrap
@@ -1179,15 +1180,38 @@ func (s *BuildStore) RecomputeCelestial(ctx context.Context, tx *sql.Tx, celesti
 	crystalCap := game.StorageCapacity(levels["crystal_storage"], resourceSpeed)
 	deutCap := game.StorageCapacity(levels["deuterium_storage"], resourceSpeed)
 
+	// The Collider is moon-only and produces account-wide Dark Matter. Its
+	// cached output feeds update_user_dark_matter; it occupies no field (it is
+	// not a planet_structures row, so fields_used never counts it).
+	colliderProd := game.ColliderProduction(colliderLevel)
+
 	_, err = tx.ExecContext(ctx, `
 		UPDATE celestial_objects
 		SET metal_prod_hourly = $1, crystal_prod_hourly = $2, deuterium_prod_hourly = $3,
 		    energy_used = $4, energy_max = $5, fields_used = $6, fields_max = $7,
-		    metal_capacity = $8, crystal_capacity = $9, deuterium_capacity = $10
-		WHERE id = $11
+		    metal_capacity = $8, crystal_capacity = $9, deuterium_capacity = $10,
+		    collider_dm_prod_hourly = $11
+		WHERE id = $12
 	`, eco.MetalPerHour, eco.CrystalPerHour, eco.DeutPerHour, int(eco.EnergyUsed), int(eco.EnergyMax), fieldsUsed, fieldsMax,
-		metalCap, crystalCap, deutCap, celestialID)
-	return err
+		metalCap, crystalCap, deutCap, colliderProd, celestialID)
+	if err != nil {
+		return err
+	}
+	// Re-sum the account's Dark Matter/h rate whenever one of its celestials is
+	// recomputed (a collider level change, a new/removed collider-bearing moon).
+	if owner.Valid {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE users
+			SET dark_matter_prod_hourly = (
+			    SELECT COALESCE(SUM(collider_dm_prod_hourly), 0)
+			    FROM celestial_objects WHERE user_id = $1
+			)
+			WHERE id = $1
+		`, owner.Int64); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RecomputeAccountProduction banks every owned planet's accrued resources and

@@ -50,20 +50,22 @@ type CargoManifest struct {
 }
 
 type PlanetOverviewResponse struct {
-	ServerTime       time.Time             `json:"server_time"`
-	ActivePlanetID   int64                 `json:"active_planet_id"`
-	ActivePlanetName string                `json:"active_planet_name"`
-	Coordinates      Coordinates           `json:"coordinates"`
-	DiameterKm       int                   `json:"diameter_km"`
-	FieldsUsed       int                   `json:"fields_used"`
-	FieldsMax        int                   `json:"fields_max"`
-	TempRange        [2]int                `json:"temp_range_celsius"`
-	PlayerRank       PlayerRankData        `json:"player_rank"`
-	Levels           PlayerLevelsData      `json:"levels"`
-	Resources        RealtimeResourceState `json:"resources"`
-	Colonies         []ColonySummary       `json:"colonies"`
-	ActiveFleets     []FleetEventSummary   `json:"active_fleets"`
-	ActiveResearch   *QueueItemSummary     `json:"active_research,omitempty"`
+	ServerTime        time.Time             `json:"server_time"`
+	ActivePlanetID    int64                 `json:"active_planet_id"`
+	ActivePlanetName  string                `json:"active_planet_name"`
+	Coordinates       Coordinates           `json:"coordinates"`
+	DiameterKm        int                   `json:"diameter_km"`
+	FieldsUsed        int                   `json:"fields_used"`
+	FieldsMax         int                   `json:"fields_max"`
+	ColliderLevel     int                   `json:"collider_level"`
+	ColliderDMPerHour float64               `json:"collider_dm_per_hour"`
+	TempRange         [2]int                `json:"temp_range_celsius"`
+	PlayerRank        PlayerRankData        `json:"player_rank"`
+	Levels            PlayerLevelsData      `json:"levels"`
+	Resources         RealtimeResourceState `json:"resources"`
+	Colonies          []ColonySummary       `json:"colonies"`
+	ActiveFleets      []FleetEventSummary   `json:"active_fleets"`
+	ActiveResearch    *QueueItemSummary     `json:"active_research,omitempty"`
 }
 
 type PlayerRankData struct {
@@ -82,21 +84,22 @@ type PlayerLevelsData struct {
 }
 
 type RealtimeResourceState struct {
-	MetalCurrent      float64   `json:"metal_current"`
-	MetalLimit        int64     `json:"metal_limit"`
-	MetalHourlyRate   float64   `json:"metal_hourly_rate"`
-	CrystalCurrent    float64   `json:"crystal_current"`
-	CrystalLimit      int64     `json:"crystal_limit"`
-	CrystalHourlyRate float64   `json:"crystal_hourly_rate"`
-	DeutCurrent       float64   `json:"deut_current"`
-	DeutLimit         int64     `json:"deut_limit"`
-	DeutHourlyRate    float64   `json:"deut_hourly_rate"`
-	EnergyAvailable   int       `json:"energy_available"`
-	EnergyMax         int       `json:"energy_max"`
-	DarkMatter        int64     `json:"dark_matter"`
-	Antimatter        int64     `json:"antimatter"`
-	Stardust          int64     `json:"stardust"`
-	LastCalculatedAt  time.Time `json:"last_calculated_at"`
+	MetalCurrent         float64   `json:"metal_current"`
+	MetalLimit           int64     `json:"metal_limit"`
+	MetalHourlyRate      float64   `json:"metal_hourly_rate"`
+	CrystalCurrent       float64   `json:"crystal_current"`
+	CrystalLimit         int64     `json:"crystal_limit"`
+	CrystalHourlyRate    float64   `json:"crystal_hourly_rate"`
+	DeutCurrent          float64   `json:"deut_current"`
+	DeutLimit            int64     `json:"deut_limit"`
+	DeutHourlyRate       float64   `json:"deut_hourly_rate"`
+	EnergyAvailable      int       `json:"energy_available"`
+	EnergyMax            int       `json:"energy_max"`
+	DarkMatter           int64     `json:"dark_matter"`
+	Antimatter           int64     `json:"antimatter"`
+	Stardust             int64     `json:"stardust"`
+	DarkMatterHourlyRate float64   `json:"dark_matter_hourly_rate"`
+	LastCalculatedAt     time.Time `json:"last_calculated_at"`
 }
 
 type ColonySummary struct {

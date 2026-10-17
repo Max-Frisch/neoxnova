@@ -13,11 +13,12 @@ import (
 // MoonStore holds the moon-only operations: the Jumpgate (ship-only, cross-moon
 // teleport) and the Phalanx Sensor (same-galaxy fleet scan). See docs/MOONS.md.
 type MoonStore struct {
-	db *sql.DB
+	db     *sql.DB
+	builds *BuildStore
 }
 
 func NewMoonStore(db *sql.DB) *MoonStore {
-	return &MoonStore{db: db}
+	return &MoonStore{db: db, builds: NewBuildStore(db)}
 }
 
 // JumpDestination is one selectable destination moon for a Jumpgate jump.

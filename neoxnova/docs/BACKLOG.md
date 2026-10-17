@@ -25,11 +25,13 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **No messages were generated** (owner report) — the owner saw an action produce no
       message/inbox entries this session. Needs repro details (which action) before tracing the
       `messages`/`user_messages` insert path.
+- [ ] **Empire Overview** (`page=imperium`) — plan `docs/COLLIDER_EMPIRE_PLAYBOOK.md` §3 S4–S5
+      (all celestials in creation order, resources/production incl. DM/h, Σ, full matrices +
+      filters). Captures: `info/Empire view`.
 - [ ] **Peaceful level / Online Bonus calibration** — `game/peaceful.go` constants are initial
-      best-fits from only 2 captured levels (3 & 76); need tooltips at 1/5/10/15/20/25/50 (no XP
-      premium) + bonus-button clicks with known premium state to fit the level-time curve, the six
-      step divisors and the DM/XP payout. Also apply `StudiesPct` to research time and factory
-      bonuses, and add the premium multipliers (`Button "Bonus"`, `Update of "Bonus" button`).
+      best-fits; new captures (`info/Bonus Button Peaceful`) add L3/L4/L76/L77 payouts + the premium
+      multiplier list, but still mix premium states. See playbook §0/§3 S6. Also apply `StudiesPct`
+      to research time + factory bonuses, and add premium multipliers.
 - [ ] **Senate: Officers + governator gameplay effects** — Officers roster/cost (HAR capture needed);
       wire Building/Research/Fleet/combat governator bonuses (catalog fields already present).
 - [ ] **Auto-builder Phase 3/4** — energy-gate decision, auto-colonize (`AUTO_BUILD_DESIGN.md` §12/§15).
@@ -39,6 +41,22 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 - [ ] **(low) Missiles/Interceptors** — `503` + `502` (`docs/MOONS.md`).
 
 ## Done (recent only)
+- 2026-10-17 — **Moon Collider S1–S3**: `game/collider.go` (id 69, ATM cost `850·1.35^(L-1)`,
+  DM/h lookup `[4752,10454,17250]` + provisional quadratic past L3, combat/premium multiplier
+  hooks); migration `0025` adds `celestial_objects.collider_level`/`collider_dm_prod_hourly` and
+  account Dark Matter accrual (`update_user_dark_matter` + `users.dark_matter_calc_at/_acc/_prod_hourly`);
+  `MoonStore.ColliderStatusFor`/`UpgradeCollider` (moon-only, spends `users.antimatter`, banks DM at
+  the old rate first); `RecomputeCelestial` caches the output and re-sums the account DM/h; new
+  `GET/POST /collider/{moon}` page + moon-page nav link; DM ticks in the resbar/overview. The
+  Collider is deliberately **not** in the resource-cost structure catalog (ATM-bought), so it never
+  enters the building queue and occupies no field. Tests: game math, store integration, render.
+  Follow-up: capture Collider L3–6 to pin the production curve.
+- 2026-10-17 — **Capture triage + Collider/Empire playbook**: reviewed the new `info/{Moons,Empire
+  view,Academy,Bonus Button Peaceful}` recordings. Moons = first Collider capture (moon-only, ATM
+  cost `850·1.35^(L-1)`, DM/h table 4752/10454/17250 at L1–3); Empire = full `page=imperium` matrix;
+  "Academy" is actually Arsenal/Hangar/Defenses (adds `greid` keys `h_conveyer`/`m_production`);
+  Bonus adds real payouts + the premium multiplier list. Wrote `docs/COLLIDER_EMPIRE_PLAYBOOK.md`
+  (specs + S1–S7 session split) and folded it into the todo/backlog.
 - 2026-10-17 — **Fleet: stationary sats get a label, not a dead input**: the Solar Satellite row now
   shows a muted italic "stationary" in place of the dispatch input (no max button, dimmed row),
   keeping the sprite/name/count and column alignment while removing the non-interactive spinner.
@@ -141,5 +159,6 @@ Playability fixes (first human test): plan `docs/PLAYABILITY_FIXES_PLAN.md` — 
 
 ## Deep dives (read on demand)
 `PLAYABILITY_FIXES_PLAN.md` · `ARSENAL_UPGRADES_IMPLEMENTATION.md` · `BALANCE_DATA_NEEDED.md` · `COMBAT_FINDINGS.md` /
-`COMBAT_MODEL.md` · `EXPEDITIONS_CALIBRATION_PLAN.md` · `AUTO_BUILD_DESIGN.md` · `MOONS.md`.
+`COMBAT_MODEL.md` · `EXPEDITIONS_CALIBRATION_PLAN.md` · `AUTO_BUILD_DESIGN.md` · `MOONS.md` ·
+`COLLIDER_EMPIRE_PLAYBOOK.md`.
 Live-capture runbooks, the explorer client and raw balance data live in the private ops repo.

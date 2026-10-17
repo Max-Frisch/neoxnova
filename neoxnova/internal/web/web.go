@@ -127,6 +127,9 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /jumpgate/{id}", h.page(h.requireUser(h.JumpgatePage)))
 	mux.HandleFunc("POST /jumpgate/{id}/jump", h.page(h.requireUser(h.JumpgateSubmit)))
 
+	mux.HandleFunc("GET /collider/{id}", h.page(h.requireUser(h.ColliderPage)))
+	mux.HandleFunc("POST /collider/{id}/build", h.page(h.requireUser(h.ColliderSubmit)))
+
 	mux.HandleFunc("GET /phalanx/{id}", h.page(h.requireUser(h.PhalanxPage)))
 
 	mux.HandleFunc("GET /galaxy", h.page(h.requireUser(h.GalaxyRedirect)))

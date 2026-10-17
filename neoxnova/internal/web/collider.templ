@@ -1,0 +1,52 @@
+package web
+
+import (
+	"strconv"
+
+	"neoxnova/internal/store"
+)
+
+// ---- Moon Collider -------------------------------------------------------
+
+// ColliderBody renders the Moon Collider panel (live page=kollaider).
+templ ColliderBody(sh Shell, st store.ColliderStatus) {
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+		<h2 class="text-lg font-semibold text-cyan-300">Moon Collider</h2>
+		<span class="text-sm text-slate-400">
+			Level <span class="font-semibold text-cyan-300">{ strconv.Itoa(st.Level) }</span>
+		</span>
+	</div>
+	<section class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+		<p class="mb-4 max-w-3xl text-sm text-slate-400">
+			After years of study of antimatter, scientists have finally invented a way to create
+			dark matter by breaking up antimatter in a collider. The work of the collider would
+			prevent a planet's atmosphere, so it is built on the moon, where no atmosphere exists.
+		</p>
+		<div class="grid gap-4 sm:grid-cols-2">
+			<div class="rounded border border-slate-800 bg-slate-950/60 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Current level { strconv.Itoa(st.Level) }</h3>
+				<p class="text-sm text-slate-300">
+					Production: <b class="text-fuchsia-300">{ fnum(st.ProductionPerHour) }</b> Dark Matter / hour
+				</p>
+			</div>
+			<div class="rounded border border-slate-800 bg-slate-950/60 p-4">
+				<h3 class="mb-2 font-semibold text-slate-200">Next level { strconv.Itoa(st.NextLevel) }</h3>
+				<p class="text-sm text-slate-300">
+					Production: <b class="text-fuchsia-300">{ fnum(st.NextProduction) }</b> Dark Matter / hour
+				</p>
+				<p class="text-sm text-slate-300">
+					Cost: <b class="text-cyan-300">{ fnum(st.NextCostAtm) }</b> Antimatter
+				</p>
+				<form method="post" action={ templ.URL("/collider/" + pid(sh) + "/build") } class="mt-3">
+					if st.Antimatter >= st.NextCostAtm {
+						<button type="submit" class="w-full rounded bg-cyan-600 px-3 py-2 font-semibold text-white hover:bg-cyan-500">Build</button>
+					} else {
+						<button type="submit" disabled class="w-full cursor-not-allowed rounded bg-slate-700 px-3 py-2 font-semibold text-slate-400">Build</button>
+						<p class="mt-1 text-xs text-amber-300">Need { fnum(st.NextCostAtm - st.Antimatter) } more Antimatter</p>
+					}
+				</form>
+			</div>
+		</div>
+		<p class="mt-3 text-xs text-slate-500">Account Antimatter: { fnum(st.Antimatter) }</p>
+	</section>
+}

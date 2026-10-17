@@ -195,6 +195,7 @@ templ BuildingsBody(sh Shell, d BuildingsData) {
 				<div class="mb-3 flex gap-2 text-sm">
 					<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/jumpgate/" + pid(sh)) }>Jumpgate</a>
 					<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/phalanx/" + pid(sh)) }>Phalanx Sensor</a>
+					<a class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700" href={ templ.URL("/collider/" + pid(sh)) }>Collider</a>
 				</div>
 			}
 			if len(d.Queue) > 0 {

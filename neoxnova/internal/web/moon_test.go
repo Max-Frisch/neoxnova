@@ -67,9 +67,39 @@ func TestBuildingsBodyMoonHelp(t *testing.T) {
 		{Code: "phalanx_sensor", Name: "Phalanx Sensor", Level: 0, Unlocked: true},
 	}}
 	html := renderComponent(t, BuildingsBody(Shell{ActivePlanetID: 7}, d))
-	for _, want := range []string{"structures on this moon", "/jumpgate/7", "/phalanx/7", "[Jump]", "[Scan]"} {
+	for _, want := range []string{"structures on this moon", "/jumpgate/7", "/phalanx/7", "/collider/7", "[Jump]", "[Scan]"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("moon buildings page missing %q", want)
 		}
 	}
 }
+
+// TestColliderBody locks the Moon Collider panel: the current/next production,
+// the Antimatter price and the build form, including the disabled state when the
+// account cannot afford the next level.
+func TestColliderBody(t *testing.T) {
+	sh := Shell{ActivePlanetID: 7}
+	poor := store.ColliderStatus{
+		Level: 2, ProductionPerHour: 10454,
+		NextLevel: 3, NextProduction: 17250, NextCostAtm: 1549, Antimatter: 1148,
+	}
+	html := renderComponent(t, ColliderBody(sh, poor))
+	for _, want := range []string{
+		"/collider/7/build", "Moon Collider", "10,454", "17,250", "1,549", "Antimatter", "disabled", "Need",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("ColliderBody (unaffordable) missing %q", want)
+		}
+	}
+
+	rich := poor
+	rich.Antimatter = 5000
+	html = renderComponent(t, ColliderBody(sh, rich))
+	if strings.Contains(html, "disabled") {
+		t.Fatalf("ColliderBody (affordable) should not disable the build button")
+	}
+	if !strings.Contains(html, ">Build<") {
+		t.Fatalf("ColliderBody (affordable) missing enabled Build button")
+	}
+}
+

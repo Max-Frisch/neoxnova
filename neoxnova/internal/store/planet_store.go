@@ -430,44 +430,68 @@ func (s *PlanetStore) GetResourceState(ctx context.Context, planetID string) (mo
 	if err != nil {
 		return models.RealtimeResourceState{}, err
 	}
+	if err := s.accrueDarkMatter(ctx, planetID); err != nil {
+		return models.RealtimeResourceState{}, err
+	}
 
 	var metalCap, crystalCap, deutCap int64
 	var metalRate, crystalRate, deutRate float64
 	var energyAvailable, energyMax int
 	var stardust, darkMatter, antimatter int64
+	var dmRate float64
 	query := `SELECT c.metal_capacity, c.crystal_capacity, c.deuterium_capacity,
 	                 c.metal_prod_hourly, c.crystal_prod_hourly, c.deuterium_prod_hourly,
 	                 c.energy_used, c.energy_max,
-	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0)
+	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0),
+	                 COALESCE(u.dark_matter_prod_hourly, 0)
 	          FROM celestial_objects c
 	          LEFT JOIN users u ON u.id = c.user_id
 	          WHERE c.id = $1`
 	err = s.db.QueryRowContext(ctx, query, planetID).Scan(
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
-		&energyAvailable, &energyMax, &stardust, &darkMatter, &antimatter,
+		&energyAvailable, &energyMax, &stardust, &darkMatter, &antimatter, &dmRate,
 	)
 	if err != nil {
 		return models.RealtimeResourceState{}, err
 	}
 
 	return models.RealtimeResourceState{
-		MetalCurrent:      outMetal,
-		MetalLimit:        metalCap,
-		MetalHourlyRate:   metalRate,
-		CrystalCurrent:    outCrystal,
-		CrystalLimit:      crystalCap,
-		CrystalHourlyRate: crystalRate,
-		DeutCurrent:       outDeut,
-		DeutLimit:         deutCap,
-		DeutHourlyRate:    deutRate,
-		EnergyAvailable:   energyMax - energyAvailable,
-		EnergyMax:         energyMax,
-		DarkMatter:        darkMatter,
-		Antimatter:        antimatter,
-		Stardust:          stardust,
-		LastCalculatedAt:  outLastCalc,
+		MetalCurrent:         outMetal,
+		MetalLimit:           metalCap,
+		MetalHourlyRate:      metalRate,
+		CrystalCurrent:       outCrystal,
+		CrystalLimit:         crystalCap,
+		CrystalHourlyRate:    crystalRate,
+		DeutCurrent:          outDeut,
+		DeutLimit:            deutCap,
+		DeutHourlyRate:       deutRate,
+		EnergyAvailable:      energyMax - energyAvailable,
+		EnergyMax:            energyMax,
+		DarkMatter:           darkMatter,
+		Antimatter:           antimatter,
+		Stardust:             stardust,
+		DarkMatterHourlyRate: dmRate,
+		LastCalculatedAt:     outLastCalc,
 	}, nil
+}
+
+// accrueDarkMatter banks the account-owned celestial's continuous Dark Matter
+// (from every owned moon's Collider) before the caller reads users.dark_matter.
+// Unowned/debris celestials (no user) are a no-op.
+func (s *PlanetStore) accrueDarkMatter(ctx context.Context, celestialID string) error {
+	var uid sql.NullInt64
+	if err := s.db.QueryRowContext(ctx, `SELECT user_id FROM celestial_objects WHERE id = $1`, celestialID).Scan(&uid); err != nil {
+		return err
+	}
+	if !uid.Valid {
+		return nil
+	}
+	var dm int64
+	var rate float64
+	return s.db.QueryRowContext(ctx,
+		`SELECT out_dark_matter, out_prod_hourly FROM update_user_dark_matter($1)`,
+		uid.Int64).Scan(&dm, &rate)
 }
 
 // GetOverview builds the full planet overview payload, including active fleets.
@@ -476,12 +500,15 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	if err != nil {
 		return models.PlanetOverviewResponse{}, err
 	}
+	if err := s.accrueDarkMatter(ctx, planetID); err != nil {
+		return models.PlanetOverviewResponse{}, err
+	}
 
 	var planetName string
 	var objectType models.CelestialType
-	var galaxy, system, position, diameter, fieldsUsed, fieldsMax, tempMin, tempMax int
+	var galaxy, system, position, diameter, fieldsUsed, fieldsMax, tempMin, tempMax, colliderLevel int
 	var metalCap, crystalCap, deutCap int64
-	var metalRate, crystalRate, deutRate float64
+	var metalRate, crystalRate, deutRate, colliderDMRate, dmRate float64
 	var energyUsed, energyMax int
 	var userID int64
 	var stardust, darkMatter, antimatter int64
@@ -491,7 +518,8 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 	                 c.metal_capacity, c.crystal_capacity, c.deuterium_capacity,
 	                 c.metal_prod_hourly, c.crystal_prod_hourly, c.deuterium_prod_hourly,
 	                 c.energy_used, c.energy_max,
-	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0)
+	                 COALESCE(u.stardust, 0), COALESCE(u.dark_matter, 0), COALESCE(u.antimatter, 0),
+	                 c.collider_level, c.collider_dm_prod_hourly, COALESCE(u.dark_matter_prod_hourly, 0)
 	          FROM celestial_objects c
 	          LEFT JOIN users u ON u.id = c.user_id
 	          WHERE c.id = $1`
@@ -501,6 +529,7 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 		&metalCap, &crystalCap, &deutCap,
 		&metalRate, &crystalRate, &deutRate,
 		&energyUsed, &energyMax, &stardust, &darkMatter, &antimatter,
+		&colliderLevel, &colliderDMRate, &dmRate,
 	)
 	if err != nil {
 		return models.PlanetOverviewResponse{}, err
@@ -519,26 +548,29 @@ func (s *PlanetStore) GetOverview(ctx context.Context, planetID string) (models.
 			Position: position,
 			Type:     objectType,
 		},
-		DiameterKm: diameter,
-		FieldsUsed: fieldsUsed,
-		FieldsMax:  fieldsMax,
-		TempRange:  [2]int{tempMin, tempMax},
+		DiameterKm:        diameter,
+		FieldsUsed:        fieldsUsed,
+		FieldsMax:         fieldsMax,
+		ColliderLevel:     colliderLevel,
+		ColliderDMPerHour: colliderDMRate,
+		TempRange:         [2]int{tempMin, tempMax},
 		Resources: models.RealtimeResourceState{
-			MetalCurrent:      outMetal,
-			MetalLimit:        metalCap,
-			MetalHourlyRate:   metalRate,
-			CrystalCurrent:    outCrystal,
-			CrystalLimit:      crystalCap,
-			CrystalHourlyRate: crystalRate,
-			DeutCurrent:       outDeut,
-			DeutLimit:         deutCap,
-			DeutHourlyRate:    deutRate,
-			EnergyAvailable:   energyMax - energyUsed,
-			EnergyMax:         energyMax,
-			DarkMatter:        darkMatter,
-			Antimatter:        antimatter,
-			Stardust:          stardust,
-			LastCalculatedAt:  outLastCalc,
+			MetalCurrent:         outMetal,
+			MetalLimit:           metalCap,
+			MetalHourlyRate:      metalRate,
+			CrystalCurrent:       outCrystal,
+			CrystalLimit:         crystalCap,
+			CrystalHourlyRate:    crystalRate,
+			DeutCurrent:          outDeut,
+			DeutLimit:            deutCap,
+			DeutHourlyRate:       deutRate,
+			EnergyAvailable:      energyMax - energyUsed,
+			EnergyMax:            energyMax,
+			DarkMatter:           darkMatter,
+			Antimatter:           antimatter,
+			Stardust:             stardust,
+			DarkMatterHourlyRate: dmRate,
+			LastCalculatedAt:     outLastCalc,
 		},
 		ActiveFleets: activeFleets,
 	}, nil
