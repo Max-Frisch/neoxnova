@@ -4,7 +4,9 @@ Neo-XNova: a Go backend for a stateful space-MMO. Git root `C:\code\projects\neo
 Go module in `neoxnova/` — run every `go`/`make` command from `neoxnova/`, not the repo root.
 
 > **Session start:** read `neoxnova/docs/BACKLOG.md` (live state + open backlog), then update it
-> at task end. `AGENTS.md` is human-owned — agents do **not** edit it.
+> at task end. **Session end:** unless explicitly told otherwise, prompt the human to confirm
+> commit / push / pull (and any remote-VM deploy, if applicable) and then wrap up the agent
+> session — don't wait to be reminded. `AGENTS.md` is human-owned — agents do **not** edit it.
 
 ## Layout & commands
 
